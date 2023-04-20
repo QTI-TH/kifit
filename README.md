@@ -1,2 +1,2 @@
 # QISS
-Quantum Isotope Shift Spectroscopy fitter
+Quantum Isotope Shift Spectroscopy fitter.
