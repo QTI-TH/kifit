@@ -1,2 +1,3 @@
 # QISS
-Quantum Isotope Shift Spectroscopy fitter.
+
+QISS is a library for Quantum Isotope Shift Spectroscopy fitting.
