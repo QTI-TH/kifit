@@ -2,6 +2,7 @@ from abc import abstractmethod
 import numpy as np
 
 import scipy.stats as sps
+from scipy.optimize import minimize
 import cma
 
 def npmodel(par, data):
@@ -42,7 +43,7 @@ class Optimizer:
         self.lin_params 
 
         # optimizer options
-        _options = {}
+        self._options = {}
 
 
     def linear_fit(self):
@@ -70,6 +71,14 @@ class Optimizer:
     def set_options(self, **kwargs):
         """Cast the options passed into the format expected by the optimizer"""
         pass
+
+
+    def optimize(self, initial_p):
+        if self._method is None:
+            raise ValueError(
+                f"The optimizer {self.__class__.__name__} does not implement any methods"
+            )
+        return minimize(self.loss, initial_p, method=self._method, options=self._options)
     
 
 class CMA(Optimizer):
@@ -87,6 +96,13 @@ class CMA(Optimizer):
             "maxiter": kwargs["max_iterations"],  # maximum number of iterations
             "maxfeval": kwargs["max_evals"],  # maximum number of function evaluations
         }
+        
+
+    def optimize(self, initial_p):
+        """Calls the cma optimizer"""
+
+        # TO DO
+    
 
 
 class BFGS(Optimizer):
