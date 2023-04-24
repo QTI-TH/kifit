@@ -1,5 +1,7 @@
 from abc import abstractmethod
 import numpy as np
+
+import scipy.stats as sps
 import cma
 
 def npmodel(par, data):
@@ -15,15 +17,12 @@ def npmodel(par, data):
     Returns: all set of y-axis predictions
     """
 
-    return # TO BE IMPLEMENTED
+    return par[0] + par[1] * data + par[2]
 
 
 
 class Optimizer:
-    """
-    Parent optimizer class. 
-    It returns the best set of parameters.
-    """
+    """General optimizer class, which returns the best set of parameters."""
 
     _method = None
 
@@ -33,24 +32,38 @@ class Optimizer:
             datapath (str): path to target data.
         """
 
-        _data =  np.load(datapath)
-        _x = _data.T[0]
-        
+        data =  np.load(datapath)
+
+        # first matrix column as fixed abscissa
+        self._x = data.T[0]
+        # other columns as y variables
+        self._y = data.T[1:]
+
+        self.lin_params 
+
         # optimizer options
         _options = {}
 
 
     def linear_fit(self):
-        """Linear fit without new physics"""
+        """
+        Linear fit without new physics.
+        
+        Returns: list of intercepts and slopes associated to each mv2 mv1 combo.
+        """
 
-        # given i != 0
-        i = 1
-        params = np.polyfit(x=self._x, y=self._data.T[i], deg=1)
-        return params
+        lin_params = []
+
+        for y in self._y:
+            lin_params.append(sps.linregress(self._x, y))
+
+        return lin_params
 
 
     def loss(self):
         """ Calculate loss function."""
+
+        # sum over MSE residual \forall isotopes couples
         return 
     
     @abstractmethod
@@ -60,7 +73,12 @@ class Optimizer:
     
 
 class CMA(Optimizer):
-    
+    """
+    Calls a CMA-ES optimizer. 
+    Ref: https://arxiv.org/abs/1604.00772 
+    """
+    _method = "cma"
+
     def set_options(self, **kwargs):
         self._options = {
             "verbose": -1,
@@ -69,3 +87,16 @@ class CMA(Optimizer):
             "maxiter": kwargs["max_iterations"],  # maximum number of iterations
             "maxfeval": kwargs["max_evals"],  # maximum number of function evaluations
         }
+
+
+class BFGS(Optimizer):
+    """
+    Calls the scipy's Broyden-Fletcher-Goldfarb-Shanno (BFGS) optimizer.
+    """
+
+    _method = "bfgs"
+
+    def set_options(self, **kwargs):
+        self._options = {"disp": True, "return_all": True}
+        print(f"Initial parameters: {self._predictor.parameters}")
+    
