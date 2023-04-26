@@ -1,5 +1,6 @@
 from abc import abstractmethod
 import numpy as np
+from pathlib import Path
 
 import scipy.stats as sps
 from scipy.optimize import minimize
@@ -30,17 +31,22 @@ class Optimizer:
     def __init__(self, datapath):
         """
         Args: 
-            datapath (str): path to target data.
+            datapath (str): path to target data folder.
         """
+        path = Path(datapath)
+        self._data =  np.load(path/"nu.dat") 
+        #self._g = np.load(path/"g.dat")        TO FIX
 
-        data =  np.load(datapath)
+        self._dimensions = self._data.shape
 
         # first matrix column as fixed abscissa
-        self._x = data.T[0]
+        self._x = self.data.T[0]
         # other columns as y variables
-        self._y = data.T[1:]
+        self._y = self.data.T[1:]
 
-        self.lin_params 
+        self._alpha = 0
+        # (2 x N-1), with N number of data columns
+        self._params = np.zeros((2, self._dimensions[1] - 1))
 
         # optimizer options
         self._options = {}
@@ -61,7 +67,7 @@ class Optimizer:
         return lin_params
 
 
-    def loss(self):
+    def loss(self, data, params):
         """ Calculate loss function."""
 
         # sum over MSE residual \forall isotopes couples
@@ -80,6 +86,12 @@ class Optimizer:
             )
         return minimize(self.loss, initial_p, method=self._method, options=self._options)
     
+    def set_reference_index(self, index):
+        """Sets the new target index used as mv1 in each scatterplot"""
+
+        self._x = self._data.T[index]
+        self._y = np.delete(self._data, index, axis=1)
+    
 
 class CMA(Optimizer):
     """
@@ -96,7 +108,7 @@ class CMA(Optimizer):
             "maxiter": kwargs["max_iterations"],  # maximum number of iterations
             "maxfeval": kwargs["max_evals"],  # maximum number of function evaluations
         }
-        
+
 
     def optimize(self, initial_p):
         """Calls the cma optimizer"""
