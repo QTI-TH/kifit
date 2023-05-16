@@ -1,6 +1,8 @@
 from abc import abstractmethod
 import numpy as np
 from pathlib import Path
+from dataclasses import dataclass
+import os
 
 import scipy.stats as sps
 from scipy.optimize import minimize
@@ -20,6 +22,18 @@ def dummy_model(par, x):
     return par[0]*x + par[1] + par[1]*np.log(x)
 
 
+@dataclass
+class Element:
+    """Each element should be associated to an Element class"""
+    name: str
+    ndata: int
+    x: np.ndarray
+    y: np.ndarray
+    g: np.ndarray
+    npx: np.ndarray
+    parameters: np.ndarray
+
+
 class Optimizer:
     """General optimizer class, which returns the best set of parameters."""
 
@@ -28,26 +42,38 @@ class Optimizer:
     def __init__(self, datapath):
         """
         Args: 
-            datapath (str): path to target data folder.
+            datapath (str): path to target experiment folder.
+                each experiment folder must be organised with one subfolder for
+                each element involved into the Kings Plot fitting.
         """
         
-        # loading data
-        self._data, self._g, self._x, self._npx, self._y = self.load_data(datapath)
-        
-        # dimensions and initial parameters setting
-        self._dimensions = self._data.shape
-        self._alpha = 0
-        self._params = np.zeros((self._dimensions[1] - 1, 2))
+        # parent path to the experiment folder
+        self._path = Path(datapath)
+        self._elements = []
+
+        for element_name in os.listdir(self._path):
+            # loading data from element folder
+            data, g, x, npx, y = self.load_data(element_name)
+            # appending to _elements list the new element class
+            self._elements.append(Element(
+                name=element_name,
+                ndata=data.shape[0],
+                x=x,
+                y=y,
+                g=g,
+                npx=npx
+            ))
 
 
-    def load_data(self, datapath):
+    def load_data(self, element_name):
         """Loads data to be used during the optimization."""
 
-        path = Path(datapath)
+        element_path = self._path/element_name
 
-        data =  np.load(path/"nu.dat") 
-        g = np.load(path/"g.dat") 
-        npx = np.load(path/"npx.dat")    
+        data =  np.load(element_path/"nu.dat") 
+        g = np.load(element_path/"g.dat") 
+        npx = np.load(element_path/"npx.dat")    
+        
         x = self._data.T[0]
         y = self._data.T[1:]
 
@@ -75,14 +101,10 @@ class Optimizer:
 
     def loss(self, data, params):
         """ Calculate loss function."""
-        # THE FOLLOWING LOSS IS ONLY FOR TESTING
-        
-        
 
-        for i, y in enumerate(self._y):
-            prediction = 
-
-        return 
+        for elem in self._elements:
+            #use elem.data for calculating the loss function!
+        pass
     
 
     @abstractmethod
