@@ -1,4 +1,4 @@
-from elements import ElemData
+from loadelemdata.loadelements import ElemData
 import numpy as np
 from pprint import pprint
 

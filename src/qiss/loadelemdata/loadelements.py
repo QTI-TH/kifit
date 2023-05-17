@@ -2,16 +2,17 @@ import os
 import numpy as np
 from functools import cache
 from functools import cached_property
-
+from loadelemdata.user_elements import user_elems
 
 _data_path = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    '../my_data'
+    '../data'
 ))
 
 class ElemData:
     # Load raw data from data folder
-    VALID_ELEM = ['Ca', 'Yt']
+    # VALID_ELEM = ['Ca']
+    VALID_ELEM = user_elems
     ELEM_FILES = ['nu', 'signu', 'Xvals', 'isotopes']
     CACHE = {}
 
@@ -24,6 +25,8 @@ class ElemData:
         for atr in self.ELEM_FILES:
             file_name = atr + self.__id + '.dat'
             file_path = os.path.join(_data_path, self.__id, file_name)
+            print("test: ")
+            print(file_path)
             assert os.path.exists(file_path), file_path
             self.__load(atr, file_path)
 
@@ -49,30 +52,63 @@ class ElemData:
     def get(cls, elem: str):
         return cls(elem)
 
+
+    @cached_property
+    def mass_a(self):
+        """
+        Returns masses of reference isotopes A
+
+        """
+        return self.isotopes[2]
+
+    @cached_property
+    def mass_ap(self):
+        """
+        Returns masses of isotopes A'
+
+        """
+        return self.isotopes[3]
+
+
+    @cached_property
+    def mu_a_ap(self):
+        """
+        Returns difference of the inverse nuclear masses
+
+            mu = 1 / m_a - 1 / m_a'
+
+        where a, a` are isotope pairs.
+
+        """
+
+        # we are dealing with an isotope pair ('a' , 'a`')
+        m_a = self.mass_a
+        m_ap = self.mass_ap
+
+        assert len(m_a) == len(m_ap)
+        assert all(u != v for u, v in zip(m_a, m_ap))
+
+        dim = len(m_ap)
+
+        muvec = np.divide(np.ones(dim), m_a) - np.divide(np.ones(dim), m_ap)
+
+        return muvec
+
+
+
     @cached_property
     def reduced_isotope_shifts(self):
         """
         Generates mass normalised isotope shifts and writes mxn-matrix to file.
 
-            nu / (1 / m_a - 1 / m_a`)
+            nu / mu
 
-        where a, a` are isotope pairs.
         """
 
-        # we are dealing with an isotope pair ('a' , 'a`')
-        mass_a = self.isotopes[2]
-        mass_ap = self.isotopes[3]
+        mnu = np.divide(self.nu.T,self.mu_a_ap).T
+        return mnu
 
-        assert len(mass_a) == len(mass_ap)
-        assert all(u != v for u, v in zip(mass_a, mass_ap))
 
-        dim = len(mass_ap)
-
-        # 1/ma - 1/mb matrix
-        mass_div_dif = np.divide(np.ones(dim), mass_a) - np.divide(np.ones(dim), mass_ap)
-
-        mIS = np.divide(self.nu.T,mass_div_dif).T
-        return mIS
 
     @cached_property
     def new_physics_term(self):
