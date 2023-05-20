@@ -6,7 +6,7 @@ from qiss.user_elements import user_elems
 
 _data_path = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    '../../data'
+    '../qiss_data'
 ))
 
 
