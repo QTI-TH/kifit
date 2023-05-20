@@ -1,7 +1,6 @@
-from loadelemdata.loadelements import ElemData
 import numpy as np
 from pprint import pprint
-
+from qiss.loadelems import ElemData
 
 
 def test_load_all():
@@ -13,25 +12,24 @@ def test_load_all():
         rtol=1e-8,
     )
 
+
 def test_load_individual():
     ca = ElemData.get('Ca')
     pprint(ca)
 
     Ca = ElemData.get('Ca')
-    #pprint(ca)
+    assert (ca.nu == Ca.nu).all()
     print(Ca.nu)
-    print(Ca.reduced_isotope_shifts)
-
-    print(Ca.new_physics_term)
-
+    print(Ca.mnu)
+    print(Ca.h_np_nucl)
 
 
-def export_new_physics_terms():
+def export_reduced_isotope_shifts():
     for elem in ['Ca']:
         elem_data = ElemData.get('Ca')
-        np.savetxt('new_physics_term_{}.dat'.format(elem), elem_data.new_physics_term, delimiter=',')
+        np.savetxt('mnu_{}.dat'.format(elem), elem_data.mnu, delimiter=',')
 
 
 if __name__ == "__main__":
-    export_new_physics_terms()
     test_load_individual()
+    export_reduced_isotope_shifts()
