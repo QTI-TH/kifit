@@ -18,7 +18,7 @@ def test_load_individual():
     pprint(ca)
 
     Ca = ElemData.get('Ca')
-    assert (ca.nu == Ca.nu).all()
+    assert (np.nan_to_num(ca.nu) == np.nan_to_num(Ca.nu)).all()
     print(Ca.nu)
     print(Ca.mnu)
     print(Ca.h_np_nucl)
