@@ -1,2 +1,2 @@
-# fake uncertainties on X coefficients, X1, X2, X3, X4 [in Hz amu] where 1=729nm, 2=Dfine
-Ca 10 8 15 32
+# X coefficients, X1, X2, X3, X4 [in Hz amu] where 1=729nm, 2=Dfine, 3=397nm, 4=866nm
+1.21355e16    -5.5321e13    -3.8577708541122e14    -1.3040954079505e15 

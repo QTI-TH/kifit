@@ -1,2 +1,1 @@
-from .loadelems import ElemData
-from .genfitparams import ElemFitParams
+from .loadelems import Elem
