@@ -66,7 +66,7 @@ class Optimizer:
 
 
     def load_data(self, element_name):
-        """Loads data to be used during the optimization."""
+        """Load data to be used during the optimization."""
 
         element_path = self._path/element_name
 
@@ -81,7 +81,7 @@ class Optimizer:
     
     
     def set_reference_index(self, index):
-        """Sets the new target index used as mv1 in each scatterplot"""
+        """Set the new target index used as mv1 in each scatterplot"""
 
         self._x = self._data.T[index]
         self._y = np.delete(self._data, index, axis=1)
@@ -89,7 +89,7 @@ class Optimizer:
 
     
     def linear_fit(self):
-        """updates linear fitting parameters."""
+        """Update linear fitting parameters."""
 
         lin_params = []
         for y in self._y:
@@ -130,7 +130,7 @@ class Optimizer:
 
 class CMA(Optimizer):
     """
-    Calls a CMA-ES optimizer. 
+    Call a CMA-ES optimizer. 
     Ref: https://arxiv.org/abs/1604.00772 
     """
     _method = "cma"
