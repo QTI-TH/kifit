@@ -8,9 +8,7 @@ import cma
 class Optimizer:
     """General optimizer class, which returns the best set of parameters."""
 
-    def __init__(
-        self, datapath: str, target_loss: float, max_iterations: int, verbose: int = 1
-    ):
+    def __init__(self, target_loss: float, max_iterations: int, verbose: int = 1):
         """
         Args:
             datapath (str): path to target experiment folder.
@@ -23,7 +21,6 @@ class Optimizer:
         """
 
         self._method = None
-        self.datapath = datapath
         self.target_loss = target_loss
         self.max_iterations = max_iterations
         self.verbose = verbose
@@ -44,11 +41,26 @@ class Optimizer:
         """Build loss function using data of a target experiment."""
         pass
 
-    def linear_fit(self):
-        """Perform linear regression."""
-        # use sps.linregress(x, y)
-        # ideally on each combination of x and y we need to take into account
-        pass
+    def get_linear_fit_params(self, data, reference_transition_idx):
+        """
+        Perform linear regression.
+
+        Args:
+            data
+            reference_transition_index
+        """
+
+        # indipendent variable
+        x = data.T[reference_transition_idx]
+        # data without the reference column used as indipendent
+        y = np.delete(data, reference_transition_idx, axis=1)
+
+        linear_params = []
+
+        for i in range(y.shape[1]):
+            linear_params.append(sps.linregress(x, y.T[i]))
+
+        return linear_params
 
 
 class CMA(Optimizer):
@@ -59,7 +71,6 @@ class CMA(Optimizer):
 
     def __init__(
         self,
-        datapath: str,
         target_loss: float,
         max_iterations: int,
         initial_params: list,
@@ -78,7 +89,7 @@ class CMA(Optimizer):
             initial_params: initial guess of paramameters.
             maxfeval: maximum number of function evaluations.
         """
-        super().__init__(datapath, target_loss, max_iterations, verbose)
+        super().__init__(target_loss, max_iterations, verbose)
 
         self._method = "cma"
         self.initial_params = initial_params
@@ -112,7 +123,6 @@ class ScipyMinimizer(Optimizer):
 
     def __init__(
         self,
-        datapath: str,
         target_loss: float,
         max_iterations: int,
         initial_params: list,
@@ -149,7 +159,7 @@ class ScipyMinimizer(Optimizer):
             callback: called after each iteration for scipy optimizers.
             options: dictionary with options accepted by ``scipy.optimize.minimize``.
         """
-        super().__init__(datapath, target_loss, max_iterations, verbose)
+        super().__init__(target_loss, max_iterations, verbose)
 
         self._method = f"scipy_optimizer_{method}"
         self.initial_params = initial_params
