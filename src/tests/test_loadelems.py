@@ -32,6 +32,26 @@ def test_load_individual():
     assert np.isclose(np.sum(ca.m_ap), 133.86662192999998, rtol=1e-5)
     assert np.isclose(np.sum(ca.sig_m_a**2), 1.452e-15, rtol=1e-5)
     assert np.isclose(np.sum(ca.sig_m_ap**2), 1.15961e-13, rtol=1e-5)
+
+    assert ca.m_nisotopepairs == len(ca.ap_nisotope)
+    assert ca.m_nisotopepairs == len(ca.m_a)
+    assert ca.m_nisotopepairs == len(ca.m_ap)
+    assert ca.m_nisotopepairs == len(ca.nu)
+    assert ca.m_nisotopepairs == len(ca.sig_nu)
+    assert ca.n_ntransitions == ca.sig_nu.shape[1]
+
+    assert len(ca.m_a) == len(ca.m_ap)
+    assert all(u != v for u, v in zip(ca.m_a, ca.m_ap))
+
+    assert (len(ca.Xcoeffs) > 0), len(ca.Xcoeffs)
+    assert (len(ca.sig_Xcoeffs) > 0), len(ca.sig_Xcoeffs)
+    assert len(ca.X) == ca.n_ntransitions, len(ca.X)
+    assert len(ca.sig_X) == ca.n_ntransitions, len(ca.sig_X)
+
+    for x in range(len(ca.Xcoeffs)):
+        assert len(ca.Xcoeffs[x]) == ca.n_ntransitions, len(ca.Xcoeffs[x])
+        assert len(ca.sig_Xcoeffs[x]) == ca.n_ntransitions, len(ca.sig_Xcoeffs[x])
+
     assert (ca.nu.size == ca.m_nisotopepairs * ca.n_ntransitions)
     assert np.allclose(ca.mu_norm_isotope_shifts, mnu_Mathematica, rtol=1e-14)
     assert np.allclose(ca.sig_mu_norm_isotope_shifts, sig_mnu_Mathematica,
@@ -50,6 +70,7 @@ def test_load_individual():
     assert np.all([i.is_integer() for i in ca.a_nisotope])
     assert np.all([i.is_integer() for i in ca.ap_nisotope])
     assert (ca.F1.size == ca.n_ntransitions)
+    assert (ca.F1sq == ca.F1 @ ca.F1)
     assert np.isclose(ca.F1[0], 1, rtol=1e-17)
     assert (ca.secph1.size == ca.n_ntransitions)
     assert np.isclose(ca.secph1[0], 0, rtol=1e-17)
