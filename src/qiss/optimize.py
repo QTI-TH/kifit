@@ -9,13 +9,10 @@ class Optimizer:
     """General optimizer class, which returns the best set of parameters."""
 
     def __init__(
-            self, 
-            datapath: str, 
-            target_loss: float, 
-            max_iterations: int, 
-            verbose: int = 1):
+        self, datapath: str, target_loss: float, max_iterations: int, verbose: int = 1
+    ):
         """
-        Args: 
+        Args:
             datapath (str): path to target experiment folder.
                 each experiment folder must be organised with one subfolder for
                 each element involved into the Kings Plot fitting.
@@ -24,6 +21,7 @@ class Optimizer:
             max_iterations (int): maximum number of iterations.
             verbose (int): verbosity level increasing from -1 (quiet) to +1 (verbose).
         """
+
         self._method = None
         self.datapath = datapath
         self.target_loss = target_loss
@@ -34,14 +32,14 @@ class Optimizer:
     def optimize(self):
         """
         Perform the optimization strategy according to the chose method.
-        
+
         Returns:
             Best loss function value registered.
             Best set of parameters.
             OptimizerResult object which depends on the used method.
         """
         raise NotImplementedError("Subclasses must implement the optimize() method.")
-    
+
     def build_loss_function(self):
         """Build loss function using data of a target experiment."""
         pass
@@ -49,25 +47,25 @@ class Optimizer:
     def linear_fit(self):
         """Perform linear regression."""
         # use sps.linregress(x, y)
-        # ideally on each combination of x and y we need to take into account    
+        # ideally on each combination of x and y we need to take into account
         pass
 
-    
 
 class CMA(Optimizer):
     """
-    Call a CMA-ES optimizer. 
-    Ref: https://arxiv.org/abs/1604.00772 
+    Call a CMA-ES optimizer.
+    Ref: https://arxiv.org/abs/1604.00772
     """
 
     def __init__(
-            self, 
-            datapath : str,
-            target_loss : float, 
-            max_iterations : int, 
-            initial_params : list, 
-            maxfeval : int, 
-            verbose : int = 1):
+        self,
+        datapath: str,
+        target_loss: float,
+        max_iterations: int,
+        initial_params: list,
+        maxfeval: int,
+        verbose: int = 1,
+    ):
         """
         Args:
             datapath: path to target experiment folder.
@@ -81,11 +79,10 @@ class CMA(Optimizer):
             maxfeval: maximum number of function evaluations.
         """
         super().__init__(datapath, target_loss, max_iterations, verbose)
-        
+
         self._method = "cma"
         self.initial_params = initial_params
         self.maxfeval = maxfeval
-
 
     def optimize(self) -> tuple[float, list]:
         """Call the CMA-ES optimizer."""
@@ -94,40 +91,41 @@ class CMA(Optimizer):
             "verbose": self.verbose,
             "tolfun": self.target_loss,
             "maxiter": self.max_iterations,
-            "maxfeval": self._maxfeval
+            "maxfeval": self._maxfeval,
         }
-        
+
         res = cma.fmin2(
             loss=self.loss,
             initial_parameters=self.initial_params,
             args=(),
-            options = options
+            options=options,
         )
-        
+
         return res[1].result.fbest, res[1].result.xbest, res
-    
+
 
 class ScipyMinimizer(Optimizer):
     """
-    Call scipy.optimize.minimize method. 
+    Call scipy.optimize.minimize method.
     Official documentation at: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
     """
 
     def __init__(
-            self, 
-            datapath : str,
-            target_loss : float, 
-            max_iterations : int, 
-            initial_params : list, 
-            method: str = None,
-            jac: callable = None,
-            hess: callable = None,
-            hessp: callable = None,
-            bounds: tuple = None,
-            costraints: dict = None,
-            callback: callable = None,
-            options: dict = None,
-            verbose : int = 1):
+        self,
+        datapath: str,
+        target_loss: float,
+        max_iterations: int,
+        initial_params: list,
+        method: str = None,
+        jac: callable = None,
+        hess: callable = None,
+        hessp: callable = None,
+        bounds: tuple = None,
+        costraints: dict = None,
+        callback: callable = None,
+        options: dict = None,
+        verbose: int = 1,
+    ):
         """
         Args:
             datapath: path to target experiment folder.
@@ -139,8 +137,8 @@ class ScipyMinimizer(Optimizer):
             verbose: if True, log messages are printed during the optimization.
             initial_params: initial guess of paramameters.
             maxfeval: maximum number of function evaluations.
-            method: name of method supported by ``scipy.optimize.minimize``. If not given, 
-                chosen to be one of BFGS, L-BFGS-B, SLSQP, depending on whether 
+            method: name of method supported by ``scipy.optimize.minimize``. If not given,
+                chosen to be one of BFGS, L-BFGS-B, SLSQP, depending on whether
                 or not the problem has constraints or bounds.
             jac: method for computing the gradient vector for scipy optimizers.
             hess: method for computing the hessian matrix for scipy optimizers.
@@ -178,6 +176,6 @@ class ScipyMinimizer(Optimizer):
             constraints=self.costraints,
             tol=self.target_loss,
             callback=self.callback,
-            options=self.options
+            options=self.options,
         )
         return res.fun, res.x, res
