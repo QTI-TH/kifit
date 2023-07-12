@@ -33,6 +33,9 @@ def test_load_individual():
     assert np.isclose(np.sum(ca.sig_m_a**2), 1.452e-15, rtol=1e-5)
     assert np.isclose(np.sum(ca.sig_m_ap**2), 1.15961e-13, rtol=1e-5)
     assert (ca.nu.size == ca.m_nisotopepairs * ca.n_ntransitions)
+    assert np.allclose(ca.mu_norm_isotope_shifts, mnu_Mathematica, rtol=1e-14)
+    assert np.allclose(ca.sig_mu_norm_isotope_shifts, sig_mnu_Mathematica,
+            rtol=1e-14)
     assert (np.sum(ca.corr_nu_nu) == ca.m_nisotopepairs * ca.n_ntransitions)
     assert (np.sum(ca.corr_m_m) == 1)
     assert (np.trace(ca.corr_m_mp) == 0)
@@ -56,6 +59,19 @@ def test_load_individual():
     assert np.isclose(ca.X1[0], 0, rtol=1e-17)
     assert (sum(ca.range_i) == sum(ca.range_j))
     assert (len(ca.range_i) == len(ca.range_j) + 1)
+
+    print("mnu")
+    print(ca.mu_norm_isotope_shifts)
+    print("mnu Mathematica")
+    print(np.array(mnu_Mathematica))
+    print("testi")
+    print(np.divide(ca.nu.T, ca.mu_aap))
+
+    print("sig_mnu")
+    print(ca.sig_mu_norm_isotope_shifts)
+    print("sig_mnu Mathematica")
+    print(np.array(sig_mnu_Mathematica))
+
 
 
 def test_set_fit_params():

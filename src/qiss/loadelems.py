@@ -282,15 +282,27 @@ class Elem:
         return np.divide(np.ones(dim), self.m_a) - np.divide(np.ones(dim), self.m_ap)
 
     @cached_fct_property
-    def mnu(self):
+    def mu_norm_isotope_shifts(self):
         """
-        Generate mass normalised isotope shifts and writes mxn-matrix to file.
+        Generate mass normalised isotope shifts and write mxn-matrix to file.
 
             nu / mu
 
         """
-        mnu = np.divide(self.nu.T, self.mu_aap).T
-        return mnu
+        return np.divide(self.nu.T, self.mu_aap).T
+
+    @cached_fct_property
+    def sig_mu_norm_isotope_shifts(self):
+        """
+        Generate uncertainties on mass normalised isotope shifts and write mxn-matrix to file.
+
+        """
+        return np.absolute(np.array([[self.mu_norm_isotope_shifts[a, i]
+            * np.sqrt((self.sig_nu[a, i] / self.nu[a, i])**2
+                + (self.m_a[a]**2 * self.sig_m_ap[a]**2 / self.m_ap[a]**2
+                    + self.m_ap[a]**2 * self.sig_m_a[a]**2 / self.m_a[a]**2)
+                / (self.m_a[a] - self.m_ap[a])**2) for i in self.range_i] for a
+            in self.range_a]))
 
     # CONSTRUCTING THE LOG-LIKELIHOOD FUNCTION ################################
 
