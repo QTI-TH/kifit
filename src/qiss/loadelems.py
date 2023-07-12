@@ -32,7 +32,7 @@ class Elem:
 
     def __init__(self, element: str):
         """
-        Loads all data files associated to element and initialises Elem
+        Load all data files associated to element and initialises Elem.
         instance.
 
         """
@@ -85,7 +85,7 @@ class Elem:
 
         corr_mats_to_be_defined = []
 
-        for (i, file_type) in enumerate(self.OPTIONAL_INPUT_FILES):
+        for i, file_type in enumerate(self.OPTIONAL_INPUT_FILES):
 
             assert len(self.OPTIONAL_INPUT_FILES) == len(self.elem_corr_mats)
 
@@ -106,7 +106,7 @@ class Elem:
 
     def _init_Xcoeffs(self):
         """
-        Initialises the X coefficients to the set computed for a given mediator mass.
+        Initialise the X coefficients to the set computed for a given mediator mass.
 
         """
         assert (len(self.Xcoeffs) > 0), len(self.Xcoeffs)
@@ -129,7 +129,7 @@ class Elem:
     @classmethod
     def load_all(cls):
         """
-        Loads all elements and returns result as dict
+        Load all elements and returns result as dict.
         """
         return {u: cls(u) for u in cls.VALID_ELEM}
 
@@ -140,7 +140,7 @@ class Elem:
     @update_fct
     def _update_Xcoeffs(self, x: int):
         """
-        Sets the X coefficients and their uncertainties to the set computed for
+        Set the X coefficients and their uncertainties to the set computed for.
         a given mediator mass.
 
         """
@@ -155,7 +155,7 @@ class Elem:
     @update_fct
     def _update_fit_params(self, thetas):
         """
-        Sets the fit parameters
+        Set the fit parameters
 
            thetas = {kperp1, ph1, alphaNP},
 
@@ -177,7 +177,7 @@ class Elem:
     @cached_fct_property
     def a_nisotope(self):
         """
-        Returns isotope numbers A
+        Return isotope numbers A
 
         """
         return self.isotope_data[0]
@@ -185,7 +185,7 @@ class Elem:
     @cached_fct_property
     def ap_nisotope(self):
         """
-        Returns isotope numbers A'
+        Return isotope numbers A'
 
         """
         return self.isotope_data[3]
@@ -193,7 +193,7 @@ class Elem:
     @cached_fct_property
     def m_a(self):
         """
-        Returns masses of reference isotopes A
+        Return masses of reference isotopes A
 
         """
         return self.isotope_data[1]
@@ -201,7 +201,7 @@ class Elem:
     @cached_fct_property
     def m_ap(self):
         """
-        Returns masses of isotopes A'
+        Return masses of isotopes A'
 
         """
         return self.isotope_data[4]
@@ -209,7 +209,7 @@ class Elem:
     @cached_fct_property
     def sig_m_a(self):
         """
-        Returns uncertainties on masses of reference isotopes A
+        Return uncertainties on masses of reference isotopes A
 
         """
         return self.isotope_data[2]
@@ -217,7 +217,7 @@ class Elem:
     @cached_fct_property
     def sig_m_ap(self):
         """
-        Returns uncertainties on masses of isotopes A'
+        Return uncertainties on masses of isotopes A'
 
         """
         return self.isotope_data[5]
@@ -225,7 +225,7 @@ class Elem:
     @cached_fct_property
     def m_nisotopepairs(self):
         """
-        Returns number of isotope pairs m
+        Return number of isotope pairs m
 
         """
         nisotopepairs = len(self.a_nisotope)
@@ -241,7 +241,7 @@ class Elem:
     @cached_fct_property
     def n_ntransitions(self):
         """
-        Returns number of transitions n
+        Return number of transitions n
 
         """
         ntransitions = self.nu.shape[1]
@@ -254,7 +254,7 @@ class Elem:
     @cached_fct_property
     def mu_aap(self):
         """
-        Returns difference of the inverse nuclear masses
+        Return difference of the inverse nuclear masses
 
             mu = 1 / m_a - 1 / m_a'
 
@@ -272,7 +272,7 @@ class Elem:
     @cached_fct_property
     def mnu(self):
         """
-        Generates mass normalised isotope shifts and writes mxn-matrix to file.
+        Generate mass normalised isotope shifts and writes mxn-matrix to file.
 
             nu / mu
 
@@ -285,7 +285,7 @@ class Elem:
     @cached_fct_property
     def h_aap(self):
         """
-        Generates nuclear form factor h for the new physics term.
+        Generate nuclear form factor h for the new physics term.
         h is an m-vector.
 
         """
@@ -294,7 +294,7 @@ class Elem:
     @cached_fct_property
     def X1(self):
         """
-        Returns electronic coefficient X_ij of the new physics term.
+        Return electronic coefficient X_ij of the new physics term.
 
         """
         return (self.X - self.F1 * self.X[0])
@@ -302,7 +302,7 @@ class Elem:
     @cached_fct_property
     def np_term(self):
         """
-        Generates the (m x n)-dimensional new physics term starting from
+        Generate the (m x n)-dimensional new physics term starting from
         theoretical input and fit parameters.
 
         """
@@ -329,7 +329,7 @@ class Elem:
     @cached_fct_property
     def secph1(self):
         """
-        Returns secant of angle phi_ij (sec(phi_ij)).
+        Return secant of angle phi_ij (sec(phi_ij)).
 
         """
         return np.insert(sec(self.ph1), 0, 0)
@@ -378,7 +378,7 @@ class Elem:
     @cached_fct
     def d_ai(self, a: int, i: int):
         """
-        Returns element d_i^{AA'} of the d-vector d^{AA'} in transition space.
+        Return element d_i^{AA'} of the d-vector d^{AA'} in transition space.
 
         """
         print("inside d_ai: this is F1", self.F1)
@@ -404,7 +404,7 @@ class Elem:
     @cached_fct_property
     def dmat(self):
         """
-        Returns full d.
+        Return full distances matrix.
 
         """
         return np.array([[self.d_ai(a, i) for i in self.range_i] for a in
@@ -413,7 +413,7 @@ class Elem:
     @cached_fct
     def fDdDnu_ij(self, i: int, j: int):
         """
-        Returns part of derivative of nu_i^a wrt. nu_j^b that does not depend on
+        Return part of derivative of nu_i^a wrt. nu_j^b that does not depend on.
         isotope indices a = AA', b = BB'.
 
         """
@@ -439,7 +439,7 @@ class Elem:
     @cached_fct_property
     def DdDnu(self):
         """
-        Returns derivative of d wrt. nu.
+        Return derivative of d wrt. nu.
 
         """
         fmat = np.array([[self.fDdDnu_ij(i, j) if i<=j else 0 for j in self.range_i]
@@ -464,7 +464,7 @@ class Elem:
     @cached_fct
     def fDdDm_aib(self, a: int, i: int, b: int):
         """
-        Returns derivative of nu_i^a wrt. m^B, where a = AA' and B is a
+        Return derivative of nu_i^a wrt. m^B, where a = AA' and B is a.
         reference isotope index.
 
         """
@@ -482,7 +482,7 @@ class Elem:
     @cached_fct
     def fDdDmp_aib(self, a: int, i: int, b: int):
         """
-        Returns derivative of nu_i^a wrt. m^{B'}, where a = AA' and B' is a
+        Return derivative of nu_i^a wrt. m^{B'}, where a = AA' and B' is a.
         primed isotope index.
 
         """
@@ -500,7 +500,7 @@ class Elem:
     @cached_fct_property
     def DdDm(self):
         """
-        Returns derivative of d wrt. m, where m is the vector of reference
+        Return derivative of d wrt. m, where m is the vector of reference
         isotope masses.
 
         """
@@ -510,7 +510,7 @@ class Elem:
     @cached_fct_property
     def DdDmp(self):
         """
-        Returns derivative of d wrt. mp, where mp is the vector of primed
+        Return derivative of d wrt. mp, where mp is the vector of primed
         isotope masses.
 
         """
@@ -520,7 +520,7 @@ class Elem:
     @cached_fct
     def DdDX_aij(self, a: int, i: int, j: int):
         """
-        Returns derivative of nu_i^a wrt. X_j, where a = AA' and j is a
+        Return derivative of nu_i^a wrt. X_j, where a = AA' and j is a
         transition index.
 
         """
@@ -547,7 +547,7 @@ class Elem:
     @cached_fct_property
     def DdDX(self):
         """
-        Returns derivative of d wrt. X.
+        Return derivative of d wrt. X.
 
         """
         return np.array([[[self.DdDX_aij(a, i, j) for j in self.range_i] for i in
@@ -556,7 +556,7 @@ class Elem:
     @cached_fct_property
     def cov_nu_nu(self):
         """
-        Returns covariance matrix of the isotope shift measurements nu, given
+        Return covariance matrix of the isotope shift measurements nu, given
         the uncertainties on the isotope shift measurements and their
         correlations.
 
@@ -567,7 +567,7 @@ class Elem:
     @cached_fct_property
     def cov_m_m(self):
         """
-        Returns covariance matrix of the reference isotope mass measurements
+        Return covariance matrix of the reference isotope mass measurements.
         m_A, given the uncertainties on the isotope mass measurements and their
         correlations.
 
@@ -578,7 +578,7 @@ class Elem:
     @cached_fct_property
     def cov_m_mp(self):
         """
-        Returns covariance matrix of the measurements of the reference isotope
+        Return covariance matrix of the measurements of the reference isotope
         masses m_A and the primed isotope masses, given the experimental
         uncertainties and their correlations.
 
@@ -589,7 +589,7 @@ class Elem:
     @cached_fct_property
     def cov_mp_mp(self):
         """
-        Returns covariance matrix of the primed isotope mass measurements
+        Return covariance matrix of the primed isotope mass measurements
         m_Ap, given the experimental uncertainties and their correlations.
 
         """
@@ -599,7 +599,7 @@ class Elem:
     @cached_fct_property
     def cov_X_X(self):
         """
-        Returns covariance matrix of the X coefficients given the theoretical
+        Return covariance matrix of the X coefficients given the theoretical
         uncertainties and their correlations.
 
         """
@@ -609,7 +609,7 @@ class Elem:
     @cached_fct_property
     def cov_d_d(self):
         """
-        Returns the covariance matrix cov[d,d].
+        Return the covariance matrix cov[d,d].
 
         """
         return (np.einsum('aick,ckdl,bjdl->aibj',
@@ -635,7 +635,7 @@ class Elem:
 
            thetas = {Kijperp, phiij, alphaNP},
 
-        generates the contribution of the element to the log-likelihood LL.
+        generate the contribution of the element to the log-likelihood LL.
 
         The standard King fit without new physics is recovered by setting
         alphaNP=0.
