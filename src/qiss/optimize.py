@@ -119,7 +119,7 @@ class ScipyMinimizer(Optimizer):
             target_loss : float, 
             max_iterations : int, 
             initial_params : list, 
-            method: str = "BFGS",
+            method: str = None,
             jac: callable = None,
             hess: callable = None,
             hessp: callable = None,
@@ -139,7 +139,17 @@ class ScipyMinimizer(Optimizer):
             verbose: if True, log messages are printed during the optimization.
             initial_params: initial guess of paramameters.
             maxfeval: maximum number of function evaluations.
-            # FIXME --> write missing documentation.
+            method: name of method supported by ``scipy.optimize.minimize``. If not given, 
+                chosen to be one of BFGS, L-BFGS-B, SLSQP, depending on whether 
+                or not the problem has constraints or bounds.
+            jac: method for computing the gradient vector for scipy optimizers.
+            hess: method for computing the hessian matrix for scipy optimizers.
+            hessp: hessian of objective function times an arbitrary
+                vector for scipy optimizers.
+            bounds: bounds on variables for scipy optimizers.
+            constraints: constraints definition for scipy optimizers.
+            callback: called after each iteration for scipy optimizers.
+            options: dictionary with options accepted by ``scipy.optimize.minimize``.
         """
         super().__init__(datapath, target_loss, max_iterations, verbose)
 
@@ -166,7 +176,7 @@ class ScipyMinimizer(Optimizer):
             hessp=self.hessp,
             bounds=self.bounds,
             constraints=self.costraints,
-            tol=self.tol,
+            tol=self.target_loss,
             callback=self.callback,
             options=self.options
         )
