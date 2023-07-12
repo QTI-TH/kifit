@@ -1,7 +1,7 @@
 # use lru_cache ?
 def cached_fct(old_func):
     """
-    decorates functions to cache return value
+    Decorate functions to cache return value.
     """
     def new_func(self, *args, **kwargs):
         # set-up cache registry on class instance
@@ -27,7 +27,7 @@ def cached_fct(old_func):
 
 def cached_fct_property(old_func):
     """
-    makes a property out of cached_fct
+    Makes a property out of `cached_fct`.
     """
     @property
     def new_func(self):
@@ -38,7 +38,7 @@ def cached_fct_property(old_func):
 
 def update_fct(old_func):
     """
-    decorates function to reset cache of cached functions
+    Decorates function to reset cache of cached functions.
     """
     def new_func(self, *args, **kwargs):
         if hasattr(self, 'function_cache'):
