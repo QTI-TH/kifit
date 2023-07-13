@@ -155,8 +155,9 @@ def test_constr_dvec():
     assert np.allclose(dmat_alphaNP_1_Mathematica, ca.dmat, rtol=1e-14)
 
     absd_explicit = np.array([np.sqrt(np.sum(ca.d_ai(a, i)**2 for i in
-        ca.range_i))for a in ca.range_a])
+        ca.range_i)) for a in ca.range_a])
     assert np.allclose(ca.absd, absd_explicit, rtol=1e-25)
+
 
 
 def test_cov_nu_nu():
@@ -294,94 +295,61 @@ def test_constr_LL():
     ca = Elem.get('Ca')
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
 
-    simplified_LL = (-1 / 2 * np.sum([[ca.dmat[a, i]**2 / ca.cov_d_d[a, i, a,
-        i] for a in ca.range_a] for i in ca.range_i]))
-    assert np.isclose(simplified_LL, LL_Mathematica, rtol=1e-25)
+    assert np.allclose(ca.absd, absd_Mathematica, rtol=1e-9)
 
-    assert np.allclose(sigdsq_Mathematica, ca.cov_d_d, rtol=1e-14)
+    normald_python = ca.dmat / ca.absd[:, None]
+    assert np.allclose(normald_python, normald_Mathematica, rtol=1e-25)
 
-    # flattened_sigdsq_Mathematica = np.reshape(sigdsq_Mathematica,
-            # (ca.m_nisotopepairs * ca.n_ntransitions,
-                # ca.m_nisotopepairs * ca.n_ntransitions))
-#
-    # flattened_sigdsq_python = np.reshape(ca.cov_d_d,
-            # (ca.m_nisotopepairs * ca.n_ntransitions,
-                # ca.m_nisotopepairs * ca.n_ntransitions))
+    assert np.allclose(ca.cov_d_d, cov_d_d_Mathematica, rtol=1e-8)
+    assert np.allclose(np.linalg.inv(ca.cov_d_d),
+            np.linalg.inv(cov_d_d_Mathematica), rtol=1e-25)
+    assert np.allclose(np.linalg.inv(ca.cov_d_d),
+            inv_cov_d_d_Mathematica, rtol=1e-25)
+    assert np.allclose(ca.cov_d_d @ np.linalg.inv(ca.cov_d_d),
+            np.identity(ca.m_nisotopepairs), rtol=1e-30)
+    assert np.allclose(np.linalg.inv(ca.cov_d_d) @ ca.cov_d_d,
+            np.identity(ca.m_nisotopepairs), rtol=1e-30)
 
-    # assert np.allclose(flattened_sigdsq_python, flattened_sigdsq_Mathematica,
-            # rtol=1e-14)
-    # assert (np.linalg.matrix_rank(flattened_sigdsq_Mathematica, tol=1e-16)
-        # == ca.m_nisotopepairs * ca.n_ntransitions), np.linalg.matrix_rank(
-            # flattened_sigdsq_Mathematica, tol=1e-16)
-    # assert (np.linalg.matrix_rank(flattened_sigdsq_python, tol=1e-16)
-        # == ca.m_nisotopepairs * ca.n_ntransitions), np.linalg.matrix_rank(
-            # flattened_sigdsq_python, tol=1e-16)
+    assert np.isclose(ca.LL, LL_Mathematica, rtol=1e-25)
 
-    # inv_sigdsq_Mathematica = np.linalg.inv(flattened_sigdsq_Mathematica)
-    # inv_sigdsq_python = np.linalg.inv(flattened_sigdsq_python)
-    # print("M Mathematica", flattened_sigdsq_Mathematica)
-    # print("M python     ", flattened_sigdsq_python)
-    # print("inv(M) M", inv_sigdsq_python @ flattened_sigdsq_python)
-    # print("inv(M) M", inv_sigdsq_Mathematica @ flattened_sigdsq_Mathematica)
-    print("test")
-    flattened_d = np.sum(ca.dmat, 1)
-    flattened_cov_d_d = np.sum(ca.cov_d_d, (1, 3))
-    print("shape inv_sigdsq_python", np.linalg.inv(flattened_cov_d_d).shape)
-    # print("shape inv_sigdsq_Mathematica", inv_sigdsq_Mathematica.shape)
+    simplified_LL = 1 / 2 * np.sum(ca.absd**2 / np.diag(ca.cov_d_d))
 
-    # print(inv_sigdsq_python @ flattened_sigdsq_python - np.identity(ca.m_nisotopepairs))
-
-    # assert np.allclose(inv_sigdsq_Mathematica @ flattened_sigdsq_Mathematica,
-        # np.identity(ca.m_nisotopepairs * ca.n_ntransitions), rtol=1)
-
-
-
-    # print("det mathematica", np.linalg.det(flattened_sigdsq_Mathematica))
-    # print("det python     ", np.linalg.det(flattened_sigdsq_python))
-
-    print("simplified LL without NP")
+    assert np.isclose(simplified_LL, ca.LL, rtol=1e-25)
+    print("simplified_LL")
     print(simplified_LL)
+    print("LL")
+    print(ca.LL)
 
-    print("LL implemented without NP")
-    print(ca.LL_elem)
+    # simplified_LL_alphaNP_1 = (-1 / 2 * np.sum([[ca.dmat[a, i]**2 / ca.cov_d_d[a, i, a,
+        # i] for a in ca.range_a] for i in ca.range_i]))
+    # assert np.isclose(simplified_LL_alphaNP_1, LL_Mathematica_alphaNP_1, rtol=1e-25)
 
-    print("fraction")
-    print((simplified_LL - ca.LL_elem) / (simplified_LL + ca.LL_elem))
-    print(" ")
-
-    print("LL elem", ca.LL_elem)
+    # print("simplified LL with NP")
+    # print(simplified_LL_alphaNP_1)
 
 
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica,
         1.])
 
-    simplified_LL_alphaNP_1 = (-1 / 2 * np.sum([[ca.dmat[a, i]**2 / ca.cov_d_d[a, i, a,
-        i] for a in ca.range_a] for i in ca.range_i]))
-    assert np.isclose(simplified_LL_alphaNP_1, LL_Mathematica_alphaNP_1, rtol=1e-25)
+    assert np.allclose(ca.cov_d_d, cov_d_d_alphaNP_1_Mathematica, rtol=1e-8)
+    assert np.allclose(np.linalg.inv(ca.cov_d_d),
+            np.linalg.inv(cov_d_d_alphaNP_1_Mathematica), rtol=1e-25)
+    assert np.allclose(np.linalg.inv(ca.cov_d_d),
+            inv_cov_d_d_alphaNP_1_Mathematica, rtol=1e-25)
+    assert np.allclose(ca.cov_d_d @ np.linalg.inv(ca.cov_d_d),
+            np.identity(ca.m_nisotopepairs), atol=1e-3)
+    assert np.allclose(np.linalg.inv(ca.cov_d_d) @ ca.cov_d_d,
+            np.identity(ca.m_nisotopepairs), atol=1e-3)
 
-    print("simplified LL with NP")
-    print(simplified_LL_alphaNP_1)
-
-    print("LL implemented with NP")
-    print(ca.LL_elem)
-
-    print("fraction")
-    print((simplified_LL_alphaNP_1 - ca.LL_elem) / (simplified_LL_alphaNP_1 + ca.LL_elem))
+    assert np.isclose(ca.LL, LL_alphaNP_1_Mathematica, rtol=1e-3)
 
 if __name__ == "__main__":
     test_load_individual()
     test_set_fit_params()
     test_constr_dvec()
-    # test_DdDnu_aibj_fct()
     test_cov_nu_nu()
     test_cov_m_m()
     test_cov_mp_mp()
     test_cov_m_mp()
     test_cov_X_X()
     test_constr_LL()
-
-# def export_reduced_isotope_shifts():
-#     for elem in ['Ca']:
-#         elem_data = Elem.get('Ca')
-#         np.savetxt('test_output/mnu_{}.dat'.format(elem), elem_data.mnu, delimiter=',')
-#

@@ -474,15 +474,6 @@ class Elem:
 
         return np.einsum('ab,ij->aibj', np.linalg.inv(np.diag(self.mu_aap)), fmat)
 
-    @cached_fct_property
-    def DabsdDnu(self):
-        """
-        Returns derivative of Euclidean norms of d^{AA'} wrt. nu.
-
-        """
-        return
-    # np.sum(self.dmat * self.DdDnu, 1) / self.absd
-
     @cached_fct
     def fDdDmmp_aib(self, a: int, i: int, b: int, merkki: int):
 
@@ -661,42 +652,25 @@ class Elem:
         Return the covariance matrix cov[d,d].
 
         """
-        return (np.einsum('aick,ckdl,bjdl->aibj',
-                    self.DdDnu, self.cov_nu_nu, self.DdDnu)
-               + np.einsum('aic,cd,bjd->aibj',
-                   self.DdDm, self.cov_m_m, self.DdDm)
-               + np.einsum('aic,cd,bjd->aibj',
-                   self.DdDm, self.cov_m_mp, self.DdDmp)
-               + np.einsum('aic,cd,bjd->aibj',
-                   self.DdDmp, self.cov_m_mp.T, self.DdDm)
-               + np.einsum('aic,cd,bjd->aibj',
-                   self.DdDmp, self.cov_mp_mp, self.DdDmp)
-               + np.einsum('aik,kl,bjl->aibj',
-                   self.DdDX, self.cov_X_X, self.DdDX))
-        # Do we want to be more general than this?
-        # More user-friendly options?
+        normald = self.dmat / self.absd[:, None]
+
+        return (np.einsum('ai,aick,ckdl,bjdl,bj->ab',
+                   normald, self.DdDnu, self.cov_nu_nu, self.DdDnu, normald)
+               + np.einsum('ai,aic,cd,bjd,bj->ab',
+                   normald, self.DdDm, self.cov_m_m, self.DdDm, normald)
+               + np.einsum('ai,aic,cd,bjd,bj->ab',
+                   normald, self.DdDm, self.cov_m_mp, self.DdDmp, normald)
+               + np.einsum('ai,aic,cd,bjd,bj->ab',
+                   normald, self.DdDmp, self.cov_m_mp.T, self.DdDm, normald)
+               + np.einsum('ai,aic,cd,bjd,bj->ab',
+                   normald, self.DdDmp, self.cov_mp_mp, self.DdDmp, normald)
+               + np.einsum('ai,aik,kl,bjl,bj->ab',
+                   normald, self.DdDX, self.cov_X_X, self.DdDX, normald))
 
     @cached_fct_property
-    def LL_elem(self):
+    def LL(self):
         """
-        Given the fit parameters
-
-           thetas = {Kijperp, phiij, alphaNP},
-
-        generate the contribution of the element to the log-likelihood LL.
-
-        The standard King fit without new physics is recovered by setting
-        alphaNP=0.
+        Generate the contribution of the element to the negative log-likelihood LL.
 
         """
-        # mn = self.m_nisotopepairs * self.n_ntransitions
-        # flattened_d = np.reshape(self.dmat, mn)
-        # flattened_cov_d_d = np.reshape(self.cov_d_d, (mn, mn))
-
-
-        flattened_d = np.sum(self.dmat, 1)
-        flattened_cov_d_d = np.sum(self.cov_d_d, (1, 3))
-
-        print("det(flattened_cov_d_d)", np.linalg.det(flattened_cov_d_d))
-
-        return (-1 / 2 * (flattened_d @ np.linalg.inv(flattened_cov_d_d) @ flattened_d))
+        return (1 / 2 * (self.absd @ np.linalg.inv(self.cov_d_d) @ self.absd))
