@@ -8,25 +8,24 @@ def test_load_all():
     all_element_data = Elem.load_all()
 
     assert np.allclose(
-        np.nan_to_num(all_element_data['Ca'].nu).sum(axis=1),
+        np.nan_to_num(all_element_data['Ca_testdata'].nu).sum(axis=1),
         [8.44084572e+08, 1.68474592e+09, 3.38525526e+09],
         rtol=1e-8,
     )
 
     # with nans:
     # assert np.allclose(
-    #     np.nan_to_num(all_element_data['Ca'].nu).sum(axis=1),
+    #     np.nan_to_num(all_element_data['Ca_testdata'].nu).sum(axis=1),
     #     [8.44084572e+08, 1.68474592e+09, 7.75849948e+09, 3.38525526e+09],
     #     rtol=1e-8,
     # )
     #
 
-
 def test_load_individual():
-    ca = Elem.get('Ca')
+    ca = Elem.get('Ca_testdata')
     pprint(ca)
 
-    Ca = Elem.get('Ca')
+    Ca = Elem.get('Ca_testdata')
     assert np.all(np.nan_to_num(ca.nu) == np.nan_to_num(Ca.nu))
     assert np.isclose(np.sum(ca.m_a), 119.88777255, rtol=1e-5)
     assert np.isclose(np.sum(ca.m_ap), 133.86662192999998, rtol=1e-5)
@@ -49,8 +48,8 @@ def test_load_individual():
     assert len(ca.sig_X) == ca.n_ntransitions, len(ca.sig_X)
 
     for x in range(len(ca.Xcoeffs)):
-        assert len(ca.Xcoeffs[x]) == ca.n_ntransitions, len(ca.Xcoeffs[x])
-        assert len(ca.sig_Xcoeffs[x]) == ca.n_ntransitions, len(ca.sig_Xcoeffs[x])
+        assert len(ca.Xcoeffs[x]) == ca.n_ntransitions + 1, len(ca.Xcoeffs[x])
+        assert len(ca.sig_Xcoeffs[x]) == ca.n_ntransitions + 1, len(ca.sig_Xcoeffs[x])
 
     assert (ca.nu.size == ca.m_nisotopepairs * ca.n_ntransitions)
     assert np.allclose(ca.mu_norm_isotope_shifts, mnu_Mathematica, rtol=1e-14)
@@ -81,22 +80,9 @@ def test_load_individual():
     assert (sum(ca.range_i) == sum(ca.range_j))
     assert (len(ca.range_i) == len(ca.range_j) + 1)
 
-    print("mnu")
-    print(ca.mu_norm_isotope_shifts)
-    print("mnu Mathematica")
-    print(np.array(mnu_Mathematica))
-    print("testi")
-    print(np.divide(ca.nu.T, ca.mu_aap))
-
-    print("sig_mnu")
-    print(ca.sig_mu_norm_isotope_shifts)
-    print("sig_mnu Mathematica")
-    print(np.array(sig_mnu_Mathematica))
-
-
 
 def test_set_fit_params():
-    ca = Elem.get('Ca')
+    ca = Elem.get('Ca_testdata')
 
     kappaperp1temp = list(range(ca.n_ntransitions - 1))
     ph1temp = [np.pi / 2 - np.pi / (i + 2) for i in
@@ -129,7 +115,7 @@ def test_set_fit_params():
 
 
 def test_constr_dvec():
-    ca = Elem.get('Ca')
+    ca = Elem.get('Ca_testdata')
 
     # without NP
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
@@ -154,14 +140,14 @@ def test_constr_dvec():
 
     assert np.allclose(dmat_alphaNP_1_Mathematica, ca.dmat, rtol=1e-14)
 
-    absd_explicit = np.array([np.sqrt(np.sum(ca.d_ai(a, i)**2 for i in
-        ca.range_i)) for a in ca.range_a])
+    absd_explicit = np.array([np.sqrt(np.sum(
+        np.fromiter([ca.d_ai(a, i)**2 for i in ca.range_i], float))) for a in ca.range_a])
     assert np.allclose(ca.absd, absd_explicit, rtol=1e-25)
 
 
 
 def test_cov_nu_nu():
-    ca = Elem.get('Ca')
+    ca = Elem.get('Ca_testdata')
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
 
     DdDnu_11bj_python = np.array([[ca.DdDnu[0, 0, b, j] for j in ca.range_i] for b
@@ -177,19 +163,9 @@ def test_cov_nu_nu():
     assert np.allclose(sigdnu_python, sigdnu_Mathematica, rtol=1e-14)
     # (same with and without NP)
 
-    # DabdsdDnu_explicit = np.array([np.sum([[[ca.d_ai[a, i] * ca.DdDnu[a,
-        # i, b, j] for j in ca.range_i] for b in ca.range_a] for i in ca.range_i])
-        # / ca.absd[a] for a in ca.range_a])
-
-    print("dmat.shape", ca.dmat.shape)
-    print("DdDnu.shape", ca.DdDnu.shape)
-    print("absd.shape", ca.absd.shape)
-    print("dmat*DdDnu.shape", np.sum(ca.dmat * ca.DdDnu, 1).shape)
-    # print("DabdsdDnu implemented", ca.DabsdDnu)
-    print("DabdsdDnu explicit   ", ca.DdDnu[1, 2, 1, 2])  # DabdsdDnu_explicit)
 
 def test_cov_m_m():
-    ca = Elem.get('Ca')
+    ca = Elem.get('Ca_testdata')
 
     # without NP
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
@@ -244,7 +220,7 @@ def test_cov_m_m():
 
 
 def test_cov_mp_mp():
-    ca = Elem.get('Ca')
+    ca = Elem.get('Ca_testdata')
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
 
     DdDmp_a1b_python = np.array([[ca.DdDmp[a, 0, b] for b in ca.range_a] for a in
@@ -264,7 +240,7 @@ def test_cov_mp_mp():
 
 
 def test_cov_m_mp():
-    ca = Elem.get('Ca')
+    ca = Elem.get('Ca_testdata')
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
 
     sigdmmp_python = np.einsum('aic,cd,bjd->aibj', ca.DdDm, ca.cov_m_mp, ca.DdDmp)
@@ -274,7 +250,7 @@ def test_cov_m_mp():
 
 
 def test_cov_X_X():
-    ca = Elem.get('Ca')
+    ca = Elem.get('Ca_testdata')
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
 
     assert np.isclose(ca.sig_X @ ca.sig_X, np.sum(ca.cov_X_X), rtol=1e-25)
@@ -292,7 +268,7 @@ def test_cov_X_X():
 
 
 def test_constr_LL():
-    ca = Elem.get('Ca')
+    ca = Elem.get('Ca_testdata')
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
 
     assert np.allclose(ca.absd, absd_Mathematica, rtol=1e-9)
@@ -315,18 +291,6 @@ def test_constr_LL():
     simplified_LL = 1 / 2 * np.sum(ca.absd**2 / np.diag(ca.cov_d_d))
 
     assert np.isclose(simplified_LL, ca.LL, rtol=1e-25)
-    print("simplified_LL")
-    print(simplified_LL)
-    print("LL")
-    print(ca.LL)
-
-    # simplified_LL_alphaNP_1 = (-1 / 2 * np.sum([[ca.dmat[a, i]**2 / ca.cov_d_d[a, i, a,
-        # i] for a in ca.range_a] for i in ca.range_i]))
-    # assert np.isclose(simplified_LL_alphaNP_1, LL_Mathematica_alphaNP_1, rtol=1e-25)
-
-    # print("simplified LL with NP")
-    # print(simplified_LL_alphaNP_1)
-
 
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica,
         1.])
@@ -344,6 +308,7 @@ def test_constr_LL():
     assert np.isclose(ca.LL, LL_alphaNP_1_Mathematica, rtol=1e-3)
 
 if __name__ == "__main__":
+    test_load_all()
     test_load_individual()
     test_set_fit_params()
     test_constr_dvec()

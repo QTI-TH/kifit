@@ -37,7 +37,8 @@ class Elem:
 
         """
         if element not in self.VALID_ELEM:
-            raise NameError("Element {} not supported".format(element))
+            raise NameError("""Element {} not supported. You may want to add it
+                    to src/qiss/user_elems""".format(element))
 
         print("Loading raw data")
         self.id = element
@@ -52,7 +53,8 @@ class Elem:
         val = np.loadtxt(file_path)
 
         if ((atr == 'Xcoeffs') or (atr == 'sig_Xcoeffs')):
-            val = val.reshape(-1, self.n_ntransitions)
+
+            val = val.reshape(-1, self.n_ntransitions + 1)
 
         setattr(self, atr, val)
 
@@ -90,13 +92,14 @@ class Elem:
     def _init_elem(self):
         for (i, file_type) in enumerate(self.INPUT_FILES):
             if len(self.INPUT_FILES) != len(self.elem_init_atr):
-                raise NameError("Number of INPUT_FILES does not match number of elem_init_atr.")
+                raise NameError("""Number of INPUT_FILES does not match number
+                of elem_init_atr.""")
 
             file_name = file_type + self.id + '.dat'
             file_path = os.path.join(_data_path, self.id, file_name)
 
             # if not os.path.exists(file_path):
-                # raise ImportError(f"Path {file_path} does not exist.")
+            #     raise ImportError(f"Path {file_path} does not exist.")
             self.__load(self.elem_init_atr[i], file_type, file_path)
 
     def _init_corr_mats(self):
@@ -105,7 +108,8 @@ class Elem:
 
         for i, file_type in enumerate(self.OPTIONAL_INPUT_FILES):
             if len(self.OPTIONAL_INPUT_FILES) != len(self.elem_corr_mats):
-                raise NameError("Number of OPTIONAL_INPUT_FILES does not match number of elem_corr_mats.")
+                raise NameError("""Number of OPTIONAL_INPUT_FILES does not match
+                number of elem_corr_mats.""")
 
             file_name = file_type + self.id + '.dat'
             file_path = os.path.join(_data_path, self.id, file_name)
@@ -124,11 +128,18 @@ class Elem:
 
     def _init_Xcoeffs(self):
         """
-        Initialise the X coefficients to the set computed for a given mediator mass.
+        Initialise the X coefficients to the set computed for a given mediator
+        mass mphi.
 
         """
-        self.X = self.Xcoeffs[0]
-        self.sig_X = self.sig_Xcoeffs[0]
+        self.mphi = self.Xcoeffs[0, 0]
+        self.X = self.Xcoeffs[0, 1:]
+
+        if self.sig_Xcoeffs[0, 0] != self.mphi:
+            raise ValueError("""Mediator masses mphi do not match in files with
+            X-coefficients and their uncertainties.""")
+        else:
+            self.sig_X = self.sig_Xcoeffs[0, 1:]
 
     def _init_fit_params(self):
         self.Kperp1 = np.zeros(self.n_ntransitions)
@@ -159,8 +170,14 @@ class Elem:
         if (x < 0 or len(self.Xcoeffs) - 1 < x):
             raise IndexError(f"Index {x} not within permitted range for x.")
 
-        self.X = self.Xcoeffs[x]
-        self.sig_X = self.sig_Xcoeffs[x]
+        self.mphi = self.Xcoeffs[x, 0]
+        self.X = self.Xcoeffs[x, 1:]
+
+        if self.sig_Xcoeffs[x, 0] != self.mphi:
+            raise ValueError("""Mediator masses mphi do not match in files with
+                    X-coefficients and their uncertainties.""")
+        else:
+            self.sig_X = self.sig_Xcoeffs[x, 1:]
 
     @update_fct
     def _update_fit_params(self, thetas):
@@ -175,14 +192,12 @@ class Elem:
         """
         if ((len(thetas[0]) != self.n_ntransitions - 1)
                 or (len(thetas[1]) != self.n_ntransitions - 1)):
-            raise AttributeError("Passed fit parameters do not have appropriate dimensions")
-        # assert (len(thetas[0]) == len(thetas[1]) == self.n_ntransitions - 1), (len(thetas[0]), self.n_ntransitions - 1)
+            raise AttributeError("""Passed fit parameters do not have
+            appropriate dimensions""")
 
         if np.array([(-np.pi / 2 > phij) or (phij > np.pi / 2) for phij in thetas[1]]).any():
-            raise ValueError("Passed phij values are not within 1st / 4th quadrant.")
-
-        # assert np.array([(-np.pi / 2 < phij) & (phij < np.pi / 2) for phij in
-            # thetas[1]]).all()
+            raise ValueError("""Passed phij values are not within 1st / 4th
+            quadrant.""")
 
         self.Kperp1 = np.insert(thetas[0], 0, 0.)
         self.ph1 = thetas[1]
@@ -282,7 +297,8 @@ class Elem:
     @cached_fct_property
     def sig_mu_norm_isotope_shifts(self):
         """
-        Generate uncertainties on mass normalised isotope shifts and write mxn-matrix to file.
+        Generate uncertainties on mass normalised isotope shifts and write
+        (m x n)-matrix to file.
 
         """
         return np.absolute(np.array([[self.mu_norm_isotope_shifts[a, i]
@@ -325,7 +341,7 @@ class Elem:
         """
         Field shift vector entering King relation.
 
-           F1 = (1, tan(phi_12), ... , tan(phi_1n))
+           F1 = [1, tan(phi_12), ... , tan(phi_1n)]
 
         """
         return np.insert(np.tan(self.ph1), 0, 1.)
@@ -393,17 +409,6 @@ class Elem:
         Returns element d_i^{AA'} of the n-vector d^{AA'}.
 
         """
-        # print("inside d_ai: this is F1", self.F1)
-        # print("F1[1] type", self.F1[1].dtype)
-        # print("inside d_ai: this is secph1", self.secph1)
-        # print("secph1[1] type", self.secph1[1].dtype)
-        # print("inside d_ai: this is Kperp1", self.Kperp1)
-        # print("Kperp1[1] type", self.Kperp1[1].dtype)
-
-        # print("inside d_ai: this is D_a1i(0,0)", self.D_a1i(0, 0))
-        # print("inside d_ai: this is mu_aap", self.mu_aap)
-        # print("inside d_ai: this is F1sq", self.F1sq)
-
         if ((i == 0) & (a in self.range_a)):
             return - 1 / self.F1sq * np.sum(np.array([self.F1[j]
                 * (self.D_a1i(a, j) / self.mu_aap[a]
@@ -495,19 +500,17 @@ class Elem:
 
         """
         if (a not in self.range_a):
-            raise IndexError(f"Isotope pair index {a} passed to fDdDm_aib is out of range.")
+            raise IndexError(f"""Isotope pair index {a} passed to fDdDm_aib is
+            out of range.""")
 
         if (b not in self.range_a):
-            raise IndexError(f"Isotope pair index {a} passed t fDdDm_aib is out of range.")
-
-        # assert ((a in self.range_a) & (b in self.range_a)), (a, b)
+            raise IndexError(f"""Isotope pair index {a} passed t fDdDm_aib is
+            out of range.""")
 
         if (self.a_nisotope[b] == self.a_nisotope[a]):
-            # print("(a,b, i)", (a, b, i))
             return self.fDdDmmp_aib(a, i, b, 1) / self.m_a[b]**2
 
         elif (self.a_nisotope[b] == self.ap_nisotope[a]):
-            # print("(ap, b)", (a, b))
             return self.fDdDmmp_aib(a, i, b, -1) / self.m_a[b]**2
 
         else:
