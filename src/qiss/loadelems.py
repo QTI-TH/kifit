@@ -1,14 +1,13 @@
 import os
 import numpy as np
-from qiss.cache_update import update_fct
-from qiss.cache_update import cached_fct
-from qiss.cache_update import cached_fct_property
-from qiss.user_elements import user_elems
+from .cache_update import update_fct
+from .cache_update import cached_fct
+from .cache_update import cached_fct_property
+from .user_elements import user_elems
 
-_data_path = os.path.abspath(os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    '../qiss_data'
-))
+_data_path = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "../qiss_data")
+)
 
 
 def sec(x: float):
@@ -21,14 +20,11 @@ class Elem:
     # Load raw data from data folder
     # VALID_ELEM = ['Ca']
     VALID_ELEM = user_elems
-    INPUT_FILES = ['nu', 'signu', 'isotopes', 'Xcoeffs', 'sigXcoeffs']
-    elem_init_atr = ['nu', 'sig_nu', 'isotope_data', 'Xcoeffs',
-    'sig_Xcoeffs']
+    INPUT_FILES = ["nu", "signu", "isotopes", "Xcoeffs", "sigXcoeffs"]
+    elem_init_atr = ["nu", "sig_nu", "isotope_data", "Xcoeffs", "sig_Xcoeffs"]
 
-    OPTIONAL_INPUT_FILES = ['corrnunu', 'corrmm', 'corrmmp', 'corrmpmp',
-    'corrXX']
-    elem_corr_mats = ['corr_nu_nu', 'corr_m_m', 'corr_m_mp', 'corr_mp_mp',
-    'corr_X_X']
+    OPTIONAL_INPUT_FILES = ["corrnunu", "corrmm", "corrmmp", "corrmpmp", "corrXX"]
+    elem_corr_mats = ["corr_nu_nu", "corr_m_m", "corr_m_mp", "corr_mp_mp", "corr_X_X"]
 
     def __init__(self, element: str):
         """
@@ -45,38 +41,44 @@ class Elem:
         self._init_Xcoeffs()
 
     def __load(self, atr: str, file_type: str, file_path: str):
-        print('Loading attribute {} for element {} from {}'.format(
-            atr, self.id, file_path))
+        print(
+            "Loading attribute {} for element {} from {}".format(
+                atr, self.id, file_path
+            )
+        )
         val = np.loadtxt(file_path)
 
-        if ((atr == 'Xcoeffs') or (atr == 'sig_Xcoeffs')):
+        if (atr == "Xcoeffs") or (atr == "sig_Xcoeffs"):
             val = val.reshape(-1, self.n_ntransitions)
 
         setattr(self, atr, val)
 
     def __set_id_corr_mats(self, atr: str):
 
-        if (atr == 'corr_nu_nu'):
-            setattr(self, atr,
-                    np.einsum('ab,ij->aibj',
-                        np.identity(self.m_nisotopepairs),
-                        np.identity(self.n_ntransitions)))
+        if atr == "corr_nu_nu":
+            setattr(
+                self,
+                atr,
+                np.einsum(
+                    "ab,ij->aibj",
+                    np.identity(self.m_nisotopepairs),
+                    np.identity(self.n_ntransitions),
+                ),
+            )
 
-        elif ((atr == 'corr_m_m')
-                or (atr == 'corr_mp_mp')):
+        elif (atr == "corr_m_m") or (atr == "corr_mp_mp"):
             setattr(self, atr, np.identity(self.m_nisotopepairs))
 
-        elif (atr == 'corr_m_mp'):
-            setattr(self, atr, np.zeros((self.m_nisotopepairs,
-                self.m_nisotopepairs)))
+        elif atr == "corr_m_mp":
+            setattr(self, atr, np.zeros((self.m_nisotopepairs, self.m_nisotopepairs)))
 
-        elif (atr == 'corr_X_X'):
+        elif atr == "corr_X_X":
             setattr(self, atr, np.identity(self.n_ntransitions))
 
     def _init_elem(self):
         for (i, file_type) in enumerate(self.INPUT_FILES):
             assert len(self.INPUT_FILES) == len(self.elem_init_atr)
-            file_name = file_type + self.id + '.dat'
+            file_name = file_type + self.id + ".dat"
             file_path = os.path.join(_data_path, self.id, file_name)
             assert os.path.exists(file_path), file_path
             self.__load(self.elem_init_atr[i], file_type, file_path)
@@ -89,28 +91,32 @@ class Elem:
 
             assert len(self.OPTIONAL_INPUT_FILES) == len(self.elem_corr_mats)
 
-            file_name = file_type + self.id + '.dat'
+            file_name = file_type + self.id + ".dat"
             file_path = os.path.join(_data_path, self.id, file_name)
 
             if os.path.exists(file_path):
-                print("Loading {} for Element {}".format(
-                    self.elem_corr_mats[i], self.id))
+                print(
+                    "Loading {} for Element {}".format(self.elem_corr_mats[i], self.id)
+                )
                 self.__load(self.elem_corr_mats[i], file_type, file_path)
             else:
                 self.__set_id_corr_mats(self.elem_corr_mats[i])
                 corr_mats_to_be_defined.append(self.elem_corr_mats[i])
 
-        if (len(corr_mats_to_be_defined) > 0):
-            print("Using default values for {} of Element {}.".format(
-                ', '.join(str(cm) for cm in corr_mats_to_be_defined), self.id))
+        if len(corr_mats_to_be_defined) > 0:
+            print(
+                "Using default values for {} of Element {}.".format(
+                    ", ".join(str(cm) for cm in corr_mats_to_be_defined), self.id
+                )
+            )
 
     def _init_Xcoeffs(self):
         """
         Initialise the X coefficients to the set computed for a given mediator mass.
 
         """
-        assert (len(self.Xcoeffs) > 0), len(self.Xcoeffs)
-        assert (len(self.sig_Xcoeffs) > 0), len(self.sig_Xcoeffs)
+        assert len(self.Xcoeffs) > 0, len(self.Xcoeffs)
+        assert len(self.sig_Xcoeffs) > 0, len(self.sig_Xcoeffs)
 
         self.X = self.Xcoeffs[0]
         self.sig_X = self.sig_Xcoeffs[0]
@@ -124,7 +130,7 @@ class Elem:
         self.alphaNP = 0
 
     def __repr__(self):
-        return self.id + '[' + ','.join(list(self.__dict__.keys())) + ']'
+        return self.id + "[" + ",".join(list(self.__dict__.keys())) + "]"
 
     @classmethod
     def load_all(cls):
@@ -144,7 +150,7 @@ class Elem:
         a given mediator mass.
 
         """
-        assert ((0 <= x) & (x <= len(self.Xcoeffs)))
+        assert (0 <= x) & (x <= len(self.Xcoeffs))
 
         assert len(self.Xcoeffs[x]) == self.n_ntransitions, len(self.Xcoeffs[x])
         assert len(self.sig_Xcoeffs[x]) == self.n_ntransitions, len(self.sig_Xcoeffs[x])
@@ -163,12 +169,16 @@ class Elem:
         values provided in "thetas".
 
         """
-        assert (len(thetas[0]) == len(thetas[1]) == self.n_ntransitions - 1), (len(thetas[0]), self.n_ntransitions - 1)
+        assert len(thetas[0]) == len(thetas[1]) == self.n_ntransitions - 1, (
+            len(thetas[0]),
+            self.n_ntransitions - 1,
+        )
 
-        assert np.array([(-np.pi / 2 < phij) & (phij < np.pi / 2) for phij in
-            thetas[1]]).all()
+        assert np.array(
+            [(-np.pi / 2 < phij) & (phij < np.pi / 2) for phij in thetas[1]]
+        ).all()
 
-        self.Kperp1 = np.insert(thetas[0], 0, 0.)
+        self.Kperp1 = np.insert(thetas[0], 0, 0.0)
         self.ph1 = thetas[1]
         self.alphaNP = thetas[2]
 
@@ -297,7 +307,7 @@ class Elem:
         Return electronic coefficient X_ij of the new physics term.
 
         """
-        return (self.X - self.F1 * self.X[0])
+        return self.X - self.F1 * self.X[0]
 
     @cached_fct_property
     def np_term(self):
@@ -316,7 +326,7 @@ class Elem:
            F1 = (1, tan(phi_12), ... , tan(phi_1n))
 
         """
-        return np.insert(np.tan(self.ph1), 0, 1.)
+        return np.insert(np.tan(self.ph1), 0, 1.0)
 
     @cached_fct_property
     def F1sq(self):
@@ -366,14 +376,13 @@ class Elem:
         transition index.
 
         """
-        if ((i == 0) and (a in self.range_a)):
+        if (i == 0) and (a in self.range_a):
             return 0
 
-        elif ((i in self.range_j) and (a in self.range_a)):
-            return (self.nu[a, i] - self.F1[i] * self.nu[a, 0]
-                    - self.np_term[a, i])
+        elif (i in self.range_j) and (a in self.range_a):
+            return self.nu[a, i] - self.F1[i] * self.nu[a, 0] - self.np_term[a, i]
         else:
-            raise ValueError('index out of range.')
+            raise ValueError("index out of range.")
 
     @cached_fct
     def d_ai(self, a: int, i: int):
@@ -386,20 +395,34 @@ class Elem:
         print("inside d_ai: this is D_a1i(0,0)", self.D_a1i(0, 0))
         print("inside d_ai: this is mu_aap", self.mu_aap)
         print("inside d_ai: this is F1sq", self.F1sq)
-        assert (self.F1sq == self.F1 @ self.F1)
+        assert self.F1sq == self.F1 @ self.F1
 
-        if ((i == 0) & (a in self.range_a)):
-            return - 1 / self.F1sq * np.sum(np.array([self.F1[j]
-                * (self.D_a1i(a, j) / self.mu_aap[a]
-                    - self.secph1[j] * self.Kperp1[j])
-                for j in self.range_j]))
+        if (i == 0) & (a in self.range_a):
+            return (
+                -1
+                / self.F1sq
+                * np.sum(
+                    np.array(
+                        [
+                            self.F1[j]
+                            * (
+                                self.D_a1i(a, j) / self.mu_aap[a]
+                                - self.secph1[j] * self.Kperp1[j]
+                            )
+                            for j in self.range_j
+                        ]
+                    )
+                )
+            )
 
-        elif ((i in self.range_j) & (a in self.range_a)):
-            return (self.D_a1i(a, i) / self.mu_aap[a]
-                    - self.secph1[i] * self.Kperp1[i]
-                    + self.F1[i] * self.d_ai(a, 0))
+        elif (i in self.range_j) & (a in self.range_a):
+            return (
+                self.D_a1i(a, i) / self.mu_aap[a]
+                - self.secph1[i] * self.Kperp1[i]
+                + self.F1[i] * self.d_ai(a, 0)
+            )
         else:
-            raise ValueError('transition index out of range.')
+            raise ValueError("transition index out of range.")
 
     @cached_fct_property
     def dmat(self):
@@ -407,8 +430,7 @@ class Elem:
         Return full distances matrix.
 
         """
-        return np.array([[self.d_ai(a, i) for i in self.range_i] for a in
-            self.range_a])
+        return np.array([[self.d_ai(a, i) for i in self.range_i] for a in self.range_a])
 
     @cached_fct
     def fDdDnu_ij(self, i: int, j: int):
@@ -417,15 +439,17 @@ class Elem:
         isotope indices a = AA', b = BB'.
 
         """
-        if ((i == 0) & (j == 0)):
-            return (1 / self.F1sq * np.sum(np.array([self.F1[j]**2
-                for j in self.range_j])))
+        if (i == 0) & (j == 0):
+            return (
+                1
+                / self.F1sq
+                * np.sum(np.array([self.F1[j] ** 2 for j in self.range_j]))
+            )
 
-        elif (((i == 0) & (j in self.range_j))
-                or ((i in self.range_j) & (j == 0))):
+        elif ((i == 0) & (j in self.range_j)) or ((i in self.range_j) & (j == 0)):
             return -1 / self.F1sq * self.F1[j]
 
-        elif ((i in self.range_j) & (j in self.range_j)):
+        elif (i in self.range_j) & (j in self.range_j):
             res = -1 / self.F1sq * self.F1[i] * self.F1[j]
 
             if i == j:
@@ -442,24 +466,42 @@ class Elem:
         Return derivative of d wrt. nu.
 
         """
-        fmat = np.array([[self.fDdDnu_ij(i, j) if i<=j else 0 for j in self.range_i]
-            for i in self.range_i])
+        fmat = np.array(
+            [
+                [self.fDdDnu_ij(i, j) if i <= j else 0 for j in self.range_i]
+                for i in self.range_i
+            ]
+        )
         fmat = fmat + fmat.T - np.diag(fmat)
 
-        return np.einsum('ab,ij->aibj', np.linalg.inv(np.diag(self.mu_aap)), fmat)
+        return np.einsum("ab,ij->aibj", np.linalg.inv(np.diag(self.mu_aap)), fmat)
 
     @cached_fct
     def fDdDmmp_aib(self, a: int, i: int, b: int, merkki: int):
 
-        if (i == 0):
-            return (-merkki / self.F1sq / self.mu_aap[a]**2  # (self.m_a[b] * self.mu_aap[a])**2
-                * np.sum(np.array([self.F1[j] * self.D_a1i(a, j) for j in self.range_j])))
+        if i == 0:
+            return (
+                -merkki
+                / self.F1sq
+                / self.mu_aap[a] ** 2  # (self.m_a[b] * self.mu_aap[a])**2
+                * np.sum(
+                    np.array([self.F1[j] * self.D_a1i(a, j) for j in self.range_j])
+                )
+            )
 
-        elif (i in self.range_j):
-            return (merkki / self.mu_aap[a]**2  # (self.m_a[b] * self.mu_aap[a])**2 * (
-                    * (self.D_a1i(a, i) - self.F1[i] / self.F1sq
-                        * np.sum(np.array([self.F1[j] * self.D_a1i(a, j) for j in
-                        self.range_j]))))
+        elif i in self.range_j:
+            return (
+                merkki
+                / self.mu_aap[a] ** 2  # (self.m_a[b] * self.mu_aap[a])**2 * (
+                * (
+                    self.D_a1i(a, i)
+                    - self.F1[i]
+                    / self.F1sq
+                    * np.sum(
+                        np.array([self.F1[j] * self.D_a1i(a, j) for j in self.range_j])
+                    )
+                )
+            )
 
     @cached_fct
     def fDdDm_aib(self, a: int, i: int, b: int):
@@ -468,13 +510,13 @@ class Elem:
         reference isotope index.
 
         """
-        assert ((a in self.range_a) & (b in self.range_a)), (a, b)
+        assert (a in self.range_a) & (b in self.range_a), (a, b)
 
-        if (self.a_nisotope[b] == self.a_nisotope[a]):
-            return self.fDdDmmp_aib(a, i, b, 1) / self.m_a[b]**2
+        if self.a_nisotope[b] == self.a_nisotope[a]:
+            return self.fDdDmmp_aib(a, i, b, 1) / self.m_a[b] ** 2
 
-        elif (self.a_nisotope[b] == self.ap_nisotope[a]):
-            return self.fDdDmmp_aib(a, i, b, -1) / self.m_a[b]**2
+        elif self.a_nisotope[b] == self.ap_nisotope[a]:
+            return self.fDdDmmp_aib(a, i, b, -1) / self.m_a[b] ** 2
 
         else:
             return 0
@@ -486,13 +528,13 @@ class Elem:
         primed isotope index.
 
         """
-        assert ((a in self.range_a) & (b in self.range_a)), (a, b)
+        assert (a in self.range_a) & (b in self.range_a), (a, b)
 
-        if (self.ap_nisotope[b] == self.ap_nisotope[a]):
-            return self.fDdDmmp_aib(a, i, b, 1) / self.m_ap[b]**2
+        if self.ap_nisotope[b] == self.ap_nisotope[a]:
+            return self.fDdDmmp_aib(a, i, b, 1) / self.m_ap[b] ** 2
 
-        elif (self.ap_nisotope[b] == self.a_nisotope[a]):
-            return self.fDdDmmp_aib(a, i, b, -1) / self.m_ap[b]**2
+        elif self.ap_nisotope[b] == self.a_nisotope[a]:
+            return self.fDdDmmp_aib(a, i, b, -1) / self.m_ap[b] ** 2
 
         else:
             return 0
@@ -504,8 +546,12 @@ class Elem:
         isotope masses.
 
         """
-        return np.array([[[self.fDdDm_aib(a, i, b) for b in self.range_a] for i
-            in self.range_i] for a in self.range_a])
+        return np.array(
+            [
+                [[self.fDdDm_aib(a, i, b) for b in self.range_a] for i in self.range_i]
+                for a in self.range_a
+            ]
+        )
 
     @cached_fct_property
     def DdDmp(self):
@@ -514,8 +560,12 @@ class Elem:
         isotope masses.
 
         """
-        return np.array([[[self.fDdDmp_aib(a, i, b) for b in self.range_a] for i
-            in self.range_i] for a in self.range_a])
+        return np.array(
+            [
+                [[self.fDdDmp_aib(a, i, b) for b in self.range_a] for i in self.range_i]
+                for a in self.range_a
+            ]
+        )
 
     @cached_fct
     def DdDX_aij(self, a: int, i: int, j: int):
@@ -524,21 +574,34 @@ class Elem:
         transition index.
 
         """
-        if ((a in self.range_a) & (i == 0) & (j == 0)):
-            return (-self.alphaNP / self.F1sq * self.h_aap[a]
-                    * np.sum(np.array([self.F1[j]**2 for j in self.range_j])))
+        if (a in self.range_a) & (i == 0) & (j == 0):
+            return (
+                -self.alphaNP
+                / self.F1sq
+                * self.h_aap[a]
+                * np.sum(np.array([self.F1[j] ** 2 for j in self.range_j]))
+            )
 
-        elif ((a in self.range_a) & (i == 0) & (j in self.range_j)):
+        elif (a in self.range_a) & (i == 0) & (j in self.range_j):
             return self.alphaNP / self.F1sq * self.h_aap[a] * self.F1[j]
 
-        elif ((a in self.range_a) & (i in self.range_j) & (j == 0)):
-            return (self.alphaNP * self.h_aap[a] * self.F1[i] * (1 - 1 / self.F1sq
-                * np.sum(np.array([self.F1[k]**2 for k in self.range_j]))))
+        elif (a in self.range_a) & (i in self.range_j) & (j == 0):
+            return (
+                self.alphaNP
+                * self.h_aap[a]
+                * self.F1[i]
+                * (
+                    1
+                    - 1
+                    / self.F1sq
+                    * np.sum(np.array([self.F1[k] ** 2 for k in self.range_j]))
+                )
+            )
 
-        elif ((a in self.range_a) & (i in self.range_j) & (j in self.range_j)):
-            res = -1 / self.F1sq * self.F1[j]**2
+        elif (a in self.range_a) & (i in self.range_j) & (j in self.range_j):
+            res = -1 / self.F1sq * self.F1[j] ** 2
             if i == j:
-                res =+ 1
+                res = +1
             return -self.alphaNP * self.h_aap[a] * self.F1[i] * res
 
         else:
@@ -550,8 +613,12 @@ class Elem:
         Return derivative of d wrt. X.
 
         """
-        return np.array([[[self.DdDX_aij(a, i, j) for j in self.range_i] for i in
-            self.range_i] for a in self.range_a])
+        return np.array(
+            [
+                [[self.DdDX_aij(a, i, j) for j in self.range_i] for i in self.range_i]
+                for a in self.range_a
+            ]
+        )
 
     @cached_fct_property
     def cov_nu_nu(self):
@@ -561,8 +628,7 @@ class Elem:
         correlations.
 
         """
-        return np.einsum('ai,aibj,bj->aibj',
-                self.sig_nu, self.corr_nu_nu, self.sig_nu)
+        return np.einsum("ai,aibj,bj->aibj", self.sig_nu, self.corr_nu_nu, self.sig_nu)
 
     @cached_fct_property
     def cov_m_m(self):
@@ -572,8 +638,7 @@ class Elem:
         correlations.
 
         """
-        return np.einsum('a,ab,b->ab',
-                self.sig_m_a, self.corr_m_m, self.sig_m_a)
+        return np.einsum("a,ab,b->ab", self.sig_m_a, self.corr_m_m, self.sig_m_a)
 
     @cached_fct_property
     def cov_m_mp(self):
@@ -583,8 +648,7 @@ class Elem:
         uncertainties and their correlations.
 
         """
-        return np.einsum('a,ab,b->ab',
-                self.sig_m_a, self.corr_m_mp, self.sig_m_ap)
+        return np.einsum("a,ab,b->ab", self.sig_m_a, self.corr_m_mp, self.sig_m_ap)
 
     @cached_fct_property
     def cov_mp_mp(self):
@@ -593,8 +657,7 @@ class Elem:
         m_Ap, given the experimental uncertainties and their correlations.
 
         """
-        return np.einsum('a,ab,b->ab',
-                self.sig_m_ap, self.corr_m_mp, self.sig_m_ap)
+        return np.einsum("a,ab,b->ab", self.sig_m_ap, self.corr_m_mp, self.sig_m_ap)
 
     @cached_fct_property
     def cov_X_X(self):
@@ -603,8 +666,7 @@ class Elem:
         uncertainties and their correlations.
 
         """
-        return np.einsum('i,ij,j->ij',
-                self.sig_X, self.corr_X_X, self.sig_X)
+        return np.einsum("i,ij,j->ij", self.sig_X, self.corr_X_X, self.sig_X)
 
     @cached_fct_property
     def cov_d_d(self):
@@ -612,19 +674,14 @@ class Elem:
         Return the covariance matrix cov[d,d].
 
         """
-        return (np.einsum('aick,ckdl,bjdl->aibj',
-                    self.DdDnu, self.cov_nu_nu, self.DdDnu)
-                + np.einsum('aic,cd,bjd->aibj',
-                    self.DdDm, self.cov_m_m, self.DdDm)
-                + np.einsum('aic,cd,bjd->aibj',
-                    self.DdDm, self.cov_m_mp, self.DdDmp)
-                + np.einsum('aic,cd,bjd->aibj',
-                    self.DdDmp, self.cov_m_mp.T, self.DdDm)
-                + np.einsum('aic,cd,bjd->aibj',
-                    self.DdDmp, self.cov_mp_mp, self.DdDmp)
-                + np.einsum('aik,kl,bjl->aibj',
-                    self.DdDX, self.cov_X_X, self.DdDX)
-                )
+        return (
+            np.einsum("aick,ckdl,bjdl->aibj", self.DdDnu, self.cov_nu_nu, self.DdDnu)
+            + np.einsum("aic,cd,bjd->aibj", self.DdDm, self.cov_m_m, self.DdDm)
+            + np.einsum("aic,cd,bjd->aibj", self.DdDm, self.cov_m_mp, self.DdDmp)
+            + np.einsum("aic,cd,bjd->aibj", self.DdDmp, self.cov_m_mp.T, self.DdDm)
+            + np.einsum("aic,cd,bjd->aibj", self.DdDmp, self.cov_mp_mp, self.DdDmp)
+            + np.einsum("aik,kl,bjl->aibj", self.DdDX, self.cov_X_X, self.DdDX)
+        )
         # Do we want to be more general than this?
         # More user-friendly options?
 
@@ -641,5 +698,17 @@ class Elem:
         alphaNP=0.
 
         """
-        return (-1 / 2 * np.sum(np.concatenate(np.einsum('ai,aibj,bj->aibj', self.dmat,
-            np.linalg.pinv(self.cov_d_d), (self.dmat).T))))
+        return (
+            -1
+            / 2
+            * np.sum(
+                np.concatenate(
+                    np.einsum(
+                        "ai,aibj,bj->aibj",
+                        self.dmat,
+                        np.linalg.pinv(self.cov_d_d),
+                        (self.dmat).T,
+                    )
+                )
+            )
+        )

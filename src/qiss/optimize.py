@@ -71,11 +71,11 @@ class CMA(Optimizer):
 
     def __init__(
         self,
-        target_loss: float,
-        max_iterations: int,
-        initial_params: list,
-        maxfeval: int,
-        verbose: int = 1,
+        target_loss,
+        max_iterations,
+        initial_params=None,
+        maxfeval=None,
+        verbose=1,
     ):
         """
         Args:
