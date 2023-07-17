@@ -13,4 +13,12 @@ slopes, intercepts = opt.get_linear_fit_params(data, reference_transition_idx=0)
 print("Plotting linear fits")
 plot_linear_fits(slopes=slopes, intercepts=intercepts, data=data, target_index=0)
 
-print(f"\nLoss function: {ca.LL}")
+# initialize alphaNP
+alphaNP = 0
+
+parameters = []
+parameters.append(slopes)
+parameters.append(intercepts)
+parameters.append(alphaNP)
+
+print(ca.loss_function(parameters))

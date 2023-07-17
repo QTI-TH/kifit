@@ -14,7 +14,7 @@ def plot_linear_fits(slopes, intercepts, data, target_index=0):
 
     x = np.linspace(0, 1, 100)
 
-    plt.figure(figsize=(8 * nplots, 5))
+    plt.figure(figsize=(7 * nplots, 5))
     for i in range(nplots):
         plt.subplot(1, nplots, i + 1)
         plt.title(f"Fit for columns {target_index}{idx[i]}")
@@ -28,4 +28,4 @@ def plot_linear_fits(slopes, intercepts, data, target_index=0):
         plt.xlabel("Normalised x axis")
         plt.ylabel(f"{target_index}{idx[i]} transition")
     plt.tight_layout()
-    plt.savefig("linear_fits.png")
+    plt.savefig("linear_fits.pdf")

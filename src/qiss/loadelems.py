@@ -826,3 +826,14 @@ class Elem:
 
         """
         return 1 / 2 * (self.absd @ np.linalg.inv(self.cov_d_d) @ self.absd)
+
+    def loss_function(self, parameters):
+        """
+        Build the loss function by filling this `qiss.loadelem.Elem` with `parameters`.
+
+        Args:
+            parameters (list): [list(kperp1), list(ph1), alphaNP]
+        """
+
+        self._update_fit_params(parameters)
+        return -self.LL()
