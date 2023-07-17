@@ -216,25 +216,9 @@ class Elem:
         values provided in "thetas".
 
         """
-        if (len(thetas[0]) != self.n_ntransitions - 1) or (
-            len(thetas[1]) != self.n_ntransitions - 1
-        ):
-            raise AttributeError(
-                """Passed fit parameters do not have
-            appropriate dimensions"""
-            )
-
-        if np.array(
-            [(-np.pi / 2 > phij) or (phij > np.pi / 2) for phij in thetas[1]]
-        ).any():
-            raise ValueError(
-                """Passed phij values are not within 1st / 4th
-            quadrant."""
-            )
-
-        self.Kperp1 = np.insert(thetas[0], 0, 0.0)
-        self.ph1 = thetas[1]
-        self.alphaNP = thetas[2]
+        self.Kperp1 = np.insert(thetas[0 : self.n_ntransitions - 1], 0, 0.0)
+        self.ph1 = thetas[self.n_ntransitions - 1 : -1]
+        self.alphaNP = thetas[-1]
 
     # ELEM PROPERTIES ##########################################################
 
@@ -826,14 +810,3 @@ class Elem:
 
         """
         return 1 / 2 * (self.absd @ np.linalg.inv(self.cov_d_d) @ self.absd)
-
-    def loss_function(self, parameters):
-        """
-        Build the loss function by filling this `qiss.loadelem.Elem` with `parameters`.
-
-        Args:
-            parameters (list): [list(kperp1), list(ph1), alphaNP]
-        """
-
-        self._update_fit_params(parameters)
-        return -self.LL()

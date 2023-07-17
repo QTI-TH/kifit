@@ -7,10 +7,8 @@ def plot_linear_fits(slopes, intercepts, data, target_index=0):
     nplots = len(slopes)
     xaxis = data.T[0]
     xaxis = (xaxis - np.min(xaxis)) / (np.max(xaxis) - np.min(xaxis))
-    print(xaxis)
     # list of indices without the target one
     idx = np.delete(np.arange(len(slopes) + 1), target_index)
-    print(idx)
 
     x = np.linspace(0, 1, 100)
 

@@ -24,7 +24,7 @@ class Optimizer:
         self.target_loss = target_loss
         self.max_iterations = max_iterations
         self.verbose = verbose
-        self.loss = self.build_loss_function()
+        self.initial_params = None
 
     def optimize(self):
         """
@@ -37,9 +37,9 @@ class Optimizer:
         """
         raise NotImplementedError("Subclasses must implement the optimize() method.")
 
-    def build_loss_function(self):
-        """Build loss function using data of a target experiment."""
-        pass
+    def update_parameters(self, parameters):
+        """Update initial parameters of the optimization."""
+        self.initial_params = parameters
 
     def get_linear_fit_params(self, data, reference_transition_idx: int = 0):
         """
@@ -63,7 +63,8 @@ class Optimizer:
             slopes.append(results.slope)
             intercepts.append(results.intercept)
 
-        return slopes, intercepts
+        angles = np.arctan(slopes)
+        return slopes, intercepts, intercepts * (np.cos(angles)), angles.tolist()
 
 
 class CMA(Optimizer):
@@ -76,7 +77,6 @@ class CMA(Optimizer):
         self,
         target_loss,
         max_iterations,
-        initial_params=None,
         maxfeval=None,
         verbose=1,
     ):
@@ -95,22 +95,30 @@ class CMA(Optimizer):
         super().__init__(target_loss, max_iterations, verbose)
 
         self._method = "cma"
-        self.initial_params = initial_params
         self.maxfeval = maxfeval
 
-    def optimize(self) -> tuple[float, list]:
+    def optimize(self, loss: callable, initial_parameters) -> tuple[float, list]:
         """Call the CMA-ES optimizer."""
+
+        # params = []
+        # for elem in initial_parameters:
+        #     params.extend(elem[0])
+        #     params.extend(elem[1])
+        #     params.append(elem[2])
+
+        # print(params)
 
         options = {
             "verbose": self.verbose,
             "tolfun": self.target_loss,
             "maxiter": self.max_iterations,
-            "maxfeval": self._maxfeval,
+            "maxfeval": self.maxfeval,
         }
 
         res = cma.fmin2(
-            loss=self.loss,
-            initial_parameters=self.initial_params,
+            loss,
+            initial_parameters,
+            1.7,
             args=(),
             options=options,
         )
@@ -175,10 +183,10 @@ class ScipyMinimizer(Optimizer):
         self.callback = callback
         self.options = options
 
-    def optimize(self):
+    def optimize(self, loss):
         """Execute the minimization according to the chosen method."""
         res = minimize(
-            fun=self.loss,
+            fun=loss,
             x0=self.initial_params,
             args=(),
             method=self.method,
