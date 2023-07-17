@@ -1,9 +1,9 @@
 import os
 import numpy as np
-from .cache_update import update_fct
-from .cache_update import cached_fct
-from .cache_update import cached_fct_property
-from .user_elements import user_elems
+from cache_update import update_fct
+from cache_update import cached_fct
+from cache_update import cached_fct_property
+from user_elements import user_elems
 
 _data_path = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "../qiss_data")

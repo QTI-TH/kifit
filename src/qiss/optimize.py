@@ -41,7 +41,7 @@ class Optimizer:
         """Build loss function using data of a target experiment."""
         pass
 
-    def get_linear_fit_params(self, data, reference_transition_idx):
+    def get_linear_fit_params(self, data, reference_transition_idx: int = 0):
         """
         Perform linear regression.
 
@@ -55,12 +55,15 @@ class Optimizer:
         # data without the reference column used as indipendent
         y = np.delete(data, reference_transition_idx, axis=1)
 
-        linear_params = []
+        slopes = []
+        intercepts = []
 
         for i in range(y.shape[1]):
-            linear_params.append(sps.linregress(x, y.T[i]))
+            results = sps.linregress(x, y.T[i])
+            slopes.append(results.slope)
+            intercepts.append(results.intercept)
 
-        return linear_params
+        return slopes, intercepts
 
 
 class CMA(Optimizer):

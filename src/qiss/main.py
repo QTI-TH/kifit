@@ -1,13 +1,16 @@
-from .optimize import CMA
-from .loadelems import Elem
+from optimize import CMA
+from loadelems import Elem
+from plots import plot_linear_fits
 
+ca = Elem("Ca")
+opt = CMA(target_loss=1e-6, max_iterations=100)
 
-def main():
+data = ca.mu_norm_isotope_shifts
+print(f"Test data used to search for NP:\n{data}")
 
-    opt = CMA(target_loss=1e-6, max_iterations=100)
-    ca = Elem("Ca")
+slopes, intercepts = opt.get_linear_fit_params(data, reference_transition_idx=0)
 
+print("Plotting linear fits")
+plot_linear_fits(slopes=slopes, intercepts=intercepts, data=data, target_index=0)
 
-if __name__ == "__main__":
-    args = vars()
-    main(**args)
+print(f"\nLoss function: {ca.LL}")
