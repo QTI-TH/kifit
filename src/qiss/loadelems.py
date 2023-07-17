@@ -32,7 +32,14 @@ class Elem:
         instance.
 
         """
-        assert element in self.VALID_ELEM, "Element {} not supported".format(element)
+        if element not in self.VALID_ELEM:
+            raise NameError(
+                """Element {} not supported. You may want to add it
+                    to src/qiss/user_elems""".format(
+                    element
+                )
+            )
+
         print("Loading raw data")
         self.id = element
         self._init_elem()
@@ -49,7 +56,8 @@ class Elem:
         val = np.loadtxt(file_path)
 
         if (atr == "Xcoeffs") or (atr == "sig_Xcoeffs"):
-            val = val.reshape(-1, self.n_ntransitions)
+
+            val = val.reshape(-1, self.n_ntransitions + 1)
 
         setattr(self, atr, val)
 
@@ -65,9 +73,29 @@ class Elem:
                     np.identity(self.n_ntransitions),
                 ),
             )
+        elif atr == "corr_m_m":
+            if np.all(self.m_a == self.m_a[0]):
+                setattr(
+                    self,
+                    atr,
+                    1
+                    / (self.m_nisotopepairs * self.m_nisotopepairs)
+                    * np.ones((self.m_nisotopepairs, self.m_nisotopepairs)),
+                )
+            else:
+                setattr(self, atr, np.identity(self.m_nisotopepairs))
 
-        elif (atr == "corr_m_m") or (atr == "corr_mp_mp"):
-            setattr(self, atr, np.identity(self.m_nisotopepairs))
+        elif atr == "corr_mp_mp":
+            if np.all(self.m_ap == self.m_ap[0]):
+                setattr(
+                    self,
+                    atr,
+                    1
+                    / (self.m_nisotopepairs * self.m_nisotopepairs)
+                    * np.ones((self.m_nisotopepairs, self.m_nisotopepairs)),
+                )
+            else:
+                setattr(self, atr, np.identity(self.m_nisotopepairs))
 
         elif atr == "corr_m_mp":
             setattr(self, atr, np.zeros((self.m_nisotopepairs, self.m_nisotopepairs)))
@@ -77,10 +105,17 @@ class Elem:
 
     def _init_elem(self):
         for (i, file_type) in enumerate(self.INPUT_FILES):
-            assert len(self.INPUT_FILES) == len(self.elem_init_atr)
+            if len(self.INPUT_FILES) != len(self.elem_init_atr):
+                raise NameError(
+                    """Number of INPUT_FILES does not match number
+                of elem_init_atr."""
+                )
+
             file_name = file_type + self.id + ".dat"
             file_path = os.path.join(_data_path, self.id, file_name)
-            assert os.path.exists(file_path), file_path
+
+            # if not os.path.exists(file_path):
+            #     raise ImportError(f"Path {file_path} does not exist.")
             self.__load(self.elem_init_atr[i], file_type, file_path)
 
     def _init_corr_mats(self):
@@ -88,8 +123,11 @@ class Elem:
         corr_mats_to_be_defined = []
 
         for i, file_type in enumerate(self.OPTIONAL_INPUT_FILES):
-
-            assert len(self.OPTIONAL_INPUT_FILES) == len(self.elem_corr_mats)
+            if len(self.OPTIONAL_INPUT_FILES) != len(self.elem_corr_mats):
+                raise NameError(
+                    """Number of OPTIONAL_INPUT_FILES does not match
+                number of elem_corr_mats."""
+                )
 
             file_name = file_type + self.id + ".dat"
             file_path = os.path.join(_data_path, self.id, file_name)
@@ -112,17 +150,20 @@ class Elem:
 
     def _init_Xcoeffs(self):
         """
-        Initialise the X coefficients to the set computed for a given mediator mass.
+        Initialise the X coefficients to the set computed for a given mediator
+        mass mphi.
 
         """
-        assert len(self.Xcoeffs) > 0, len(self.Xcoeffs)
-        assert len(self.sig_Xcoeffs) > 0, len(self.sig_Xcoeffs)
+        self.mphi = self.Xcoeffs[0, 0]
+        self.X = self.Xcoeffs[0, 1:]
 
-        self.X = self.Xcoeffs[0]
-        self.sig_X = self.sig_Xcoeffs[0]
-
-        assert len(self.X) == self.n_ntransitions, len(self.X)
-        assert len(self.sig_X) == self.n_ntransitions, len(self.sig_X)
+        if self.sig_Xcoeffs[0, 0] != self.mphi:
+            raise ValueError(
+                """Mediator masses mphi do not match in files with
+            X-coefficients and their uncertainties."""
+            )
+        else:
+            self.sig_X = self.sig_Xcoeffs[0, 1:]
 
     def _init_fit_params(self):
         self.Kperp1 = np.zeros(self.n_ntransitions)
@@ -150,13 +191,19 @@ class Elem:
         a given mediator mass.
 
         """
-        assert (0 <= x) & (x <= len(self.Xcoeffs))
+        if x < 0 or len(self.Xcoeffs) - 1 < x:
+            raise IndexError(f"Index {x} not within permitted range for x.")
 
-        assert len(self.Xcoeffs[x]) == self.n_ntransitions, len(self.Xcoeffs[x])
-        assert len(self.sig_Xcoeffs[x]) == self.n_ntransitions, len(self.sig_Xcoeffs[x])
+        self.mphi = self.Xcoeffs[x, 0]
+        self.X = self.Xcoeffs[x, 1:]
 
-        self.X = self.Xcoeffs[x]
-        self.sig_X = self.sig_Xcoeffs[x]
+        if self.sig_Xcoeffs[x, 0] != self.mphi:
+            raise ValueError(
+                """Mediator masses mphi do not match in files with
+                    X-coefficients and their uncertainties."""
+            )
+        else:
+            self.sig_X = self.sig_Xcoeffs[x, 1:]
 
     @update_fct
     def _update_fit_params(self, thetas):
@@ -169,14 +216,21 @@ class Elem:
         values provided in "thetas".
 
         """
-        assert len(thetas[0]) == len(thetas[1]) == self.n_ntransitions - 1, (
-            len(thetas[0]),
-            self.n_ntransitions - 1,
-        )
+        if (len(thetas[0]) != self.n_ntransitions - 1) or (
+            len(thetas[1]) != self.n_ntransitions - 1
+        ):
+            raise AttributeError(
+                """Passed fit parameters do not have
+            appropriate dimensions"""
+            )
 
-        assert np.array(
-            [(-np.pi / 2 < phij) & (phij < np.pi / 2) for phij in thetas[1]]
-        ).all()
+        if np.array(
+            [(-np.pi / 2 > phij) or (phij > np.pi / 2) for phij in thetas[1]]
+        ).any():
+            raise ValueError(
+                """Passed phij values are not within 1st / 4th
+            quadrant."""
+            )
 
         self.Kperp1 = np.insert(thetas[0], 0, 0.0)
         self.ph1 = thetas[1]
@@ -238,15 +292,7 @@ class Elem:
         Return number of isotope pairs m
 
         """
-        nisotopepairs = len(self.a_nisotope)
-
-        assert nisotopepairs == len(self.ap_nisotope)
-        assert nisotopepairs == len(self.m_a)
-        assert nisotopepairs == len(self.m_ap)
-        assert nisotopepairs == len(self.nu)
-        assert nisotopepairs == len(self.sig_nu)
-
-        return nisotopepairs
+        return len(self.a_nisotope)
 
     @cached_fct_property
     def n_ntransitions(self):
@@ -254,12 +300,7 @@ class Elem:
         Return number of transitions n
 
         """
-        ntransitions = self.nu.shape[1]
-
-        # all columns should have the same length
-        assert ntransitions == self.sig_nu.shape[1]
-
-        return ntransitions
+        return self.nu.shape[1]
 
     @cached_fct_property
     def mu_aap(self):
@@ -272,23 +313,50 @@ class Elem:
         mu_aap is an m-vector.
 
         """
-        assert len(self.m_a) == len(self.m_ap)
-        assert all(u != v for u, v in zip(self.m_a, self.m_ap))
-
         dim = len(self.m_ap)
 
         return np.divide(np.ones(dim), self.m_a) - np.divide(np.ones(dim), self.m_ap)
 
     @cached_fct_property
-    def mnu(self):
+    def mu_norm_isotope_shifts(self):
         """
-        Generate mass normalised isotope shifts and writes mxn-matrix to file.
+        Generate mass normalised isotope shifts and write mxn-matrix to file.
 
             nu / mu
 
         """
-        mnu = np.divide(self.nu.T, self.mu_aap).T
-        return mnu
+        return np.divide(self.nu.T, self.mu_aap).T
+
+    @cached_fct_property
+    def sig_mu_norm_isotope_shifts(self):
+        """
+        Generate uncertainties on mass normalised isotope shifts and write
+        (m x n)-matrix to file.
+
+        """
+        return np.absolute(
+            np.array(
+                [
+                    [
+                        self.mu_norm_isotope_shifts[a, i]
+                        * np.sqrt(
+                            (self.sig_nu[a, i] / self.nu[a, i]) ** 2
+                            + (
+                                self.m_a[a] ** 2
+                                * self.sig_m_ap[a] ** 2
+                                / self.m_ap[a] ** 2
+                                + self.m_ap[a] ** 2
+                                * self.sig_m_a[a] ** 2
+                                / self.m_a[a] ** 2
+                            )
+                            / (self.m_a[a] - self.m_ap[a]) ** 2
+                        )
+                        for i in self.range_i
+                    ]
+                    for a in self.range_a
+                ]
+            )
+        )
 
     # CONSTRUCTING THE LOG-LIKELIHOOD FUNCTION ################################
 
@@ -323,7 +391,7 @@ class Elem:
         """
         Field shift vector entering King relation.
 
-           F1 = (1, tan(phi_12), ... , tan(phi_1n))
+           F1 = [1, tan(phi_12), ... , tan(phi_1n)]
 
         """
         return np.insert(np.tan(self.ph1), 0, 1.0)
@@ -380,23 +448,20 @@ class Elem:
             return 0
 
         elif (i in self.range_j) and (a in self.range_a):
-            return self.nu[a, i] - self.F1[i] * self.nu[a, 0] - self.np_term[a, i]
+            return (
+                self.nu[a, i]
+                - self.F1[i] * self.nu[a, 0]
+                - self.mu_aap[a] * self.np_term[a, i]
+            )
         else:
-            raise ValueError("index out of range.")
+            raise IndexError("Index passed to D_a1i is out of range.")
 
     @cached_fct
     def d_ai(self, a: int, i: int):
         """
-        Return element d_i^{AA'} of the d-vector d^{AA'} in transition space.
+        Returns element d_i^{AA'} of the n-vector d^{AA'}.
 
         """
-        print("inside d_ai: this is F1", self.F1)
-        print("inside d_ai: this is Kperp1", self.Kperp1)
-        print("inside d_ai: this is D_a1i(0,0)", self.D_a1i(0, 0))
-        print("inside d_ai: this is mu_aap", self.mu_aap)
-        print("inside d_ai: this is F1sq", self.F1sq)
-        assert self.F1sq == self.F1 @ self.F1
-
         if (i == 0) & (a in self.range_a):
             return (
                 -1
@@ -422,7 +487,7 @@ class Elem:
                 + self.F1[i] * self.d_ai(a, 0)
             )
         else:
-            raise ValueError("transition index out of range.")
+            raise IndexError("Index passed to d_ai is out of range.")
 
     @cached_fct_property
     def dmat(self):
@@ -431,6 +496,14 @@ class Elem:
 
         """
         return np.array([[self.d_ai(a, i) for i in self.range_i] for a in self.range_a])
+
+    @cached_fct_property
+    def absd(self):
+        """
+        Returns m-vector of Euclidean norms of the n-vectors d^{AA'}.
+
+        """
+        return np.sqrt(np.diag(self.dmat @ self.dmat.T))
 
     @cached_fct
     def fDdDnu_ij(self, i: int, j: int):
@@ -446,8 +519,11 @@ class Elem:
                 * np.sum(np.array([self.F1[j] ** 2 for j in self.range_j]))
             )
 
-        elif ((i == 0) & (j in self.range_j)) or ((i in self.range_j) & (j == 0)):
+        elif (i == 0) & (j in self.range_j):
             return -1 / self.F1sq * self.F1[j]
+
+        elif (i in self.range_j) & (j == 0):
+            return -1 / self.F1sq * self.F1[i]
 
         elif (i in self.range_j) & (j in self.range_j):
             res = -1 / self.F1sq * self.F1[i] * self.F1[j]
@@ -472,7 +548,7 @@ class Elem:
                 for i in self.range_i
             ]
         )
-        fmat = fmat + fmat.T - np.diag(fmat)
+        fmat = fmat + fmat.T - np.diag(np.diag(fmat))
 
         return np.einsum("ab,ij->aibj", np.linalg.inv(np.diag(self.mu_aap)), fmat)
 
@@ -510,7 +586,17 @@ class Elem:
         reference isotope index.
 
         """
-        assert (a in self.range_a) & (b in self.range_a), (a, b)
+        if a not in self.range_a:
+            raise IndexError(
+                f"""Isotope pair index {a} passed to fDdDm_aib is
+            out of range."""
+            )
+
+        if b not in self.range_a:
+            raise IndexError(
+                f"""Isotope pair index {a} passed t fDdDm_aib is
+            out of range."""
+            )
 
         if self.a_nisotope[b] == self.a_nisotope[a]:
             return self.fDdDmmp_aib(a, i, b, 1) / self.m_a[b] ** 2
@@ -528,13 +614,17 @@ class Elem:
         primed isotope index.
 
         """
-        assert (a in self.range_a) & (b in self.range_a), (a, b)
+        if a not in self.range_a:
+            raise IndexError(f"Isotope pair index {a} is out of range.")
+
+        if b not in self.range_a:
+            raise IndexError(f"Isotope pair index {a} is out of range.")
 
         if self.ap_nisotope[b] == self.ap_nisotope[a]:
-            return self.fDdDmmp_aib(a, i, b, 1) / self.m_ap[b] ** 2
+            return self.fDdDmmp_aib(a, i, b, -1) / self.m_ap[b] ** 2
 
         elif self.ap_nisotope[b] == self.a_nisotope[a]:
-            return self.fDdDmmp_aib(a, i, b, -1) / self.m_ap[b] ** 2
+            return self.fDdDmmp_aib(a, i, b, 1) / self.m_ap[b] ** 2
 
         else:
             return 0
@@ -599,10 +689,12 @@ class Elem:
             )
 
         elif (a in self.range_a) & (i in self.range_j) & (j in self.range_j):
-            res = -1 / self.F1sq * self.F1[j] ** 2
+            res = -1 / self.F1sq * self.F1[i] * self.F1[j]
+
             if i == j:
-                res = +1
-            return -self.alphaNP * self.h_aap[a] * self.F1[i] * res
+                res += 1
+
+            return -self.alphaNP * self.h_aap[a] * res
 
         else:
             return 0
@@ -657,7 +749,7 @@ class Elem:
         m_Ap, given the experimental uncertainties and their correlations.
 
         """
-        return np.einsum("a,ab,b->ab", self.sig_m_ap, self.corr_m_mp, self.sig_m_ap)
+        return np.einsum("a,ab,b->ab", self.sig_m_ap, self.corr_mp_mp, self.sig_m_ap)
 
     @cached_fct_property
     def cov_X_X(self):
@@ -674,41 +766,63 @@ class Elem:
         Return the covariance matrix cov[d,d].
 
         """
+        normald = self.dmat / self.absd[:, None]
+
         return (
-            np.einsum("aick,ckdl,bjdl->aibj", self.DdDnu, self.cov_nu_nu, self.DdDnu)
-            + np.einsum("aic,cd,bjd->aibj", self.DdDm, self.cov_m_m, self.DdDm)
-            + np.einsum("aic,cd,bjd->aibj", self.DdDm, self.cov_m_mp, self.DdDmp)
-            + np.einsum("aic,cd,bjd->aibj", self.DdDmp, self.cov_m_mp.T, self.DdDm)
-            + np.einsum("aic,cd,bjd->aibj", self.DdDmp, self.cov_mp_mp, self.DdDmp)
-            + np.einsum("aik,kl,bjl->aibj", self.DdDX, self.cov_X_X, self.DdDX)
-        )
-        # Do we want to be more general than this?
-        # More user-friendly options?
-
-    @cached_fct
-    def LL_elem(self):
-        """
-        Given the fit parameters
-
-           thetas = {Kijperp, phiij, alphaNP},
-
-        generate the contribution of the element to the log-likelihood LL.
-
-        The standard King fit without new physics is recovered by setting
-        alphaNP=0.
-
-        """
-        return (
-            -1
-            / 2
-            * np.sum(
-                np.concatenate(
-                    np.einsum(
-                        "ai,aibj,bj->aibj",
-                        self.dmat,
-                        np.linalg.pinv(self.cov_d_d),
-                        (self.dmat).T,
-                    )
-                )
+            np.einsum(
+                "ai,aick,ckdl,bjdl,bj->ab",
+                normald,
+                self.DdDnu,
+                self.cov_nu_nu,
+                self.DdDnu,
+                normald,
+            )
+            + np.einsum(
+                "ai,aic,cd,bjd,bj->ab",
+                normald,
+                self.DdDm,
+                self.cov_m_m,
+                self.DdDm,
+                normald,
+            )
+            + np.einsum(
+                "ai,aic,cd,bjd,bj->ab",
+                normald,
+                self.DdDm,
+                self.cov_m_mp,
+                self.DdDmp,
+                normald,
+            )
+            + np.einsum(
+                "ai,aic,cd,bjd,bj->ab",
+                normald,
+                self.DdDmp,
+                self.cov_m_mp.T,
+                self.DdDm,
+                normald,
+            )
+            + np.einsum(
+                "ai,aic,cd,bjd,bj->ab",
+                normald,
+                self.DdDmp,
+                self.cov_mp_mp,
+                self.DdDmp,
+                normald,
+            )
+            + np.einsum(
+                "ai,aik,kl,bjl,bj->ab",
+                normald,
+                self.DdDX,
+                self.cov_X_X,
+                self.DdDX,
+                normald,
             )
         )
+
+    @cached_fct_property
+    def LL(self):
+        """
+        Generate the contribution of the element to the negative log-likelihood LL.
+
+        """
+        return 1 / 2 * (self.absd @ np.linalg.inv(self.cov_d_d) @ self.absd)
