@@ -5,6 +5,43 @@ from scipy.optimize import minimize
 import cma
 
 
+def loss_function(parameters, elements):
+    """
+    Build the loss function associated to a collection of elements.
+
+    Args:
+        parameters: flatten list of parameters containing Kperp1 and ph1 for all
+            the elements in `elements`. The last list item must be alphaNP.
+        elements: list of `loadelems.Elem` involved into the experiment.
+    """
+
+    # get alpha NP
+    alphaNP = parameters[-1]
+    # initialize index list to be zero
+    parameter_index = 0
+    # initial loss function value
+    ll = 0
+
+    # cycle over the parameters
+    for elem in elements:
+        # number of transition for elem
+        n_transitions = elem.n_ntransitions
+        # create flatten list of params corresponding to elem's params
+        elem_params = list(
+            parameters[parameter_index : parameter_index + 2 * (n_transitions - 1)]
+        )
+        # with alphaNP in the end
+        elem_params.append(alphaNP)
+        # inject params into the element
+        elem._update_fit_params(elem_params)
+        # calculating log likelihood
+        ll -= elem.LL
+        # updating index
+        index += 2 * (n_transitions - 1)
+
+    return ll
+
+
 class Optimizer:
     """General optimizer class, which returns the best set of parameters."""
 
@@ -77,6 +114,7 @@ class CMA(Optimizer):
         self,
         target_loss,
         max_iterations,
+        bounds,
         maxfeval=None,
         verbose=1,
     ):
@@ -96,8 +134,11 @@ class CMA(Optimizer):
 
         self._method = "cma"
         self.maxfeval = maxfeval
+        self.bounds = bounds
 
-    def optimize(self, loss: callable, initial_parameters) -> tuple[float, list]:
+    def optimize(
+        self, loss: callable, initial_parameters, args=()
+    ) -> tuple[float, list]:
         """Call the CMA-ES optimizer."""
 
         # params = []
@@ -113,13 +154,14 @@ class CMA(Optimizer):
             "tolfun": self.target_loss,
             "maxiter": self.max_iterations,
             "maxfeval": self.maxfeval,
+            "bounds": self.bounds,
         }
 
         res = cma.fmin2(
             loss,
             initial_parameters,
-            1.7,
-            args=(),
+            1e-2,
+            args=args,
             options=options,
         )
 

@@ -1,4 +1,4 @@
-from optimize import CMA
+from optimize import CMA, loss_function
 from loadelems import Elem
 from plots import plot_linear_fits
 
@@ -6,21 +6,17 @@ from plots import plot_linear_fits
 elements = []
 
 ca = Elem("Ca")
-opt = CMA(target_loss=1e-6, max_iterations=100)
+
+opt = CMA(target_loss=-100, max_iterations=500, bounds=[None, None])
 
 elements.append(ca)
-
-
-def loss_function(params):
-    """Loss function to be optimized"""  # TO DO --> GENERALIZE TO MORE ELEMENTS
-    ca._update_fit_params(params)
-    return -ca.LL
+elements.append(ca)
 
 
 data = ca.mu_norm_isotope_shifts
 print(f"\nTest data used to search for NP:\n{data}")
 
-slopes, intercepts, kperp1, angles = opt.get_linear_fit_params(
+slopes, intercepts, kperp1, ph1 = opt.get_linear_fit_params(
     data, reference_transition_idx=0
 )
 
@@ -31,10 +27,15 @@ plot_linear_fits(slopes=slopes, intercepts=intercepts, data=data, target_index=0
 alphaNP = 0
 params = []
 params.extend(kperp1)
-params.extend(angles)
+params.extend(ph1)
+params.extend(kperp1)
+params.extend(ph1)
 params.append(alphaNP)
 
-print(f"\nLoss function: {loss_function(params)}")
+print(params)
+
+print(f"\nFancy loss function: {loss_function(parameters=params, elements=elements)}")
 
 print(f"Start the optimization process")
-opt.optimize(loss_function, initial_parameters=[params])
+res = opt.optimize(loss_function, initial_parameters=[params], args=[elements])
+print(res[1])
