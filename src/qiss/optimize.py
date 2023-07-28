@@ -2,6 +2,7 @@ import numpy as np
 
 import scipy.stats as sps
 from scipy.optimize import minimize
+from bayes_opt import BayesianOptimization
 import cma
 
 
@@ -35,9 +36,9 @@ def loss_function(parameters, elements):
         # inject params into the element
         elem._update_fit_params(elem_params)
         # calculating log likelihood
-        ll -= elem.LL
+        ll += elem.LL
         # updating index
-        index += 2 * (n_transitions - 1)
+        parameter_index += 2 * (n_transitions - 1)
 
     return ll
 
@@ -160,12 +161,58 @@ class CMA(Optimizer):
         res = cma.fmin2(
             loss,
             initial_parameters,
-            1e-2,
+            1e-3,
             args=args,
             options=options,
         )
 
         return res[1].result.fbest, res[1].result.xbest, res
+
+
+class BayesianOptimizer(Optimizer):
+    """
+    Compute a Bayesian optimization using: https://github.com/bayesian-optimization/BayesianOptimization.
+    """
+
+    def __init__(
+        self,
+        target_loss,
+        max_iterations,
+        bounds=None,
+        init_points=2,
+        random_state=1,
+        verbose=1,
+    ):
+        """
+        Args:
+            datapath: path to target experiment folder.
+                each experiment folder must be organised with one subfolder for
+                each element involved into the Kings Plot fitting.
+            target_loss: target loss function value at which the optimization
+                can be stopped.
+            max_iterations: maximum number of iterations.
+            verbose: if True, log messages are printed during the optimization.
+            initial_params: initial guess of paramameters.
+            maxfeval: maximum number of function evaluations.
+        """
+        super().__init__(target_loss, max_iterations, verbose)
+
+        self._method = "bayesian"
+        self.pbounds = bounds
+        self.random_state = random_state
+        self.init_points = init_points
+
+    def optimize(self, loss, parameters, args=()):
+        """Compute the optimization process."""
+        optimizer = BayesianOptimization(
+            f=loss, pbounds=self.pbounds, random_state=self.random_state
+        )
+
+        res = optimizer.maximize(
+            init_points=self.init_points, n_iter=self.max_iterations
+        )
+
+        return res
 
 
 class ScipyMinimizer(Optimizer):

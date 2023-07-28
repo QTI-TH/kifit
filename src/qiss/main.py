@@ -1,4 +1,4 @@
-from optimize import CMA, loss_function
+from optimize import CMA, BayesianOptimizer, loss_function
 from loadelems import Elem
 from plots import plot_linear_fits
 
@@ -7,7 +7,8 @@ elements = []
 
 ca = Elem("Ca")
 
-opt = CMA(target_loss=-100, max_iterations=500, bounds=[None, None])
+opt = CMA(target_loss=-100, max_iterations=500, bounds=[-1e-11, 1e-11])
+bay = Ba
 
 elements.append(ca)
 elements.append(ca)
