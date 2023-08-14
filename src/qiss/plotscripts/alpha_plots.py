@@ -14,7 +14,6 @@ from sympy.abc import symbols
 from sympy import diff
 from sympy import Matrix, matrix_multiply_elementwise
 
-#NUMPY ARRAYS
 
 #%%
 """
@@ -45,46 +44,6 @@ def levi_civita_tensor(dim):
         arr[x]=int(np.linalg.det(mat))
     return arr
 
-# def ones(m):
-#     """
-#     Compute an array of ones of dimension m.
-
-#     Parameters
-#     ----------
-#     m : INT
-#         The dimension of the array.
-
-#     Returns
-#     -------
-#     TENSOR
-        
-#     """
-#     return [1]*m
-
-
-# def first_einsum_string(n):
-#     """
-#     Return a string of the form 'ij,abc->ijabc', to be
-#     used in the contraction of LC tensors, when
-#     computing the GKP formula.
-
-#     Parameters
-#     ----------
-#     n : INT
-#         Number of transitions.
-#     m : INT
-#         Number of isotope pairs.
-
-#     Returns
-#     -------
-#     result_indices : STR
-
-#     """
-#     indices1 = ''.join(chr(105 + i) for i in range(n))  # 'ijk...' for n
-#     indices2 = ''.join(chr(97 + i) for i in range(n+1))   # 'abc...' for n+1
-#     result_indices = indices1 + ',' + indices2 + '->' + indices1 + indices2
-
-#     return result_indices
 
 def gen_einsum_string(n):
     """
@@ -102,9 +61,10 @@ def gen_einsum_string(n):
 
     """
     col_row_str = [] 
-    transition_indices = ''.join(chr(105 + i) for i in range(n))  # 'ijk...' for n
+    transition_indices = ''.join(chr(105 + i) for i in range(n)) # 'ijk...' for n
     isotope_pair_indices = ''.join(chr(97 + i) for i in range(n+1))   # 'abc...' for n+1
-    fixed_str = transition_indices + ', ' + isotope_pair_indices + ', ' + 'i' + ', ' + 'a' + ', ' + 'b'
+    fixed_str = (transition_indices + ', ' + isotope_pair_indices 
+                 + ', ' + 'i' + ', ' + 'a' + ', ' + 'b')
     
     
     for i in range(n-1):
@@ -213,7 +173,9 @@ def V_th_GKP(Xvec, hvec, reduced_data):
     n = len(Xvec)
     matrix_list = [reduced_data] * (n-1)
     
-    vol = np.einsum(gen_einsum_string(n), levi_civita_tensor(n), levi_civita_tensor(n+1), Xvec, np.ones(n+1), hvec, *matrix_list)
+    vol = np.einsum(gen_einsum_string(n), levi_civita_tensor(n),
+                    levi_civita_tensor(n+1), Xvec, np.ones(n+1), hvec,
+                    *matrix_list)
     norm = np.math.factorial(n-1)
     
     res = vol/norm
@@ -267,6 +229,70 @@ def alpha_GKP(m, elem):
 
 #%%
 
+def V_th_symbolic(nT, nIP):
+    """
+    
+
+    Parameters
+    ----------
+    nT : INT
+        Number of transitions.
+    nIP : INT
+        Number of isotope pairs.
+
+    Returns
+    -------
+    V_th_sym : SYM
+        Symbolic form of the theory volume for GKP.
+
+    """
+    
+    #Define variables
+    nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(nIP)
+                           for i in range(nT)]))
+    M0 = symbols(' '.join([f'm0{i}' for i in range(1, nIP+1)]))
+    M = symbols(' '.join([f'm{i}' for i in range(1, nIP+1)]))
+    A0 = symbols(' '.join([f'A0{i}' for i in range(1, nIP+1)]))
+    A = symbols(' '.join([f'A{i}' for i in range(1, nIP+1)]))
+    X = symbols(' '.join([f'X{i}' for i in range(1, nT+1)]))
+
+    #Organize variables in matrices / vectors
+    data = Matrix(nIP, nT, nu)
+    AAprime = Matrix([[A0[i] - A[i]] for i in range(nIP)])
+    red_masses = Matrix([[1/(1/M0[i] - 1/M[i])] for i in range(nIP)])
+    hvector = matrix_multiply_elementwise(AAprime, red_masses)
+    reduced_data = Matrix([data.row(a)*red_masses[a] for a in range(nIP)])
+
+    #Define indices for transitions and isotope pairs
+    transition_indices = symbols(' '.join([string.ascii_lowercase[8+i]
+                                           for i in range(0, nT)]))
+    ip_indices = symbols(' '.join([string.ascii_lowercase[i]
+                                   for i in range(0, nIP)]))
+
+    # Build volume
+    V_th_sym = 0
+    for transition_indices in itertools.product(range(nT), repeat=nT):
+        for ip_indices in itertools.product(range(nIP), repeat=nIP):
+            base = (LeviCivita(*transition_indices)*LeviCivita(*ip_indices)
+                    *X[transition_indices[0]]*hvector[ip_indices[1]])
+            for w in range(1,nT):
+                add = reduced_data.col(transition_indices[w])[ip_indices[w+1]]
+                base *= add
+                V_th_sym += base
+
+
+    return V_th_sym
+
+
+#%%
+
+#### DUMPSTER
+
+
+#%%
+
+
+
 nT=3
 nIP=4
 
@@ -295,6 +321,25 @@ sig_M0 = symbols(' '.join([f'sig_m0{i}' for i in range(1, nIP+1)]))
 sig_M = symbols(' '.join([f'sig_m{i}' for i in range(1, nIP+1)]))
 sig_X = symbols(' '.join([f'sig_X{i}' for i in range(1, nT+1)]))
 
+
+transition_indices = symbols(' '.join([string.ascii_lowercase[8+i] for i in range(0, nT)]))
+ip_indices = symbols(' '.join([string.ascii_lowercase[i] for i in range(0, nIP)]))
+
+
+V_th_sym = 0
+for transition_indices in itertools.product(range(nT), repeat=nT):
+    for ip_indices in itertools.product(range(nIP), repeat=nIP):
+        base = (LeviCivita(*transition_indices)*LeviCivita(*ip_indices)
+                *X[transition_indices[0]]*hvector[ip_indices[1]])
+        for w in range(1,nT):
+            add = reduced_data.col(transition_indices[w])[ip_indices[w+1]]
+            base *= add
+            V_th_sym += base
+
+
+print(V_th_sym)
+
+
 #%%
 
 # def AAprime(A_pairs):
@@ -319,37 +364,19 @@ sig_X = symbols(' '.join([f'sig_X{i}' for i in range(1, nT+1)]))
     
  
 
-transition_indices = symbols(' '.join([string.ascii_lowercase[8+i] for i in range(0, nT)]))
-ip_indices = symbols(' '.join([string.ascii_lowercase[i] for i in range(0, nIP)]))
-print(transition_indices)
-print(ip_indices)
-
-
-V_th_sym = 0
-for transition_indices in itertools.product(range(nT), repeat=nT):
-    for ip_indices in itertools.product(range(nIP), repeat=nIP):
-        base = LeviCivita(*transition_indices)*LeviCivita(*ip_indices)*X[transition_indices[0]]*hvector[ip_indices[1]]
-        if base != 0:
-            print('base = ', base)
-            test = reduced_data.col(transition_indices[1])[ip_indices[2]]
-            print('test = ', test)
-            res = base*test
-            print('res = ', res)
-        #V_th_sym += LeviCivita(*transition_indices)*LeviCivita(*ip_indices)*X[transition_indices[0]]*hvector[ip_indices[1]]*reduced_data.col(transition_indices[1])[ip_indices[2]]*reduced_data.col(transition_indices[2])[ip_indices[3]]
-
-print(res)
 
 
 #%%
 
   
 
-V_th_sym = 0
+V_th_sym_test = 0
 for i, j, k in itertools.product(range(3), repeat=3):
     for a, b, c, d in itertools.product(range(4), repeat=4):
-        V_th_sym += LeviCivita(i,j,k)*LeviCivita(a,b,c,d)*X[i]*hvector[b]*reduced_data.col(j)[c]*reduced_data.col(k)[d]
+        V_th_sym_test += (LeviCivita(i,j,k)*LeviCivita(a,b,c,d)*X[i]*hvector[b]
+                     *reduced_data.col(j)[c]*reduced_data.col(k)[d])
 
-print(V_th_sym)
+print(V_th_sym_test)
 
 # derivatives = 0
 # for i in range(len(nu)):
@@ -361,6 +388,11 @@ print(V_th_sym)
 # for i in range(len(X)):
 #     derivatives += diff(V_th_sym, X[i])
     
+
+#%%
+
+V_th_sym - V_th_sym_test
+
 #%%
 
 
@@ -411,7 +443,7 @@ print(summation)
 
 V_th_sym = 0
 for i, j in itertools.product(range(2), repeat=2):
-    for a, b, c in itertools.product(range(3), repeat=4):
+    for a, b, c in itertools.product(range(3), repeat=3):
         V_th_sym += LeviCivita(i,j)*LeviCivita(a,b,c)*X[i]*hvector[b]*reduced_data.col(j)[c]
 
 print(V_th_sym)
@@ -419,8 +451,24 @@ print(V_th_sym)
 
 #%%
 
+def M(*iterables):
+    ones_row = Matrix([[1 for _ in range(3)]])
+    matrix = Matrix(2, 3, Matrix([X[iterables[0]]*hvector,reduced_data.col(iterables[1])])).row_insert(2, ones_row)
 
-reduced_data.col(1)[c]
+    determinant = matrix.det()
+    return determinant
+    
+print('Mij = ', M(0,1))
+print('Mji = ', M(1,0))
+
+#%%
+
+V_th_sym = 0
+for i, j in itertools.product(range(2), repeat=2):
+    test = LeviCivita(i,j)*M(i,j)
+    print(test)
+    
+    #%%
 
 
 
