@@ -5,6 +5,8 @@ from cache_update import cached_fct
 from cache_update import cached_fct_property
 from user_elements import user_elems
 
+from optimize import Optimizer
+
 _data_path = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "../qiss_data")
 )
@@ -810,3 +812,98 @@ class Elem:
 
         """
         return 1 / 2 * (self.absd @ np.linalg.inv(self.cov_d_d) @ self.absd)
+
+
+class ElementsCollection:
+    """Collection of elements."""
+
+    def __init__(self, elements=[]):
+        """
+        Initialize elements collection.
+
+        Args:
+            elements (list): list of elements.
+        """
+
+        self.elements = elements
+        # alphaNP is in common
+        self.alphaNP = -5e-11
+        # dummy initialization of an optimizer since we need linear fit in collection
+        # TO FIX
+        self.opt = Optimizer(target_loss=100, max_iterations=100)
+
+    def add(self, element):
+        """Add new element to the collection."""
+        self.elements.append(element)
+
+    @property
+    def get_parameters(self):
+        """
+        Get all elements parameters as a flatted list of shape:
+        [kperp1_elem1, ph1_elem1, kperp1_elem2, ph1_elem2, ..., alphaNP]
+
+        Returns:
+            flatten list of parameters of the shape shown above.
+        """
+        parameters = []
+        for elem in self.elements:
+            _, _, kperp1, ph1 = self.opt.get_linear_fit_params(
+                data=elem.mu_norm_isotope_shifts, reference_transition_idx=0
+            )
+            parameters.extend(kperp1)
+            parameters.extend(ph1)
+        # append alphaNP
+        parameters.append(self.alphaNP)
+
+        return parameters
+
+    def init_collection(self, path="../qiss_data/"):
+        """
+        Upload data from `path`.
+
+        Args:
+            path (`pathlib.Path`): data path [default "./qiss_data/"].
+        """
+        # upload elements by folder names
+        for element_folder in os.listdir(path):
+
+            self.add(Elem(element_folder))
+
+    def LL(self, parameters=None):
+        """
+        Build the loss function associated to a collection of elements.
+
+        Args:
+            parameters: flatten list of parameters containing Kperp1 and ph1 for all
+                the elements in `elements`. The last list item must be alphaNP.
+            elements: list of `loadelems.Elem` involved into the experiment.
+        """
+
+        if parameters is None:
+            parameters = self.get_parameters()
+
+        # get alpha NP
+        alphaNP = parameters[-1]
+        # initialize index list to be zero
+        parameter_index = 0
+        # initial loss function value
+        ll = 0
+
+        # cycle over the parameters
+        for elem in self.elements:
+            # number of transition for elem
+            n_transitions = elem.n_ntransitions
+            # create flatten list of params corresponding to elem's params
+            elem_params = list(
+                parameters[parameter_index : parameter_index + 2 * (n_transitions - 1)]
+            )
+            # with alphaNP in the end
+            elem_params.append(alphaNP)
+            # inject params into the element
+            elem._update_fit_params(elem_params)
+            # calculating log likelihood
+            ll += elem.LL
+            # updating index
+            parameter_index += 2 * (n_transitions - 1)
+
+        return ll
