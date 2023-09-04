@@ -27,3 +27,33 @@ def plot_linear_fits(slopes, intercepts, data, target_index=0):
         plt.ylabel(f"{target_index}{idx[i]} transition")
     plt.tight_layout()
     plt.savefig("linear_fits.pdf")
+
+
+def histogram_parameter(parameter_stat, parameter_index):
+    """Plot histogram of optimized parameter."""
+
+    estimates = np.asarray(parameter_stat).T[parameter_index]
+    mean = np.mean(estimates)
+
+    plt.figure(figsize=(4.5, 4.5 * 6 / 8))
+    plt.hist(estimates, bins=30, histtype="step", color="royalblue")
+    plt.hist(
+        estimates,
+        bins=30,
+        histtype="stepfilled",
+        edgecolor="royalblue",
+        color="royalblue",
+        alpha=0.3,
+        hatch="//",
+    )
+    plt.vlines(
+        mean,
+        0,
+        len(estimates) / 4,
+        color="black",
+        label=rf"$\langle p[{parameter_index}] \rangle$: {mean:.4}",
+    )
+    plt.legend(framealpha=1)
+    plt.xlabel(f"p[{parameter_index}]")
+    plt.ylabel("#")
+    plt.savefig("cma_hist.png", bbox_inches="tight")
