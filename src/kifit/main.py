@@ -3,8 +3,8 @@ from pathlib import Path
 
 import numpy as np
 
-from qiss.optimizers import CMA, loss_function
-from qiss.builder import ElementsCollection
+from kifit.optimizers import CMA, loss_function
+from kifit.builder import ElementsCollection
 
 
 # parsing arguments

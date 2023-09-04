@@ -1,14 +1,13 @@
 import os
 import numpy as np
-from cache_update import update_fct
-from cache_update import cached_fct
-from cache_update import cached_fct_property
-from user_elements import user_elems
-
-from qiss.optimizers import Optimizer
+from kifit.cache_update import update_fct
+from kifit.cache_update import cached_fct
+from kifit.cache_update import cached_fct_property
+from kifit.user_elements import user_elems
+from kifit.optimizers import Optimizer
 
 _data_path = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "../qiss_data")
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "../kifit_data")
 )
 
 
@@ -37,7 +36,7 @@ class Element:
         if element not in self.VALID_ELEM:
             raise NameError(
                 """Element {} not supported. You may want to add it
-                    to src/qiss/user_elems""".format(
+                    to src/kifit/user_elems""".format(
                     element
                 )
             )
@@ -857,12 +856,12 @@ class ElementsCollection:
 
         return parameters
 
-    def init_collection(self, path="../qiss_data/"):
+    def init_collection(self, path="../kifit_data/"):
         """
         Upload data from `path`.
 
         Args:
-            path (`pathlib.Path`): data path [default "./qiss_data/"].
+            path (`pathlib.Path`): data path [default "./kifit_data/"].
         """
         # upload elements by folder names
         for element_folder in os.listdir(path):
