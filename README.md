@@ -1,6 +1,6 @@
-# QISS
+# kifit
 
-QISS is a library for Quantum Isotope Shift Spectroscopy fitting.
+Kifit is a library for Quantum Isotope Shift Spectroscopy fitting.
 
 
 #### Code roadmap
