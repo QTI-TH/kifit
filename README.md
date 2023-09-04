@@ -1,11 +1,6 @@
-# QISS
+# kifit
 
-QISS is a library for Quantum Isotope Shift Spectroscopy fitting.
-
-
-<<<<<<< HEAD
-
-
+Kifit is a library for Quantum Isotope Shift Spectroscopy fitting.
 
 # Development
 
@@ -24,8 +19,8 @@ so you can work on the code and run the most recent version.
 Simply run
 
     pip install .
-=======
+
 #### Code roadmap
 
-![qiss](https://github.com/MatteoRobbiati/QISS/assets/62071516/c19efb23-7f7f-45b0-b1c0-43af89fee8e4)
->>>>>>> main
+
+![kifit](https://github.com/MatteoRobbiati/kifit/assets/62071516/564edd8b-cc81-42d0-ba0f-b1d6357cd93c)
