@@ -15,27 +15,27 @@ from sympy.abc import symbols
 from sympy import diff
 from sympy import Matrix, matrix_multiply_elementwise
 
-
 #%%
+
 """
 Useful functions
 """
 
 def levi_civita_tensor(dim): 
     """
-    Compute the Levi-Civita tensor of rank n in
-    n-dimensional space.
+    Compute the Levi-Civita tensor of rank dim in
+    dim-dimensional space.
 
     Parameters
     ----------
-    n: INT
+    dim: INT
         The dimension of the space.
 
     Returns
     -------
     TENSOR
         A numpy array representing the Levi-Civita tensor.
-        The tensor is a multi-dimensional array of shape (n, n, ..., n).
+        The tensor is a multi-dimensional array of shape (dim, dim, ..., dim).
     """
     arr=np.zeros(tuple([dim for _ in range(dim)]))
     for x in itertools.permutations(tuple(range(dim))):
@@ -44,7 +44,6 @@ def levi_civita_tensor(dim):
             mat[i, j] = 1
         arr[x]=int(np.linalg.det(mat))
     return arr
-
 
 def gen_einsum_string(n):
     """
@@ -62,8 +61,10 @@ def gen_einsum_string(n):
 
     """
     col_row_str = [] 
-    transition_indices = ''.join(chr(105 + i) for i in range(n)) # 'ijk...' for n
-    isotope_pair_indices = ''.join(chr(97 + i) for i in range(n+1))   # 'abc...' for n+1
+    transition_indices = ''.join(chr(105 + i) for i in range(n))
+                # 'ijk...' for n
+    isotope_pair_indices = ''.join(chr(97 + i) for i in range(n+1))
+                # 'abc...' for n+1
     fixed_str = (transition_indices + ', ' + isotope_pair_indices 
                  + ', ' + 'i' + ', ' + 'a' + ', ' + 'b')
     
@@ -80,44 +81,13 @@ def gen_einsum_string(n):
     
     return einsum_str
 
-
-#%%
-
+#%%  
+    
 """
-Import data in matrix form:
-    columns = transitions
-    rows = isotope pairs
-    --> mass-normalized
+King Plot functions
 """
 
-
-#%%
-
-def alpha_plot(mass_vec, alpha_vec):
-    """
-    Plotting function for alpha_NP.
-
-    Parameters
-    ----------
-    mass_vec : ARRAY
-        contains the mediator mass values.
-    alpha_vec : ARRAY
-        alpha_NP values corresponding to the values in mass_vec.
-
-    """
-    
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.xlabel('$m_\phi$ (eV)')
-    plt.ylabel('$\\alpha_{NP}$')
-    plt.plot(mass_vec, alpha_vec)
-    
-# inches: 
-    
-#%%
-
-
-def V_exp_GKP(reduced_data): #_GKP
+def V_exp_GKP(reduced_data):
     """
     Compute volume of NLs from data for GKP formula.
     
@@ -142,8 +112,6 @@ def V_exp_GKP(reduced_data): #_GKP
     datamatrix_extended = np.hstack((reduced_data, np.ones(m)[:, np.newaxis]))
     
     return np.linalg.det(datamatrix_extended)
-
-#%%
 
 def V_th_GKP(Xvec, hvec, reduced_data):
     """
@@ -179,70 +147,19 @@ def V_th_GKP(Xvec, hvec, reduced_data):
                     *matrix_list)
     norm = np.math.factorial(n-1)
     
-    res = vol/norm
+    Vtheo = vol/norm
     
-    return res
+    return Vtheo
 
-#NORMALIZATION
-
-#%%
-"""
-Testing
-"""
-Xvec = [5, 6]
-matrix = np.array([[1/3, 2/4, 3/5], [10/3, 20/4, 30/5]]).T
-hvec = [20, 21, 22]
-
-V_th_GKP(Xvec, hvec, matrix)
-
-#%%
-Xvec3 = [0.01, 0.02, 0.03]
-matrix3 = np.array([[10/5, 20/6, 30/7, 40/5],
-                    [50/5, 60/6, 70/7, 80/8],
-                    [90/5, 100/6, 110/7, 120/8]]).T
-hvec4 = [38, 40, 42, 44]
-
-V_th_GKP(Xvec3, hvec4, matrix3)
-
-#%%
-"""
-Testing real data
-"""
-# Define test data
-Ca_data = np.array([[2.77187*10**9, 5.34089*10**9, 7.7684*10**9, 9.99038*10**9],
-            [-3.5199*10**6,	-6.79247*10**6,	-9.90152*10**6,	-1.27466*10**7],
-            [5.39088*10**8,	1.03045*10**9,	1.48114*10**9,	1.8943*10**9]]).T
-X_mass1 = np.array([-7.83083*10**15, 3.86395*10**13, 1.56746*10**15])
-h = [-1679.21, -1758.78, -1838.21, -1917.75]
-
-data_M0=np.array([39.962590851,39.962590851,39.962590851])
-data_M=np.array([41.95861778,43.9554815,45.9536877])
-val_A0=np.array([40,40,40])
-val_A=np.array([42,44,46])
-
-#Define uncertainties over test data
-Ca_sig = np.array([[7.6, 7.8, 2000, 4.9],
-            [2.4, 2.2, 2.1, 2.6],
-            [11, 11, 13, 15]]).T
-data_sigX_mass1 = X_mass1*0.1
-
-data_sigM0=np.array([22/1000000000, 22/1000000000, 22/1000000000])
-data_sigM=np.array([16/100000000, 3/10000000, 24/10000000])
-
-V_exp_GKP(Ca_data)/V_th_GKP(X_mass1, h, Ca_data)
-
-#%%
-
-def alpha_GKP(m, elem):
+def alpha_GKP(mass): #
     
-    X_mass_elem = np.array(...)[m] #<- row corresponding to mass m
-    h_elem = np.array(...)
-    data_elem = np.array(...)
+    X_mass = np.array(...)[mass] #<-row corresponding to mass m
+    h = np.array(...)
+    data_matrix = np.array(...)
     
-    alpha = V_exp_GKP(data_elem)/V_th_GKP(X_mass_elem, h_elem, data_elem)
+    alpha = V_exp_GKP(data_matrix)/V_th_GKP(X_mass, h, data_matrix)
     return alpha
 
-#%%
 
 def V_exp_GKP_symbolic(nT, nIP):
 
@@ -266,8 +183,6 @@ def V_exp_GKP_symbolic(nT, nIP):
     
     return V_exp_sym
 
-
-#%%
 
 def V_th_GKP_symbolic(nT, nIP):
     """
@@ -323,15 +238,12 @@ def V_th_GKP_symbolic(nT, nIP):
 
     return V_th_sym
 
-#%%
 
 def alpha_GKP_symbolic(nT, nIP):
     
     alpha_sym = V_exp_GKP_symbolic(nT, nIP)/V_th_GKP_symbolic(nT, nIP)
     
     return alpha_sym
-
-#%%
 
 def sig_alpha_symbolic(nT, nIP):
     
@@ -365,264 +277,34 @@ def sig_alpha_symbolic(nT, nIP):
     
     return sig_alpha_th_sym
 
-sig_alpha_symbolic(2, 3)
-
-
 #%%
 
-V_th_GKP_symbolic(2, 3)
+"""
+Plotting functions
+To be moved to a different script
+"""
 
+def alpha_mass_plot(mass_vec, alpha_vec):
+    """
+    Plotting function for alpha_NP.
 
-#%%
+    Parameters
+    ----------
+    mass_vec : ARRAY
+        contains the mediator mass values.
+    alpha_vec : ARRAY
+        alpha_NP values corresponding to the values in mass_vec;
+        computed in the Elem class
 
-#### DUMPSTER
-
-
-#%%
-
-nT=2
-nIP=3
-
-
-#Define variables to differentiate wrt
-nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(nIP) for i in range(nT)]))
-M0 = symbols(' '.join([f'm0{i}' for i in range(1, nIP+1)]))
-M = symbols(' '.join([f'm{i}' for i in range(1, nIP+1)]))
-A0 = symbols(' '.join([f'A0{i}' for i in range(1, nIP+1)]))
-A = symbols(' '.join([f'A{i}' for i in range(1, nIP+1)]))
-X = symbols(' '.join([f'X{i}' for i in range(1, nT+1)]))
-
-#Organize them in matrices / vectors
-data = Matrix(nIP, nT, nu)
-    #mass_pairs = Matrix([[M0[i], M[i]] for i in range(nIP)])
-    #A_pairs = Matrix([[A0[i], A[i]] for i in range(nIP)])
-AAprime = Matrix([[A0[i] - A[i]] for i in range(nIP)])
-red_masses = Matrix([[1/(1/M0[i] - 1/M[i])] for i in range(nIP)])
-
-hvector = matrix_multiply_elementwise(AAprime, red_masses)
-reduced_data = Matrix([data.row(a)*red_masses[a] for a in range(nIP)])
-
-
-#Define placeholders for uncertainites
-sig_nu = symbols(' '.join([f'sig_v{j+1}{i+1}' for j in range(nIP) for i in range(nT)]))
-sig_M0 = symbols(' '.join([f'sig_m0{i}' for i in range(1, nIP+1)]))
-sig_M = symbols(' '.join([f'sig_m{i}' for i in range(1, nIP+1)]))
-sig_X = symbols(' '.join([f'sig_X{i}' for i in range(1, nT+1)]))
-
-sig_data = Matrix(nIP, nT, sig_nu)
-
-
-transition_indices = symbols(' '.join([string.ascii_lowercase[8+i] for i in range(0, nT)]))
-ip_indices = symbols(' '.join([string.ascii_lowercase[i] for i in range(0, nIP)]))
-
-
-V_th_sym = 0
-for transition_indices in itertools.product(range(nT), repeat=nT):
-    for ip_indices in itertools.product(range(nIP), repeat=nIP):
-        base = (LeviCivita(*transition_indices)*LeviCivita(*ip_indices)
-                *X[transition_indices[0]]*hvector[ip_indices[1]])
-        for w in range(1,nT):
-            add = reduced_data.col(transition_indices[w])[ip_indices[w+1]]
-            base *= add
-            V_th_sym += base
-            
-GKP_square_data = data.col_insert(nT, Matrix(np.ones(nIP)))
-sp.det(GKP_square_data)
-
-
-#%%
-
-
-# Define substitution rules for variables
-subs = {data.col(j)[i]: matrix[i,j]  for i, j in 
-        itertools.product(range(3),range(2))}
-sub_M0 = {M0[i]: data_M0[i] for i in range(3)}
-sub_M = {M[i]: data_M[i] for i in range(3)}
-sub_X = {X[i]: X_mass1[i] for i in range(2)}
-sub_A0 = {A0[i]: val_A0[i] for i in range(3)}
-sub_A = {A[i]: val_A[i] for i in range(3)}
-
-subs.update(sub_M0)
-subs.update(sub_M)
-subs.update(sub_X)
-subs.update(sub_A0)
-subs.update(sub_A)
-
-# Define substitution rules for uncertainties
-sig_subs = {sig_data.col(j)[i]: Ca_sig[i,j]  for i, j in 
-        itertools.product(range(3),range(2))}
-sig_sub_M0 = {sig_M0[i]: data_sigM0[i] for i in range(3)}
-sig_sub_M = {sig_M[i]: data_sigM[i] for i in range(3)}
-sig_sub_X = {sig_X[i]: data_sigX_mass1[i] for i in range(2)}
-
-sig_subs.update(sig_sub_M0)
-sig_subs.update(sig_sub_M)
-sig_subs.update(sig_sub_X)
-
-subs.update(sig_subs)
-
-V_th_sym.evalf(subs = subs)
-
-#%%
-
-Xvec = X_mass1[0:2]
-aaprime = val_A0-val_A
-red_mass = 1/data_M0-1/data_M
-h = aaprime/red_mass
-
-print(h)
-print(matrix)
-
-V_th_GKP(Xvec, h, matrix)
-
-
-
-#%%
-
-derivatives = 0
-for i in range(len(nu)):
-    derivatives += diff(V_th_sym, nu[i])**2*sig_nu[i]**2
-for i in range(len(M)):
-    derivatives += diff(V_th_sym, M[i])**2*sig_M[i]**2
-    for i in range(len(M0)):
-        derivatives += diff(V_th_sym, M0[i])**2*sig_M0[i]**2
-for i in range(len(X)):
-    derivatives += diff(V_th_sym, X[i])**2*sig_X[i]**2
+    """
     
-derivatives.evalf(subs = subs)
-
-
-#%%
-
-# def AAprime(A_pairs):
-#     IPpairs = Matrix([])
-#     for i in range(len(A_pairs.col(0))):
-#         row = sp.Matrix([[A_pairs[i, 0] - A_pairs[i, 1]]])
-#         IPpairs = IPpairs.row_insert(i, row)
-#     return IPpairs
-
-# def red_masses(mass_pairs):
-#     reduced = Matrix([])
-#     for i in range(len(mass_pairs.col(0))):
-#         row = sp.Matrix([[1/(1/mass_pairs[i, 0] - 1/mass_pairs[i, 1])]])
-#         reduced = reduced.row_insert(i, row)
-#     return reduced
-
-# mat_data = Matrix([[]])
-# for i in range(data.shape[1]):
-#     multiplied_column = matrix_multiply_elementwise(data.col(i), red_masses)
-#     mat_data = mat_data.col_insert(i, multiplied_column)
-#     reduced_data = mat_data.T
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel('$m_\phi$ (eV)')
+    plt.ylabel('$\\alpha_{NP}$')
+    # change plot size
+    plt.plot(mass_vec, alpha_vec)
     
- 
-
-
-
-#%%
-
-  
-
-V_th_sym_test = 0
-for i, j, k in itertools.product(range(3), repeat=3):
-    for a, b, c, d in itertools.product(range(4), repeat=4):
-        V_th_sym_test += (LeviCivita(i,j,k)*LeviCivita(a,b,c,d)*X[i]*hvector[b]
-                     *reduced_data.col(j)[c]*reduced_data.col(k)[d])
-
-print(V_th_sym_test)
-
-# derivatives = 0
-# for i in range(len(nu)):
-#     derivatives += diff(V_th_sym, nu[i])
-# for i in range(len(M)):
-#     derivatives += diff(V_th_sym, M[i])
-#     for i in range(len(M0)):
-#         derivatives += diff(V_th_sym, M0[i])
-# for i in range(len(X)):
-#     derivatives += diff(V_th_sym, X[i])
-    
-
-#%%
-
-V_th_sym - V_th_sym_test
-
-#%%
-
-
-import string
-
-
-def generate_iterables(num_loops):
-    letters = string.ascii_lowercase[:num_loops]
-    return itertools.combinations_with_replacement(letters, num_loops)
-
-n = 3  # Number of nested loops
-
-iterables = generate_iterables(n)
-
-for index_set in iterables:
-    print(index_set)
-    
-    
-
-#%%
-# We can use expr.subs(x, 2) to assign the value 2 to the symbol x in expr.
-
-# We can evaluate the expression usign eval() or evalf() (for floating
-# points); it's possible to specify the numer of digit as argument.
-
-# To numerically evaluate an expression w/ a symbol @ a point:
-# expr = cos(2*x)
-# expr.evalf(subs={x: 2.4})
-
-# lambify converts SymPy to other libraries
-
-i, j, k = symbols('i j k')
-a, b, c, d = symbols('a b c d')
-
-expr = 0
-for i, j, k in itertools.product(range(3), repeat=3):
-    for a, b, c, d in itertools.product(range(4), repeat=4):
-        base = LeviCivita(i,j,k)*LeviCivita(a,b,c,d)*X[i]*hvector[b]
-        for i in range(nT-1):
-            base *= reduced_data[indices[i+1]][c]
-        #print(terms)
-        summation = sum(terms)
-
-print(summation)
-
-#%%
-
-
-V_th_sym = 0
-for i, j in itertools.product(range(2), repeat=2):
-    for a, b, c in itertools.product(range(3), repeat=3):
-        V_th_sym += LeviCivita(i,j)*LeviCivita(a,b,c)*X[i]*hvector[b]*reduced_data.col(j)[c]
-
-print(V_th_sym)
-
-
-#%%
-
-def M(*iterables):
-    ones_row = Matrix([[1 for _ in range(3)]])
-    matrix = Matrix(2, 3, Matrix([X[iterables[0]]*hvector,reduced_data.col(iterables[1])])).row_insert(2, ones_row)
-
-    determinant = matrix.det()
-    return determinant
-    
-print('Mij = ', M(0,1))
-print('Mji = ', M(1,0))
-
-#%%
-
-V_th_sym = 0
-for i, j in itertools.product(range(2), repeat=2):
-    test = LeviCivita(i,j)*M(i,j)
-    print(test)
-    
-    #%%
-
-
 
 
 
