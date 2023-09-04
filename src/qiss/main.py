@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 
-from optimize import CMA, loss_function
+from qiss.optimizers import CMA, loss_function
 from experiment import ElementsCollection
 
 
