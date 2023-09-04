@@ -6,6 +6,7 @@ Created on Mon Jul 17 18:34:34 2023
 """
 
 import numpy as np
+import sympy as sp
 import itertools
 import matplotlib.pyplot as plt
 import string
@@ -207,12 +208,26 @@ V_th_GKP(Xvec3, hvec4, matrix3)
 """
 Testing real data
 """
-
+# Define test data
 Ca_data = np.array([[2.77187*10**9, 5.34089*10**9, 7.7684*10**9, 9.99038*10**9],
             [-3.5199*10**6,	-6.79247*10**6,	-9.90152*10**6,	-1.27466*10**7],
             [5.39088*10**8,	1.03045*10**9,	1.48114*10**9,	1.8943*10**9]]).T
-X_mass1 = [-7.83083*10**15, 3.86395*10**13, 1.56746*10**15]
+X_mass1 = np.array([-7.83083*10**15, 3.86395*10**13, 1.56746*10**15])
 h = [-1679.21, -1758.78, -1838.21, -1917.75]
+
+data_M0=np.array([39.962590851,39.962590851,39.962590851])
+data_M=np.array([41.95861778,43.9554815,45.9536877])
+val_A0=np.array([40,40,40])
+val_A=np.array([42,44,46])
+
+#Define uncertainties over test data
+Ca_sig = np.array([[7.6, 7.8, 2000, 4.9],
+            [2.4, 2.2, 2.1, 2.6],
+            [11, 11, 13, 15]]).T
+data_sigX_mass1 = X_mass1*0.1
+
+data_sigM0=np.array([22/1000000000, 22/1000000000, 22/1000000000])
+data_sigM=np.array([16/100000000, 3/10000000, 24/10000000])
 
 V_exp_GKP(Ca_data)/V_th_GKP(X_mass1, h, Ca_data)
 
@@ -229,7 +244,32 @@ def alpha_GKP(m, elem):
 
 #%%
 
-def V_th_symbolic(nT, nIP):
+def V_exp_GKP_symbolic(nT, nIP):
+
+    nT = 2
+    nIP = 3
+    
+    #Define variables
+    nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(nIP)
+                           for i in range(nT)]))
+    M0 = symbols(' '.join([f'm0{i}' for i in range(1, nIP+1)]))
+    M = symbols(' '.join([f'm{i}' for i in range(1, nIP+1)]))
+    
+    #Organize variables in matrices / vectors
+    data = Matrix(nIP, nT, nu)
+    red_masses = Matrix([[1/(1/M0[i] - 1/M[i])] for i in range(nIP)])
+    reduced_data = Matrix([data.row(a)*red_masses[a] for a in range(nIP)])
+    
+    GKP_square_data = reduced_data.col_insert(nT, Matrix(np.ones(nIP)))
+    V_exp_sym = GKP_square_data.det()
+    
+    
+    return V_exp_sym
+
+
+#%%
+
+def V_th_GKP_symbolic(nT, nIP):
     """
     
 
@@ -275,13 +315,62 @@ def V_th_symbolic(nT, nIP):
         for ip_indices in itertools.product(range(nIP), repeat=nIP):
             base = (LeviCivita(*transition_indices)*LeviCivita(*ip_indices)
                     *X[transition_indices[0]]*hvector[ip_indices[1]])
-            for w in range(1,nT):
+            for w in range(1, nT):
                 add = reduced_data.col(transition_indices[w])[ip_indices[w+1]]
                 base *= add
                 V_th_sym += base
 
 
     return V_th_sym
+
+#%%
+
+def alpha_GKP_symbolic(nT, nIP):
+    
+    alpha_sym = V_exp_GKP_symbolic(nT, nIP)/V_th_GKP_symbolic(nT, nIP)
+    
+    return alpha_sym
+
+#%%
+
+def sig_alpha_symbolic(nT, nIP):
+    
+    #Define symbolic variables
+    nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(nIP)
+                           for i in range(nT)]))
+    M0 = symbols(' '.join([f'm0{i}' for i in range(1, nIP+1)]))
+    M = symbols(' '.join([f'm{i}' for i in range(1, nIP+1)]))
+    X = symbols(' '.join([f'X{i}' for i in range(1, nT+1)]))
+    
+    #Define placeholders for uncertainites
+    sig_nu = symbols(' '.join([f'sig_v{j+1}{i+1}'
+                               for j in range(nIP) for i in range(nT)]))
+    sig_M0 = symbols(' '.join([f'sig_m0{i}' for i in range(1, nIP+1)]))
+    sig_M = symbols(' '.join([f'sig_m{i}' for i in range(1, nIP+1)]))
+    sig_X = symbols(' '.join([f'sig_X{i}' for i in range(1, nT+1)]))
+    
+    
+    derivatives = 0
+    for i in range(len(nu)):
+        derivatives += diff(alpha_GKP_symbolic(nT, nIP), nu[i])**2*sig_nu[i]**2
+    for i in range(len(M)):
+        derivatives += diff(alpha_GKP_symbolic(nT, nIP), M[i])**2*sig_M[i]**2
+        for i in range(len(M0)):
+            derivatives += (diff(alpha_GKP_symbolic(nT, nIP), M0[i])**2
+                            *sig_M0[i]**2)
+    for i in range(len(X)):
+        derivatives += diff(alpha_GKP_symbolic(nT, nIP), X[i])**2*sig_X[i]**2
+    
+    sig_alpha_th_sym = sp.sqrt(derivatives)
+    
+    return sig_alpha_th_sym
+
+sig_alpha_symbolic(2, 3)
+
+
+#%%
+
+V_th_GKP_symbolic(2, 3)
 
 
 #%%
@@ -291,10 +380,9 @@ def V_th_symbolic(nT, nIP):
 
 #%%
 
+nT=2
+nIP=3
 
-
-nT=3
-nIP=4
 
 #Define variables to differentiate wrt
 nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(nIP) for i in range(nT)]))
@@ -321,6 +409,8 @@ sig_M0 = symbols(' '.join([f'sig_m0{i}' for i in range(1, nIP+1)]))
 sig_M = symbols(' '.join([f'sig_m{i}' for i in range(1, nIP+1)]))
 sig_X = symbols(' '.join([f'sig_X{i}' for i in range(1, nT+1)]))
 
+sig_data = Matrix(nIP, nT, sig_nu)
+
 
 transition_indices = symbols(' '.join([string.ascii_lowercase[8+i] for i in range(0, nT)]))
 ip_indices = symbols(' '.join([string.ascii_lowercase[i] for i in range(0, nIP)]))
@@ -335,9 +425,71 @@ for transition_indices in itertools.product(range(nT), repeat=nT):
             add = reduced_data.col(transition_indices[w])[ip_indices[w+1]]
             base *= add
             V_th_sym += base
+            
+GKP_square_data = data.col_insert(nT, Matrix(np.ones(nIP)))
+sp.det(GKP_square_data)
 
 
-print(V_th_sym)
+#%%
+
+
+# Define substitution rules for variables
+subs = {data.col(j)[i]: matrix[i,j]  for i, j in 
+        itertools.product(range(3),range(2))}
+sub_M0 = {M0[i]: data_M0[i] for i in range(3)}
+sub_M = {M[i]: data_M[i] for i in range(3)}
+sub_X = {X[i]: X_mass1[i] for i in range(2)}
+sub_A0 = {A0[i]: val_A0[i] for i in range(3)}
+sub_A = {A[i]: val_A[i] for i in range(3)}
+
+subs.update(sub_M0)
+subs.update(sub_M)
+subs.update(sub_X)
+subs.update(sub_A0)
+subs.update(sub_A)
+
+# Define substitution rules for uncertainties
+sig_subs = {sig_data.col(j)[i]: Ca_sig[i,j]  for i, j in 
+        itertools.product(range(3),range(2))}
+sig_sub_M0 = {sig_M0[i]: data_sigM0[i] for i in range(3)}
+sig_sub_M = {sig_M[i]: data_sigM[i] for i in range(3)}
+sig_sub_X = {sig_X[i]: data_sigX_mass1[i] for i in range(2)}
+
+sig_subs.update(sig_sub_M0)
+sig_subs.update(sig_sub_M)
+sig_subs.update(sig_sub_X)
+
+subs.update(sig_subs)
+
+V_th_sym.evalf(subs = subs)
+
+#%%
+
+Xvec = X_mass1[0:2]
+aaprime = val_A0-val_A
+red_mass = 1/data_M0-1/data_M
+h = aaprime/red_mass
+
+print(h)
+print(matrix)
+
+V_th_GKP(Xvec, h, matrix)
+
+
+
+#%%
+
+derivatives = 0
+for i in range(len(nu)):
+    derivatives += diff(V_th_sym, nu[i])**2*sig_nu[i]**2
+for i in range(len(M)):
+    derivatives += diff(V_th_sym, M[i])**2*sig_M[i]**2
+    for i in range(len(M0)):
+        derivatives += diff(V_th_sym, M0[i])**2*sig_M0[i]**2
+for i in range(len(X)):
+    derivatives += diff(V_th_sym, X[i])**2*sig_X[i]**2
+    
+derivatives.evalf(subs = subs)
 
 
 #%%
