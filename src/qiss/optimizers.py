@@ -2,7 +2,6 @@ import numpy as np
 
 import scipy.stats as sps
 from scipy.optimize import minimize
-from bayes_opt import BayesianOptimization
 import cma
 
 

@@ -5,7 +5,7 @@ from cache_update import cached_fct
 from cache_update import cached_fct_property
 from user_elements import user_elems
 
-from optimize import Optimizer
+from qiss.optimizers import Optimizer
 
 _data_path = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "../qiss_data")
@@ -16,7 +16,7 @@ def sec(x: float):
     return 1 / np.cos(x)
 
 
-class Elem:
+class Element:
     # ADMIN ####################################################################
 
     # Load raw data from data folder
@@ -867,7 +867,7 @@ class ElementsCollection:
         # upload elements by folder names
         for element_folder in os.listdir(path):
 
-            self.add(Elem(element_folder))
+            self.add(Element(element_folder))
 
     def LL(self, parameters=None):
         """

@@ -1,11 +1,11 @@
 import numpy as np
 from pprint import pprint
-from qiss.experiment import Elem
+from qiss.builder import Element
 from Mathematica_crosschecks import *
 
 
 def test_load_all():
-    all_element_data = Elem.load_all()
+    all_element_data = Element.load_all()
 
     assert np.allclose(
         np.nan_to_num(all_element_data["Ca_testdata"].nu).sum(axis=1),
@@ -23,10 +23,10 @@ def test_load_all():
 
 
 def test_load_individual():
-    ca = Elem.get("Ca_testdata")
+    ca = Element.get("Ca_testdata")
     pprint(ca)
 
-    Ca = Elem.get("Ca_testdata")
+    Ca = Element.get("Ca_testdata")
     assert np.all(np.nan_to_num(ca.nu) == np.nan_to_num(Ca.nu))
     assert np.isclose(np.sum(ca.m_a), 119.88777255, rtol=1e-5)
     assert np.isclose(np.sum(ca.m_ap), 133.86662192999998, rtol=1e-5)
@@ -87,7 +87,7 @@ def test_load_individual():
 
 
 def test_set_fit_params():
-    ca = Elem.get("Ca_testdata")
+    ca = Element.get("Ca_testdata")
 
     kappaperp1temp = list(range(ca.n_ntransitions - 1))
     ph1temp = [np.pi / 2 - np.pi / (i + 2) for i in range(ca.n_ntransitions - 1)]
@@ -121,7 +121,7 @@ def test_set_fit_params():
 
 
 def test_constr_dvec():
-    ca = Elem.get("Ca_testdata")
+    ca = Element.get("Ca_testdata")
 
     # without NP
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.0])
@@ -159,7 +159,7 @@ def test_constr_dvec():
 
 
 def test_cov_nu_nu():
-    ca = Elem.get("Ca_testdata")
+    ca = Element.get("Ca_testdata")
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.0])
 
     DdDnu_11bj_python = np.array(
@@ -178,7 +178,7 @@ def test_cov_nu_nu():
 
 
 def test_cov_m_m():
-    ca = Elem.get("Ca_testdata")
+    ca = Element.get("Ca_testdata")
 
     # without NP
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.0])
@@ -231,7 +231,7 @@ def test_cov_m_m():
 
 
 def test_cov_mp_mp():
-    ca = Elem.get("Ca_testdata")
+    ca = Element.get("Ca_testdata")
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.0])
 
     DdDmp_a1b_python = np.array(
@@ -252,7 +252,7 @@ def test_cov_mp_mp():
 
 
 def test_cov_m_mp():
-    ca = Elem.get("Ca_testdata")
+    ca = Element.get("Ca_testdata")
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.0])
 
     sigdmmp_python = np.einsum("aic,cd,bjd->aibj", ca.DdDm, ca.cov_m_mp, ca.DdDmp)
@@ -262,7 +262,7 @@ def test_cov_m_mp():
 
 
 def test_cov_X_X():
-    ca = Elem.get("Ca_testdata")
+    ca = Element.get("Ca_testdata")
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.0])
 
     assert np.isclose(ca.sig_X @ ca.sig_X, np.sum(ca.cov_X_X), rtol=1e-25)
@@ -278,7 +278,7 @@ def test_cov_X_X():
 
 
 def test_constr_LL():
-    ca = Elem.get("Ca_testdata")
+    ca = Element.get("Ca_testdata")
     ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.0])
 
     assert np.allclose(ca.absd, absd_Mathematica, rtol=1e-9)

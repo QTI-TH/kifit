@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 
 from qiss.optimizers import CMA, loss_function
-from experiment import ElementsCollection
+from qiss.builder import ElementsCollection
 
 
 # parsing arguments
