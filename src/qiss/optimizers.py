@@ -6,47 +6,20 @@ from bayes_opt import BayesianOptimization
 import cma
 
 
-def loss_function(parameters, elements):
-    """
-    Build the loss function associated to a collection of elements.
-
-    Args:
-        parameters: flatten list of parameters containing Kperp1 and ph1 for all
-            the elements in `elements`. The last list item must be alphaNP.
-        elements: list of `loadelems.Elem` involved into the experiment.
-    """
-
-    # get alpha NP
-    alphaNP = parameters[-1]
-    # initialize index list to be zero
-    parameter_index = 0
-    # initial loss function value
-    ll = 0
-
-    # cycle over the parameters
-    for elem in elements:
-        # number of transition for elem
-        n_transitions = elem.n_ntransitions
-        # create flatten list of params corresponding to elem's params
-        elem_params = list(
-            parameters[parameter_index : parameter_index + 2 * (n_transitions - 1)]
-        )
-        # with alphaNP in the end
-        elem_params.append(alphaNP)
-        # inject params into the element
-        elem._update_fit_params(elem_params)
-        # calculating log likelihood
-        ll += elem.LL
-        # updating index
-        parameter_index += 2 * (n_transitions - 1)
-
-    return ll
+def loss_function(parameters, collection):
+    return collection.LL(parameters)
 
 
 class Optimizer:
     """General optimizer class, which returns the best set of parameters."""
 
-    def __init__(self, target_loss: float, max_iterations: int, verbose: int = 1):
+    def __init__(
+        self,
+        target_loss: float,
+        max_iterations: int,
+        bounds=[None, None],
+        verbose: int = 1,
+    ):
         """
         Args:
             datapath (str): path to target experiment folder.
@@ -62,6 +35,7 @@ class Optimizer:
         self.target_loss = target_loss
         self.max_iterations = max_iterations
         self.verbose = verbose
+        self.bounds = bounds
         self.initial_params = None
 
     def optimize(self):
@@ -78,6 +52,10 @@ class Optimizer:
     def update_parameters(self, parameters):
         """Update initial parameters of the optimization."""
         self.initial_params = parameters
+
+    def set_bounds(self, bounds):
+        """Set a new bounds list."""
+        self.bounds = bounds
 
     def get_linear_fit_params(self, data, reference_transition_idx: int = 0):
         """
@@ -115,8 +93,9 @@ class CMA(Optimizer):
         self,
         target_loss,
         max_iterations,
-        bounds,
+        sigma0=1e-13,
         maxfeval=None,
+        bounds=[None, None],
         verbose=1,
     ):
         """
@@ -131,88 +110,36 @@ class CMA(Optimizer):
             initial_params: initial guess of paramameters.
             maxfeval: maximum number of function evaluations.
         """
-        super().__init__(target_loss, max_iterations, verbose)
+        super().__init__(target_loss, max_iterations, bounds, verbose)
 
         self._method = "cma"
         self.maxfeval = maxfeval
-        self.bounds = bounds
+        self.sigma0 = sigma0
 
     def optimize(
         self, loss: callable, initial_parameters, args=()
     ) -> tuple[float, list]:
         """Call the CMA-ES optimizer."""
 
-        # params = []
-        # for elem in initial_parameters:
-        #     params.extend(elem[0])
-        #     params.extend(elem[1])
-        #     params.append(elem[2])
-
-        # print(params)
-
         options = {
             "verbose": self.verbose,
             "tolfun": self.target_loss,
             "maxiter": self.max_iterations,
             "maxfeval": self.maxfeval,
+            "tolfunhist": 1e-16,
+            "tolx": 1e-16,
             "bounds": self.bounds,
         }
 
         res = cma.fmin2(
             loss,
             initial_parameters,
-            1e-3,
-            args=args,
+            self.sigma0,
+            args=[args],
             options=options,
         )
 
         return res[1].result.fbest, res[1].result.xbest, res
-
-
-class BayesianOptimizer(Optimizer):
-    """
-    Compute a Bayesian optimization using: https://github.com/bayesian-optimization/BayesianOptimization.
-    """
-
-    def __init__(
-        self,
-        target_loss,
-        max_iterations,
-        bounds=None,
-        init_points=2,
-        random_state=1,
-        verbose=1,
-    ):
-        """
-        Args:
-            datapath: path to target experiment folder.
-                each experiment folder must be organised with one subfolder for
-                each element involved into the Kings Plot fitting.
-            target_loss: target loss function value at which the optimization
-                can be stopped.
-            max_iterations: maximum number of iterations.
-            verbose: if True, log messages are printed during the optimization.
-            initial_params: initial guess of paramameters.
-            maxfeval: maximum number of function evaluations.
-        """
-        super().__init__(target_loss, max_iterations, verbose)
-
-        self._method = "bayesian"
-        self.pbounds = bounds
-        self.random_state = random_state
-        self.init_points = init_points
-
-    def optimize(self, loss, parameters, args=()):
-        """Compute the optimization process."""
-        optimizer = BayesianOptimization(
-            f=loss, pbounds=self.pbounds, random_state=self.random_state
-        )
-
-        res = optimizer.maximize(
-            init_points=self.init_points, n_iter=self.max_iterations
-        )
-
-        return res
 
 
 class ScipyMinimizer(Optimizer):
@@ -225,7 +152,6 @@ class ScipyMinimizer(Optimizer):
         self,
         target_loss: float,
         max_iterations: int,
-        initial_params: list,
         method: str = None,
         jac: callable = None,
         hess: callable = None,
@@ -262,7 +188,6 @@ class ScipyMinimizer(Optimizer):
         super().__init__(target_loss, max_iterations, verbose)
 
         self._method = f"scipy_optimizer_{method}"
-        self.initial_params = initial_params
         self.method = method
         self.jac = jac
         self.hess = hess
@@ -272,12 +197,12 @@ class ScipyMinimizer(Optimizer):
         self.callback = callback
         self.options = options
 
-    def optimize(self, loss):
+    def optimize(self, loss, initial_parameters, args=()):
         """Execute the minimization according to the chosen method."""
         res = minimize(
             fun=loss,
-            x0=self.initial_params,
-            args=(),
+            x0=initial_parameters,
+            args=args,
             method=self.method,
             jac=self.jac,
             hess=self.hess,
