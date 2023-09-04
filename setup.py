@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
-from setuptools import setup
-
+from setuptools import setup, find_packages
 
 setup(
-    setup_requires=['pbr>=1.9', 'setuptools>=17.1'],
-    pbr=True,
+    name="kifit",
+    version="0.0.1",
+    package_dir={"": "src"},
+    packages=find_packages("src"),
+    zip_safe=False,
 )
