@@ -4,16 +4,16 @@ Created on Mon Sep  4 14:33:55 2023
 
 @author: Agnese
 """
+import itertools
+
 import numpy as np
 import sympy as sp
-import itertools
-import string
 from sympy import LeviCivita
 from sympy.abc import symbols
 from sympy import diff
 from sympy import Matrix, matrix_multiply_elementwise
 
-import loadelems
+# import builder
 
 #%%
 
@@ -21,65 +21,46 @@ import loadelems
 Useful functions
 """
 
-def levi_civita_tensor(dim): 
+def levi_civita_tensor(d): 
     """
-    Compute the Levi-Civita tensor of rank dim in
-    dim-dimensional space.
+    Return the Levi-Civita tensor as a d-dimensional array
 
-    Parameters
-    ----------
-    dim: INT
-        The dimension of the space.
-
-    Returns
-    -------
-    TENSOR
-        A numpy array representing the Levi-Civita tensor.
-        The tensor is a multi-dimensional array of shape (dim, dim, ..., dim).
     """
-    arr=np.zeros(tuple([dim for _ in range(dim)]))
-    for x in itertools.permutations(tuple(range(dim))):
-        mat = np.zeros((dim, dim), dtype=np.int32)
-        for i, j in zip(range(dim), x):
-            mat[i, j] = 1
+    arr=np.zeros([d for _ in range(d)])
+    for x in itertools.permutations(tuple(range(d))):
+        mat = np.zeros((d, d), dtype=np.int32)
+        for i, j in enumerate(x):
+            mat[i][j] = 1
         arr[x]=int(np.linalg.det(mat))
     return arr
 
-def gen_einsum_string(n):
+def generate_einsum_string(n):
     """
-    Generate a string of the form 'ij, abc, i, a, b, cj', to be
-    used in the Einstein summation for the GKP formula.
-
-    Parameters
-    ----------
-    n : INT
-        Number of transitions.
-
-    Returns
-    -------
-    einsum_str : STR
+    Return a string of the form 'ij, abc, i, a, b, cj, dk, ...'
+    where the stopping point is determined by n.
 
     """
-    col_row_str = [] 
-    transition_indices = ''.join(chr(105 + i) for i in range(n))
+     
+    fixed_transition_indices = ''.join(chr(105 + i) for i in range(n))
                 # 'ijk...' for n
-    isotope_pair_indices = ''.join(chr(97 + i) for i in range(n+1))
+    fixed_isotope_pair_indices = ''.join(chr(97 + i) for i in range(n+1))
                 # 'abc...' for n+1
-    fixed_str = (transition_indices + ', ' + isotope_pair_indices 
-                 + ', ' + 'i' + ', ' + 'a' + ', ' + 'b')
-    
-    
+    fixed_string = (fixed_transition_indices + ', '
+                    + fixed_isotope_pair_indices + ', '
+                    + 'i' + ', ' + 'a' + ', ' + 'b')
+        
+    dynamic_string = []
     for i in range(n-1):
-        row_index = ''.join(chr(99 + i)) #'c'... for n-1
-        col_index = ''.join(chr(106 + i)) #'j'... for n-1
-        tot = row_index + col_index #'cj'
-        col_row_str.append(tot) #'cj, dk,...' for n-1
+        row_indices = ''.join(chr(99 + i)) #'c'... for n-1
+        column_indices = ''.join(chr(106 + i)) #'j'... for n-1
+        combi_string = row_indices + column_indices #'cj'
+        dynamic_string.append(combi_string) #'cj, dk,...' for n-1
     
-    mat_indices_str = ', '.join(col_row_str)
+    matrix_indices_string = ', '.join(dynamic_string)
     
-    einsum_str = fixed_str + ', ' + mat_indices_str
+    einsum_string = fixed_string + ', ' + matrix_indices_string
     
-    return einsum_str
+    return einsum_string
 
 #%%  
     
@@ -88,7 +69,7 @@ King Plot functions
 """
 
 # @cached_fct_property
-def V_exp_GKP(self):
+def volume_data_gkp(self):
     """
     Return volume of NLs in mass-normalised isotope shifts for GKP formula.
     
@@ -99,14 +80,15 @@ def V_exp_GKP(self):
     
     m = len(self.mu_norm_isotope_shifts)
     if m != len(self.mu_norm_isotope_shifts.T) + 1:
-        print('Wrong shape of data matrix')
+        raise ValueError('Wrong shape of data matrix')
         
     datamatrix_extended = np.hstack((self.mu_norm_isotope_shifts,
                                      np.ones(m)[:, np.newaxis]))
     
     return np.linalg.det(datamatrix_extended)
 
-def V_th_GKP(self, x: int):
+# @cached_fct_property
+def volume_theory_gkp(self, x: int):
     """
     Return theory volume of NLs for the GKP formula, for alpha_NP=1
     for a given mediator mass
@@ -115,143 +97,153 @@ def V_th_GKP(self, x: int):
     self.X = self.Xcoeffs[x, 1:]
     
     if len(self.X) != len(self.mu_norm_isotope_shifts.T):
-        print('Wrong dimension of X vector')
+        raise ValueError('Wrong dimension of X vector')
     
     if len(self.h_aap) != len(self.mu_norm_isotope_shifts):
-        print('Wrong dimension of h vector')
+        raise ValueError('Wrong dimension of h vector')
     # These checks are already done when building the king, does it make
     # sense to do them again?
         
     n = len(self.X)
     matrix_list = [self.mu_norm_isotope_shifts] * (n-1)
     
-    vol = np.einsum(gen_einsum_string(n), levi_civita_tensor(n),
+    vol = np.einsum(generate_einsum_string(n), levi_civita_tensor(n),
                     levi_civita_tensor(n+1), self.X, np.ones(n+1), self.h_aap,
                     *matrix_list)
     norm = np.math.factorial(n-1)
     
     return vol/norm
 
-def alpha_GKP(self, x: int): 
+# @cached_fct_property
+def alpha_gkp(self, x: int): 
     """
     Return alpha_NP for the GKP formula for a given mediator mass.
 
     """
-    return V_exp_GKP(self)/V_th_GKP(self, x)
+    volume_fixed_mphi = volume_theory_gkp(self, x)
+    
+    return self.volume_data_gkp/volume_fixed_mphi
 
+# @cached_fct_property
+def volume_data_gkp_symbolic(self):
+    """
+    Return symbolic expression of NLs volume from data for the GKP formula.
+    
+    """
 
-def V_exp_GKP_symbolic(nT, nIP):
-
-    nT = 2
-    nIP = 3
+    nIP = self.m_nisotopepairs
+    nT = self.n_ntransitions
     
     #Define variables
     nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(nIP)
                            for i in range(nT)]))
-    M0 = symbols(' '.join([f'm0{i}' for i in range(1, nIP+1)]))
-    M = symbols(' '.join([f'm{i}' for i in range(1, nIP+1)]))
+    m = symbols(' '.join([f'm0{i}' for i in range(1, nIP+1)]))
+    mp = symbols(' '.join([f'm{i}' for i in range(1, nIP+1)]))
     
     #Organize variables in matrices / vectors
     data = Matrix(nIP, nT, nu)
-    red_masses = Matrix([[1/(1/M0[i] - 1/M[i])] for i in range(nIP)])
+    red_masses = Matrix([[1/(1/m[i] - 1/mp[i])] for i in range(nIP)])
     reduced_data = Matrix([data.row(a)*red_masses[a] for a in range(nIP)])
     
-    GKP_square_data = reduced_data.col_insert(nT, Matrix(np.ones(nIP)))
-    V_exp_sym = GKP_square_data.det()
+    gkp_square_data = reduced_data.col_insert(nT, Matrix(np.ones(nIP)))
     
-    
-    return V_exp_sym
+    return gkp_square_data.det()
 
-
-def V_th_GKP_symbolic(nT, nIP):
+# @cached_fct_property
+def volume_theory_gkp_symbolic(self):
     """
+    Return symbolic expression of NLs volume from theory for the GKP formula.
     
-
-    Parameters
-    ----------
-    nT : INT
-        Number of transitions.
-    nIP : INT
-        Number of isotope pairs.
-
-    Returns
-    -------
-    V_th_sym : SYM
-        Symbolic form of the theory volume for GKP.
-
     """
+    n_isotope_pairs = self.m_nisotopepairs
+    n_transitions = self.n_ntransitions
     
-    #Define variables
-    nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(nIP)
-                           for i in range(nT)]))
-    M0 = symbols(' '.join([f'm0{i}' for i in range(1, nIP+1)]))
-    M = symbols(' '.join([f'm{i}' for i in range(1, nIP+1)]))
-    A0 = symbols(' '.join([f'A0{i}' for i in range(1, nIP+1)]))
-    A = symbols(' '.join([f'A{i}' for i in range(1, nIP+1)]))
-    X = symbols(' '.join([f'X{i}' for i in range(1, nT+1)]))
+    # Define symbolic variables
+    nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(n_isotope_pairs)
+                           for i in range(n_transitions)]))
+    m = symbols(' '.join([f'm0{i}' for i in range(1, n_isotope_pairs+1)]))
+    mp = symbols(' '.join([f'm{i}' for i in range(1, n_isotope_pairs+1)]))
+    a = symbols(' '.join([f'A0{i}' for i in range(1, n_isotope_pairs+1)]))
+    ap = symbols(' '.join([f'A{i}' for i in range(1, n_isotope_pairs+1)]))
+    x = symbols(' '.join([f'X{i}' for i in range(1, n_transitions+1)]))
 
-    #Organize variables in matrices / vectors
-    data = Matrix(nIP, nT, nu)
-    AAprime = Matrix([[A0[i] - A[i]] for i in range(nIP)])
-    red_masses = Matrix([[1/(1/M0[i] - 1/M[i])] for i in range(nIP)])
-    hvector = matrix_multiply_elementwise(AAprime, red_masses)
-    reduced_data = Matrix([data.row(a)*red_masses[a] for a in range(nIP)])
+    # Organize symbolic variables in matrices and vectors
+    data = Matrix(n_isotope_pairs, n_transitions, nu)
+    aap = Matrix([[a[i] - ap[i]] for i in range(n_isotope_pairs)])
+    red_masses = Matrix([[1/(1/m[i] - 1/mp[i])]
+                         for i in range(n_isotope_pairs)])
+    hvector = matrix_multiply_elementwise(aap, red_masses)
+    reduced_data = Matrix([data.row(a)*red_masses[a]
+                           for a in range(n_isotope_pairs)])
 
-    #Define indices for transitions and isotope pairs
-    transition_indices = symbols(' '.join([string.ascii_lowercase[8+i]
-                                           for i in range(0, nT)]))
-    ip_indices = symbols(' '.join([string.ascii_lowercase[i]
-                                   for i in range(0, nIP)]))
+    # Define indices for transitions and isotope pairs
+    transition_indices = symbols(' '.join([chr(8+1)
+                                           for i in range(0, n_transitions)]))
+    ip_indices = symbols(' '.join([chr(i) for i in range(0, n_isotope_pairs)]))
 
-    # Build volume
-    V_th_sym = 0
-    for transition_indices in itertools.product(range(nT), repeat=nT):
-        for ip_indices in itertools.product(range(nIP), repeat=nIP):
+    # Build symbolic expression of NLs volume
+    vol_th_sym = 0
+    for transition_indices in itertools.product(range(n_transitions),
+                                                repeat=n_transitions):
+        for ip_indices in itertools.product(range(n_isotope_pairs),
+                                            repeat=n_isotope_pairs):
             base = (LeviCivita(*transition_indices)*LeviCivita(*ip_indices)
-                    *X[transition_indices[0]]*hvector[ip_indices[1]])
-            for w in range(1, nT):
+                    *x[transition_indices[0]]*hvector[ip_indices[1]])
+            for w in range(1, n_transitions):
                 add = reduced_data.col(transition_indices[w])[ip_indices[w+1]]
                 base *= add
-                V_th_sym += base
+                vol_th_sym += base
 
 
-    return V_th_sym
+    return vol_th_sym
 
 
-def alpha_GKP_symbolic(nT, nIP):
+def alpha_gkp_symbolic(self):
+    """
+    Return symbolic expression of alpha_NP for the GKP formula.
     
-    alpha_sym = V_exp_GKP_symbolic(nT, nIP)/V_th_GKP_symbolic(nT, nIP)
-    
-    return alpha_sym
+    """
+    return self.volume_data_gkp_symbolic/self.volume_theory_gkp_symbolic
 
-def sig_alpha_symbolic(nT, nIP):
+def sig_alpha_gkp_symbolic(self):
+    """
+    Return symbolic expression of alpha_NP for the GKP formula.
+    
+    """
+    n_isotope_pairs = self.m_nisotopepairs
+    n_transitions = self.n_ntransitions
     
     #Define symbolic variables
-    nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(nIP)
-                           for i in range(nT)]))
-    M0 = symbols(' '.join([f'm0{i}' for i in range(1, nIP+1)]))
-    M = symbols(' '.join([f'm{i}' for i in range(1, nIP+1)]))
-    X = symbols(' '.join([f'X{i}' for i in range(1, nT+1)]))
+    nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(n_isotope_pairs)
+                           for i in range(n_transitions)]))
+    m = symbols(' '.join([f'm0{i}' for i in range(1, n_isotope_pairs+1)]))
+    mp = symbols(' '.join([f'm{i}' for i in range(1, n_isotope_pairs+1)]))
+    x = symbols(' '.join([f'X{i}' for i in range(1, n_transitions+1)]))
     
     #Define placeholders for uncertainites
     sig_nu = symbols(' '.join([f'sig_v{j+1}{i+1}'
-                               for j in range(nIP) for i in range(nT)]))
-    sig_M0 = symbols(' '.join([f'sig_m0{i}' for i in range(1, nIP+1)]))
-    sig_M = symbols(' '.join([f'sig_m{i}' for i in range(1, nIP+1)]))
-    sig_X = symbols(' '.join([f'sig_X{i}' for i in range(1, nT+1)]))
+                               for j in range(n_transitions)
+                               for i in range(n_transitions)]))
+    sig_m = symbols(' '.join([f'sig_m0{i}'
+                               for i in range(1, n_isotope_pairs+1)]))
+    sig_mp = symbols(' '.join([f'sig_m{i}'
+                              for i in range(1, n_isotope_pairs+1)]))
+    sig_x = symbols(' '.join([f'sig_X{i}' for i in range(1, n_transitions+1)]))
     
     
     derivatives = 0
     for i in range(len(nu)):
-        derivatives += diff(alpha_GKP_symbolic(nT, nIP), nu[i])**2*sig_nu[i]**2
-    for i in range(len(M)):
-        derivatives += diff(alpha_GKP_symbolic(nT, nIP), M[i])**2*sig_M[i]**2
-        for i in range(len(M0)):
-            derivatives += (diff(alpha_GKP_symbolic(nT, nIP), M0[i])**2
-                            *sig_M0[i]**2)
-    for i in range(len(X)):
-        derivatives += diff(alpha_GKP_symbolic(nT, nIP), X[i])**2*sig_X[i]**2
+        derivatives += diff(alpha_gkp_symbolic(n_transitions, n_transitions),
+                            nu[i])**2*sig_nu[i]**2
+    for i in range(len(mp)):
+        derivatives += diff(alpha_gkp_symbolic(n_transitions, n_transitions),
+                            mp[i])**2*sig_mp[i]**2
+        for i in range(len(m)):
+            derivatives += (diff(alpha_gkp_symbolic(n_transitions,
+                                                    n_transitions), m[i])**2
+                            *sig_m[i]**2)
+    for i in range(len(x)):
+        derivatives += diff(alpha_gkp_symbolic(n_transitions,n_transitions),
+                            x[i])**2*sig_x[i]**2
     
-    sig_alpha_th_sym = sp.sqrt(derivatives)
-    
-    return sig_alpha_th_sym
+    return sp.sqrt(derivatives)
