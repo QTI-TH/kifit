@@ -865,8 +865,8 @@ class ElementsCollection:
         """
         # upload elements by folder names
         for element_folder in os.listdir(path):
-
-            self.add(Element(element_folder))
+            if element_folder in user_elems:
+                self.add(Element(element_folder))
 
     def LL(self, parameters=None):
         """
