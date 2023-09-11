@@ -13,7 +13,6 @@ from sympy.abc import symbols
 from sympy import diff
 from sympy import Matrix, matrix_multiply_elementwise
 
-# import builder
 
 #%%
 
@@ -33,6 +32,9 @@ def levi_civita_tensor(d):
             mat[i][j] = 1
         arr[x]=int(np.linalg.det(mat))
     return arr
+
+def do_absolutely_nothing(x):
+    return x
 
 def generate_einsum_string(n):
     """
