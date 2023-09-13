@@ -22,6 +22,47 @@ _data_path = os.path.abspath(
 def sec(x: float):
     return 1 / np.cos(x)
 
+def levi_civita_tensor(d):
+    """
+    Return the Levi-Civita tensor as a d-dimensional array
+
+    """
+    arr=np.zeros([d for _ in range(d)])
+    for x in itertools.permutations(tuple(range(d))):
+        mat = np.zeros((d, d), dtype=np.int32)
+        for i, j in enumerate(x):
+            mat[i][j] = 1
+        arr[x]=int(np.linalg.det(mat))
+    return arr
+
+def generate_einsum_string(n):
+    """
+    Return a string of the form 'ij, abc, i, a, b, cj, dk, ...'
+    where the stopping point is determined by n.
+
+    """
+     
+    fixed_transition_indices = ''.join(chr(105 + i) for i in range(n))
+                # 'ijk...' for n
+    fixed_isotope_pair_indices = ''.join(chr(97 + i) for i in range(n+1))
+                # 'abc...' for n+1
+    fixed_string = (fixed_transition_indices + ', '
+                    + fixed_isotope_pair_indices + ', '
+                    + 'i' + ', ' + 'a' + ', ' + 'b')
+        
+    dynamic_string = []
+    for i in range(n-1):
+        row_indices = ''.join(chr(99 + i)) #'c'... for n-1
+        column_indices = ''.join(chr(106 + i)) #'j'... for n-1
+        combi_string = row_indices + column_indices #'cj'
+        dynamic_string.append(combi_string) #'cj, dk,...' for n-1
+    
+    matrix_indices_string = ', '.join(dynamic_string)
+    
+    einsum_string = fixed_string + ', ' + matrix_indices_string
+    
+    return einsum_string
+
 
 class Element:
     # ADMIN ####################################################################
@@ -820,53 +861,8 @@ class Element:
         """
         return 1 / 2 * (self.absd @ np.linalg.inv(self.cov_d_d) @ self.absd)
     
-    # KING PLOT FUNCTIONS #####################################################
+# KING PLOT FUNCTIONS #####################################################
     
-    """
-    Useful functions
-    """
-
-    def levi_civita_tensor(d): 
-        """
-        Return the Levi-Civita tensor as a d-dimensional array
-
-        """
-        arr=np.zeros([d for _ in range(d)])
-        for x in itertools.permutations(tuple(range(d))):
-            mat = np.zeros((d, d), dtype=np.int32)
-            for i, j in enumerate(x):
-                mat[i][j] = 1
-            arr[x]=int(np.linalg.det(mat))
-        return arr
-
-    def generate_einsum_string(n):
-        """
-        Return a string of the form 'ij, abc, i, a, b, cj, dk, ...'
-        where the stopping point is determined by n.
-
-        """
-         
-        fixed_transition_indices = ''.join(chr(105 + i) for i in range(n))
-                    # 'ijk...' for n
-        fixed_isotope_pair_indices = ''.join(chr(97 + i) for i in range(n+1))
-                    # 'abc...' for n+1
-        fixed_string = (fixed_transition_indices + ', '
-                        + fixed_isotope_pair_indices + ', '
-                        + 'i' + ', ' + 'a' + ', ' + 'b')
-            
-        dynamic_string = []
-        for i in range(n-1):
-            row_indices = ''.join(chr(99 + i)) #'c'... for n-1
-            column_indices = ''.join(chr(106 + i)) #'j'... for n-1
-            combi_string = row_indices + column_indices #'cj'
-            dynamic_string.append(combi_string) #'cj, dk,...' for n-1
-        
-        matrix_indices_string = ', '.join(dynamic_string)
-        
-        einsum_string = fixed_string + ', ' + matrix_indices_string
-        
-        return einsum_string
-        
     @cached_fct_property
     def volume_data_gkp(self):
         """
@@ -876,17 +872,17 @@ class Element:
             and calculate the determinant of the extended matrix.
             
         """
-        
+                
         m = len(self.mu_norm_isotope_shifts)
         if m != len(self.mu_norm_isotope_shifts.T) + 1:
             raise ValueError('Wrong shape of data matrix')
             
         datamatrix_extended = np.hstack((self.mu_norm_isotope_shifts,
-                                         np.ones(m)[:, np.newaxis]))
+                                          np.ones(m)[:, np.newaxis]))
         
         return np.linalg.det(datamatrix_extended)
     
-    # @cached_fct_property
+    @cached_fct_property
     def volume_theory_gkp(self, x: int):
         """
         Return theory volume of NLs for the GKP formula, for alpha_NP=1
@@ -907,13 +903,13 @@ class Element:
         matrix_list = [self.mu_norm_isotope_shifts] * (n-1)
         
         vol = np.einsum(generate_einsum_string(n), levi_civita_tensor(n),
-                        levi_civita_tensor(n+1), self.X, np.ones(n+1), self.h_aap,
-                        *matrix_list)
+                        levi_civita_tensor(n+1), self.X, np.ones(n+1),
+                        self.h_aap, *matrix_list)
         norm = np.math.factorial(n-1)
         
         return vol/norm
     
-    # @cached_fct_property
+    @cached_fct_property
     def alpha_gkp(self, x: int): 
         """
         Return alpha_NP for the GKP formula for a given mediator mass.
@@ -923,7 +919,7 @@ class Element:
         
         return self.volume_data_gkp/volume_fixed_mphi
     
-    # @cached_fct_property
+    @cached_fct_property
     def volume_data_gkp_symbolic(self):
         """
         Return symbolic expression of NLs volume from data for the GKP formula.
@@ -948,7 +944,7 @@ class Element:
         
         return gkp_square_data.det()
     
-    # @cached_fct_property
+    @cached_fct_property
     def volume_theory_gkp_symbolic(self):
         """
         Return symbolic expression of NLs volume from theory for the GKP formula.
@@ -976,7 +972,7 @@ class Element:
                                for a in range(n_isotope_pairs)])
     
         # Define indices for transitions and isotope pairs
-        transition_indices = symbols(' '.join([chr(8+1)
+        transition_indices = symbols(' '.join([chr(8+i)
                                                for i in range(0, n_transitions)]))
         ip_indices = symbols(' '.join([chr(i) for i in range(0, n_isotope_pairs)]))
     
@@ -996,7 +992,7 @@ class Element:
     
         return vol_th_sym
     
-    
+    @cached_fct_property
     def alpha_gkp_symbolic(self):
         """
         Return symbolic expression of alpha_NP for the GKP formula.
@@ -1004,6 +1000,7 @@ class Element:
         """
         return self.volume_data_gkp_symbolic/self.volume_theory_gkp_symbolic
     
+    @cached_fct_property
     def sig_alpha_gkp_symbolic(self):
         """
         Return symbolic expression of alpha_NP for the GKP formula.
@@ -1021,7 +1018,7 @@ class Element:
         
         #Define placeholders for uncertainites
         sig_nu = symbols(' '.join([f'sig_v{j+1}{i+1}'
-                                   for j in range(n_transitions)
+                                   for j in range(n_isotope_pairs)
                                    for i in range(n_transitions)]))
         sig_m = symbols(' '.join([f'sig_m0{i}'
                                    for i in range(1, n_isotope_pairs+1)]))
@@ -1032,18 +1029,14 @@ class Element:
         
         derivatives = 0
         for i in range(len(nu)):
-            derivatives += diff(alpha_gkp_symbolic(n_transitions, n_transitions),
-                                nu[i])**2*sig_nu[i]**2
+            derivatives += diff(self.alpha_gkp_symbolic, nu[i])**2*sig_nu[i]**2
         for i in range(len(mp)):
-            derivatives += diff(alpha_gkp_symbolic(n_transitions, n_transitions),
-                                mp[i])**2*sig_mp[i]**2
+            derivatives += diff(self.alpha_gkp_symbolic, mp[i])**2*sig_mp[i]**2
             for i in range(len(m)):
-                derivatives += (diff(alpha_gkp_symbolic(n_transitions,
-                                                        n_transitions), m[i])**2
+                derivatives += (diff(self.alpha_gkp_symbolic, m[i])**2
                                 *sig_m[i]**2)
         for i in range(len(x)):
-            derivatives += diff(alpha_gkp_symbolic(n_transitions,n_transitions),
-                                x[i])**2*sig_x[i]**2
+            derivatives += diff(self.alpha_gkp_symbolic, x[i])**2*sig_x[i]**2
         
         return sp.sqrt(derivatives)
 
