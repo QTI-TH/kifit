@@ -237,7 +237,7 @@ class Element:
     @update_fct
     def _update_Xcoeffs(self, x: int):
         """
-        Set the X coefficients and their uncertainties to the set computed for.
+        Set the X coefficients and their uncertainties to the set computed for
         a given mediator mass.
 
         """
@@ -882,14 +882,16 @@ class Element:
         
         return np.linalg.det(datamatrix_extended)
     
-    @cached_fct_property
+    # @cached_fct_property
+    @update_fct
     def volume_theory_gkp(self, x: int):
         """
         Return theory volume of NLs for the GKP formula, for alpha_NP=1
         for a given mediator mass
     
         """
-        self.X = self.Xcoeffs[x, 1:]
+        self._update_Xcoeffs(x)
+        # self.X = self.Xcoeffs[x, 1:]
         
         if len(self.X) != len(self.mu_norm_isotope_shifts.T):
             raise ValueError('Wrong dimension of X vector')
@@ -909,15 +911,15 @@ class Element:
         
         return vol/norm
     
-    @cached_fct_property
+    # @cached_fct_property
+    @update_fct
     def alpha_gkp(self, x: int): 
         """
         Return alpha_NP for the GKP formula for a given mediator mass.
     
         """
-        volume_fixed_mphi = volume_theory_gkp(self, x)
-        
-        return self.volume_data_gkp/volume_fixed_mphi
+                
+        return self.volume_data_gkp/self.volume_theory_gkp(x)
     
     @cached_fct_property
     def volume_data_gkp_symbolic(self):
@@ -1000,12 +1002,15 @@ class Element:
         """
         return self.volume_data_gkp_symbolic/self.volume_theory_gkp_symbolic
     
-    @cached_fct_property
-    def sig_alpha_gkp_symbolic(self):
+    # @cached_fct_property
+    @update_fct
+    def sig_alpha_gkp_symbolic(self, x: int):
         """
         Return symbolic expression of alpha_NP for the GKP formula.
         
         """
+        self._update_Xcoeffs(x)
+        
         n_isotope_pairs = self.m_nisotopepairs
         n_transitions = self.n_ntransitions
         
@@ -1016,29 +1021,60 @@ class Element:
         mp = symbols(' '.join([f'm{i}' for i in range(1, n_isotope_pairs+1)]))
         x = symbols(' '.join([f'X{i}' for i in range(1, n_transitions+1)]))
         
-        #Define placeholders for uncertainites
-        sig_nu = symbols(' '.join([f'sig_v{j+1}{i+1}'
-                                   for j in range(n_isotope_pairs)
-                                   for i in range(n_transitions)]))
-        sig_m = symbols(' '.join([f'sig_m0{i}'
-                                   for i in range(1, n_isotope_pairs+1)]))
-        sig_mp = symbols(' '.join([f'sig_m{i}'
-                                  for i in range(1, n_isotope_pairs+1)]))
-        sig_x = symbols(' '.join([f'sig_X{i}' for i in range(1, n_transitions+1)]))
-        
-        
         derivatives = 0
         for i in range(len(nu)):
-            derivatives += diff(self.alpha_gkp_symbolic, nu[i])**2*sig_nu[i]**2
+            derivatives += (diff(self.alpha_gkp_symbolic, nu[i])**2
+                            *self.sig_nu.flatten()[i]**2)
         for i in range(len(mp)):
-            derivatives += diff(self.alpha_gkp_symbolic, mp[i])**2*sig_mp[i]**2
+            derivatives += (diff(self.alpha_gkp_symbolic, mp[i])**2
+                            *self.sig_m_a[i]**2)
             for i in range(len(m)):
                 derivatives += (diff(self.alpha_gkp_symbolic, m[i])**2
-                                *sig_m[i]**2)
+                                *self.sig_m_ap[i]**2)
         for i in range(len(x)):
-            derivatives += diff(self.alpha_gkp_symbolic, x[i])**2*sig_x[i]**2
+            derivatives += (diff(self.alpha_gkp_symbolic, x[i])**2
+                            *self.sig_X[i]**2)
         
         return sp.sqrt(derivatives)
+    
+    # @cached_fct_property
+    @update_fct
+    def sig_alpha_gkp(self, x: int):
+        
+        self._update_Xcoeffs(x)
+        
+        n_isotope_pairs = self.m_nisotopepairs
+        n_transitions = self.n_ntransitions
+        
+        #Define symbolic variables
+        nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(n_isotope_pairs)
+                                for i in range(n_transitions)]))
+        m = symbols(' '.join([f'm0{i}' for i in range(1, n_isotope_pairs+1)]))
+        mp = symbols(' '.join([f'm{i}' for i in range(1, n_isotope_pairs+1)]))
+        a = symbols(' '.join([f'A0{i}' for i in range(1, n_isotope_pairs+1)]))
+        ap = symbols(' '.join([f'A{i}' for i in range(1, n_isotope_pairs+1)]))
+        xcoeff = symbols(' '.join([f'X{i}' for i in range(1, n_transitions+1)]))
+        
+        replacements = []
+        replacements += [(nu[i], self.nu.flatten()[i]) for i in 
+                          range(self.m_nisotopepairs*self.n_ntransitions)]
+        replacements += [(m[i], self.m_a[i]) for i in
+                          range(self.m_nisotopepairs)]
+        replacements += [(mp[i], self.m_ap[i]) for i in
+                          range(self.m_nisotopepairs)]
+        replacements += [(xcoeff[i], self.X[i]) for i in range(self.n_ntransitions)]
+        replacements += [(a[i], self.a_nisotope[i]) for i in
+                          range(self.m_nisotopepairs)]
+        replacements += [(ap[i], self.ap_nisotope[i]) for i in
+                          range(self.m_nisotopepairs)]
+        
+        # sig = self.sig_alpha_gkp_symbolic(x)
+        
+        return self.sig_alpha_gkp_symbolic(x).subs(replacements)
+        
+        
+                          
+
 
 
 
