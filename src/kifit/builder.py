@@ -868,38 +868,33 @@ class Element:
         """
         Return volume of NLs in mass-normalised isotope shifts for GKP formula.
         
-            Add an m-dimensional identity column to mass-normalised data matrix
+            Add an m-dimensional column of ones to mass-normalised data matrix
             and calculate the determinant of the extended matrix.
             
         """
                 
         m = len(self.mu_norm_isotope_shifts)
         if m != len(self.mu_norm_isotope_shifts.T) + 1:
-            raise ValueError('Wrong shape of data matrix')
+            raise ValueError('Wrong shape of data matrix for GKP')
             
         datamatrix_extended = np.hstack((self.mu_norm_isotope_shifts,
                                           np.ones(m)[:, np.newaxis]))
         
         return np.linalg.det(datamatrix_extended)
     
-    # @cached_fct_property
-    @update_fct
-    def volume_theory_gkp(self, x: int):
+    @cached_fct_property
+    def volume_theory_gkp(self):
         """
         Return theory volume of NLs for the GKP formula, for alpha_NP=1
-        for a given mediator mass
+        for the selected mediator mass.
     
         """
-        self._update_Xcoeffs(x)
-        # self.X = self.Xcoeffs[x, 1:]
         
         if len(self.X) != len(self.mu_norm_isotope_shifts.T):
             raise ValueError('Wrong dimension of X vector')
         
         if len(self.h_aap) != len(self.mu_norm_isotope_shifts):
             raise ValueError('Wrong dimension of h vector')
-        # These checks are already done when building the king, does it make
-        # sense to do them again?
             
         n = len(self.X)
         matrix_list = [self.mu_norm_isotope_shifts] * (n-1)
@@ -911,15 +906,14 @@ class Element:
         
         return vol/norm
     
-    # @cached_fct_property
-    @update_fct
-    def alpha_gkp(self, x: int): 
+    @cached_fct_property
+    def alpha_gkp(self): 
         """
         Return alpha_NP for the GKP formula for a given mediator mass.
     
         """
                 
-        return self.volume_data_gkp/self.volume_theory_gkp(x)
+        return self.volume_data_gkp/self.volume_theory_gkp
     
     @cached_fct_property
     def volume_data_gkp_symbolic(self):
@@ -927,24 +921,23 @@ class Element:
         Return symbolic expression of NLs volume from data for the GKP formula.
         
         """
-    
-        nIP = self.m_nisotopepairs
-        nT = self.n_ntransitions
-        
         #Define variables
-        nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(nIP)
-                               for i in range(nT)]))
-        m = symbols(' '.join([f'm0{i}' for i in range(1, nIP+1)]))
-        mp = symbols(' '.join([f'm{i}' for i in range(1, nIP+1)]))
+        nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(self.m_nisotopepairs)
+                               for i in range(self.n_ntransitions)]))
+        m_a = symbols(' '.join([f'm0{i}' for i in range(1, self.m_nisotopepairs+1)]))
+        m_ap = symbols(' '.join([f'm{i}' for i in range(1, self.m_nisotopepairs+1)]))
         
         #Organize variables in matrices / vectors
-        data = Matrix(nIP, nT, nu)
-        red_masses = Matrix([[1/(1/m[i] - 1/mp[i])] for i in range(nIP)])
-        reduced_data = Matrix([data.row(a)*red_masses[a] for a in range(nIP)])
+        data = Matrix(self.m_nisotopepairs, self.n_ntransitions, nu)
+        red_masses = Matrix([[1/(1/m_a[i] - 1/m_ap[i])] for i in range(self.m_nisotopepairs)])
+        reduced_data = Matrix([data.row(a)*red_masses[a] for a in range(self.m_nisotopepairs)])
         
-        gkp_square_data = reduced_data.col_insert(nT, Matrix(np.ones(nIP)))
+        # Compute the volume
+        vol = reduced_data.col_insert(self.n_ntransitions,
+                                       Matrix(sp.ones(self.m_nisotopepairs,
+                                                      cols=1))).det()
         
-        return gkp_square_data.det()
+        return vol
     
     @cached_fct_property
     def volume_theory_gkp_symbolic(self):
@@ -952,46 +945,43 @@ class Element:
         Return symbolic expression of NLs volume from theory for the GKP formula.
         
         """
-        n_isotope_pairs = self.m_nisotopepairs
-        n_transitions = self.n_ntransitions
-        
         # Define symbolic variables
-        nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(n_isotope_pairs)
-                               for i in range(n_transitions)]))
-        m = symbols(' '.join([f'm0{i}' for i in range(1, n_isotope_pairs+1)]))
-        mp = symbols(' '.join([f'm{i}' for i in range(1, n_isotope_pairs+1)]))
-        a = symbols(' '.join([f'A0{i}' for i in range(1, n_isotope_pairs+1)]))
-        ap = symbols(' '.join([f'A{i}' for i in range(1, n_isotope_pairs+1)]))
-        x = symbols(' '.join([f'X{i}' for i in range(1, n_transitions+1)]))
+        nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(self.m_nisotopepairs)
+                                for i in range(self.n_ntransitions)]))
+        m_a = symbols(' '.join([f'm0{i}' for i in range(1, self.m_nisotopepairs+1)]))
+        m_ap = symbols(' '.join([f'm{i}' for i in range(1, self.m_nisotopepairs+1)]))
+        a = symbols(' '.join([f'A0{i}' for i in range(1, self.m_nisotopepairs+1)]))
+        ap = symbols(' '.join([f'A{i}' for i in range(1, self.m_nisotopepairs+1)]))
+        xcoeff = symbols(' '.join([f'X{i}' for i in range(1, self.n_ntransitions+1)]))
     
         # Organize symbolic variables in matrices and vectors
-        data = Matrix(n_isotope_pairs, n_transitions, nu)
-        aap = Matrix([[a[i] - ap[i]] for i in range(n_isotope_pairs)])
-        red_masses = Matrix([[1/(1/m[i] - 1/mp[i])]
-                             for i in range(n_isotope_pairs)])
+        data = Matrix(self.m_nisotopepairs, self.n_ntransitions, nu)
+        aap = Matrix([[a[i] - ap[i]] for i in range(self.m_nisotopepairs)])
+        red_masses = Matrix([[1/(1/m_a[i] - 1/m_ap[i])]
+                             for i in range(self.m_nisotopepairs)])
         hvector = matrix_multiply_elementwise(aap, red_masses)
         reduced_data = Matrix([data.row(a)*red_masses[a]
-                               for a in range(n_isotope_pairs)])
+                               for a in range(self.m_nisotopepairs)])
     
         # Define indices for transitions and isotope pairs
         transition_indices = symbols(' '.join([chr(8+i)
-                                               for i in range(0, n_transitions)]))
-        ip_indices = symbols(' '.join([chr(i) for i in range(0, n_isotope_pairs)]))
+                                               for i in range(0, self.n_ntransitions)]))
+        ip_indices = symbols(' '.join([chr(i) for i in range(0, self.m_nisotopepairs)]))
     
         # Build symbolic expression of NLs volume
         vol_th_sym = 0
-        for transition_indices in itertools.product(range(n_transitions),
-                                                    repeat=n_transitions):
-            for ip_indices in itertools.product(range(n_isotope_pairs),
-                                                repeat=n_isotope_pairs):
+        for transition_indices in itertools.product(range(self.n_ntransitions),
+                                                    repeat=self.n_ntransitions):
+            for ip_indices in itertools.product(range(self.m_nisotopepairs),
+                                                repeat=self.m_nisotopepairs):
                 base = (LeviCivita(*transition_indices)*LeviCivita(*ip_indices)
-                        *x[transition_indices[0]]*hvector[ip_indices[1]])
-                for w in range(1, n_transitions):
+                        *xcoeff[transition_indices[0]]*hvector[ip_indices[1]])
+                for w in range(1, self.n_ntransitions):
                     add = reduced_data.col(transition_indices[w])[ip_indices[w+1]]
                     base *= add
                     vol_th_sym += base
     
-    
+        
         return vol_th_sym
     
     @cached_fct_property
@@ -1010,16 +1000,13 @@ class Element:
         
         """
         self._update_Xcoeffs(x)
-        
-        n_isotope_pairs = self.m_nisotopepairs
-        n_transitions = self.n_ntransitions
-        
+
         #Define symbolic variables
-        nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(n_isotope_pairs)
-                               for i in range(n_transitions)]))
-        m = symbols(' '.join([f'm0{i}' for i in range(1, n_isotope_pairs+1)]))
-        mp = symbols(' '.join([f'm{i}' for i in range(1, n_isotope_pairs+1)]))
-        x = symbols(' '.join([f'X{i}' for i in range(1, n_transitions+1)]))
+        nu = symbols(' '.join([f'v{j+1}{i+1}' for j in range(self.m_nisotopepairs)
+                               for i in range(self.n_ntransitions)]))
+        m = symbols(' '.join([f'm0{i}' for i in range(1, self.m_nisotopepairs+1)]))
+        mp = symbols(' '.join([f'm{i}' for i in range(1, self.m_nisotopepairs+1)]))
+        xsym = symbols(' '.join([f'X{i}' for i in range(1, self.n_ntransitions+1)]))
         
         derivatives = 0
         for i in range(len(nu)):
@@ -1032,7 +1019,7 @@ class Element:
                 derivatives += (diff(self.alpha_gkp_symbolic, m[i])**2
                                 *self.sig_m_ap[i]**2)
         for i in range(len(x)):
-            derivatives += (diff(self.alpha_gkp_symbolic, x[i])**2
+            derivatives += (diff(self.alpha_gkp_symbolic, xsym[i])**2
                             *self.sig_X[i]**2)
         
         return sp.sqrt(derivatives)
