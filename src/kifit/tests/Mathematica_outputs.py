@@ -1,6 +1,8 @@
 import numpy as np
 from sympy import symbols
-import builder 
+from sympy import sqrt
+from sympy import simplify
+# import builder 
 
 mu_norm_isotope_shifts_Mathematica = np.array([[2.32807351650193e12, -2.95633249878061e9, 1.],
                           [2.34914378001053e12, -2.98761001168855e9, 1.],
@@ -20,24 +22,15 @@ A01, A02, A03 = symbols(' '.join([f'A0{i}' for i in range(1, 4)]))
 A1, A2, A3 = symbols(' '.join([f'A{i}' for i in range(1, 4)]))
 X1, X2 = symbols(' '.join([f'X{i}' for i in range(1, 3)]))
 
-volume_data_gkp_symbolic_Mathematica = 
+sv11, sv12, sv21, sv22, sv31, sv32 = symbols(' '.join([f'sv{j+1}{i+1}' for j in range(3)
+                        for i in range(2)]))
+sm01, sm02, sm03 = symbols(
+    ' '.join([f'sm0{i}' for i in range(1, 3+1)]))
+sm1, sm2, sm3 = symbols(
+    ' '.join([f'sm{i}' for i in range(1, 3+1)]))
+sx1, sx2 = symbols(
+    ' '.join([f'sx{i}' for i in range(1, 2+1)]))
 
 alpha_gkp_symbolic_Mathematica = (-((v12*v21)/((m01**(-1)-m1**(-1))*(m02**(-1)-m2**(-1))))+(v11*v22)/((m01**(-1)-m1**(-1))*(m02**(-1)-m2**(-1)))+(v12*v31)/((m01**(-1)-m1**(-1))*(m03**(-1)-m3**(-1)))-(v22*v31)/((m02**(-1)-m2**(-1))*(m03**(-1)-m3**(-1)))-(v11*v32)/((m01**(-1)-m1**(-1))*(m03**(-1)-m3**(-1)))+(v21*v32)/((m02**(-1)-m2**(-1))*(m03**(-1)-m3**(-1))))/(-(((A02-A2)*v12*X1)/((m01**(-1)-m1**(-1))*(m02**(-1)-m2**(-1))))+((A03-A3)*v12*X1)/((m01**(-1)-m1**(-1))*(m03**(-1)-m3**(-1)))+((A01-A1)*v22*X1)/((m01**(-1)-m1**(-1))*(m02**(-1)-m2**(-1)))-((A03-A3)*v22*X1)/((m02**(-1)-m2**(-1))*(m03**(-1)-m3**(-1)))-((A01-A1)*v32*X1)/((m01**(-1)-m1**(-1))*(m03**(-1)-m3**(-1)))+((A02-A2)*v32*X1)/((m02**(-1)-m2**(-1))*(m03**(-1)-m3**(-1)))+((A02-A2)*v11*X2)/((m01**(-1)-m1**(-1))*(m02**(-1)-m2**(-1)))-((A03-A3)*v11*X2)/((m01**(-1)-m1**(-1))*(m03**(-1)-m3**(-1)))-((A01-A1)*v21*X2)/((m01**(-1)-m1**(-1))*(m02**(-1)-m2**(-1)))+((A03-A3)*v21*X2)/((m02**(-1)-m2**(-1))*(m03**(-1)-m3**(-1)))+((A01-A1)*v31*X2)/((m01**(-1)-m1**(-1))*(m03**(-1)-m3**(-1)))-((A02-A2)*v31*X2)/((m02**(-1)-m2**(-1))*(m03**(-1)-m3**(-1))))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+sig_alpha_gkp_Mathematica = 1.17340288022018e-10
