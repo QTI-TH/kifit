@@ -6,10 +6,6 @@ from kifit.cache_update import cached_fct_property
 from kifit.user_elements import user_elems
 from kifit.optimizers import Optimizer
 
-_data_path = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "../kifit_data")
-)
-
 
 def sec(x: float):
     return 1 / np.cos(x)
@@ -20,6 +16,10 @@ class Element:
 
     # Load raw data from data folder
     # VALID_ELEM = ['Ca']
+    DATA_PATH = os.path.abspath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "../kifit_data")
+    )
+
     VALID_ELEM = user_elems
     INPUT_FILES = ["nu", "signu", "isotopes", "Xcoeffs", "sigXcoeffs"]
     elem_init_atr = ["nu", "sig_nu", "isotope_data", "Xcoeffs", "sig_Xcoeffs"]
@@ -113,7 +113,7 @@ class Element:
                 )
 
             file_name = file_type + self.id + ".dat"
-            file_path = os.path.join(_data_path, self.id, file_name)
+            file_path = os.path.join(self.DATA_PATH, self.id, file_name)
 
             # if not os.path.exists(file_path):
             #     raise ImportError(f"Path {file_path} does not exist.")
@@ -131,7 +131,7 @@ class Element:
                 )
 
             file_name = file_type + self.id + ".dat"
-            file_path = os.path.join(_data_path, self.id, file_name)
+            file_path = os.path.join(self.DATA_PATH, self.id, file_name)
 
             if os.path.exists(file_path):
                 print(

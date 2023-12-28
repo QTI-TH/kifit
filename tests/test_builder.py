@@ -1,7 +1,13 @@
+import os
 import numpy as np
 from pprint import pprint
-from kifit.builder import Element
 from Mathematica_crosschecks import *
+from kifit.builder import Element
+
+
+user_elems = ['Ca_testdata']
+Element.DATA_PATH = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
+Element.VALID_ELEM = user_elems
 
 
 def test_load_all():
