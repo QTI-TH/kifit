@@ -2,57 +2,61 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
-
-from qiss.optimizers import CMA, loss_function
-from qiss.loadelems import ElemCollection
+import matplotlib.pyplot as plt
 
 
-# parsing arguments
-parser = ArgumentParser()
-parser.add_argument(
-    "--nruns",
-    help="Number of times the optimization has to be repeated",
-    type=int,
-    default=1,
-)
-parser.add_argument(
-    "--datapath", help="Data folder path", type=Path, default="../qiss_data/"
-)
-parser.add_argument(
-    "--output_folder",
-    help="Output folder to save data",
-    type=Path,
-    default="../qiss/output/",
-)
-args = parser.parse_args()
-print("datapath", args.datapath)
+from qiss.loadelems import Elem
+from qiss.kingmc import perform_odr, perform_linreg, linfit
 
-# define the element collection
-collection = ElemCollection()
-collection.init_collection(args.datapath)
+# get element and linear fit parameters
+elem = Elem.get('Ca_testdata')
 
-# get collection parameters
-params = collection.get_parameters
-print("params", params)
+betas_odr, sig_betas_odr, kperp1s, ph1s, sig_kperp1s, sig_ph1s = perform_odr(
+    elem.mu_norm_isotope_shifts,  # [:, [0, 1]],
+    elem.sig_mu_norm_isotope_shifts,  # [:, [0, 1]],
+    reftrans_index=0)
 
-# Optimizer initialization
-sigma0 = 1e-13
-opt = CMA(target_loss=-100, max_iterations=500, sigma0=1e-12, verbose=-1)
+betas_linreg, sig_betas_linreg = perform_linreg(
+    elem.mu_norm_isotope_shifts, reftrans_index=0)
 
-# define bounds for the optimization
-delta = 1e-4  # 1e-3  # runs for 1e-3
-low_bounds = np.asarray(params) - delta
-upp_bounds = np.asarray(params) + delta
+# print("kperp1s odr   ", kperp1s)
+# print("kperp1s linreg", kperp1s_linreg)
+#
+# print("ph1s odr   ", ph1s)
+# print("ph1s linreg", ph1s_linreg)
 
-opt.set_bounds([low_bounds, upp_bounds])
+xvals = elem.mu_norm_isotope_shifts.T[0]
+sxvals = elem.sig_mu_norm_isotope_shifts.T[0]
+yvals = elem.mu_norm_isotope_shifts[:, 1:]
+print("yvals", yvals)
+syvals = elem.sig_mu_norm_isotope_shifts.T[1:]
+xfit = np.linspace(min(xvals) * 0.95, 1.05 * max(xvals), 1000)
 
-print("Optimization starts!")
+print("xvals", xvals)
+print("sxvals", sxvals)
+print("yvals", yvals)
+print("syvals", syvals)
 
-parameter_estimates = []
-for i in range(args.nruns):
-    res = opt.optimize(loss_function, initial_parameters=[params], args=collection)
-    parameter_estimates.append(res[1])
+fig, ax = plt.subplots()
+transtyle = ['-', '--', ':']
 
-print(f"alphaNP estimated: {res[1]}")
+for i in range(yvals.shape[1]):
+    print("main i", i)
+    print("beta linreg", betas_linreg[i])
+    print("beta odr   ", betas_odr[i])
 
-# np.save(file=args.output_folder / f"hist_{sigma0}", arr=np.asarray(parameter_estimates).T[-1])
+    yfit_odr = linfit(betas_odr[i], xfit)
+    ax.plot(xfit, yfit_odr, 'orange', label='odr', linestyle=transtyle[i])
+    yfit_linreg = linfit(betas_linreg[i], xfit)
+    ax.plot(xfit, yfit_linreg, 'r', label='linreg', linestyle=transtyle[i])
+    print("xvals " + str(i), xvals)
+    print("rsx   " + str(i), sxvals)
+    print("yvals " + str(i), yvals.T[i])
+    print("rsy   " + str(i), syvals.T[i])
+
+    ax.scatter(xvals, yvals.T[i], color='b')
+    ax.errorbar(xvals, yvals.T[i], xerr=sxvals, yerr=syvals.T[i], marker='o', ms=4)
+
+plt.tight_layout()
+plt.legend()
+plt.show()

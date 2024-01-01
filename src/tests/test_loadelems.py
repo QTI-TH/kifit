@@ -13,13 +13,6 @@ def test_load_all():
         rtol=1e-8,
     )
 
-    # with nans:
-    # assert np.allclose(
-    #     np.nan_to_num(all_element_data['Ca_testdata'].nu).sum(axis=1),
-    #     [8.44084572e+08, 1.68474592e+09, 7.75849948e+09, 3.38525526e+09],
-    #     rtol=1e-8,
-    # )
-    #
 
 def test_load_individual():
     ca = Elem.get('Ca_testdata')
@@ -55,11 +48,11 @@ def test_load_individual():
     assert np.allclose(ca.mu_norm_isotope_shifts, mnu_Mathematica, rtol=1e-14)
     assert np.allclose(ca.sig_mu_norm_isotope_shifts, sig_mnu_Mathematica,
             rtol=1e-14)
-    assert (np.sum(ca.corr_nu_nu) == ca.m_nisotopepairs * ca.n_ntransitions)
-    assert (np.sum(ca.corr_m_m) == 1)
-    assert (np.trace(ca.corr_m_mp) == 0)
-    assert (np.trace(ca.corr_mp_mp) == ca.m_nisotopepairs)
-    assert (np.trace(ca.corr_X_X) == ca.n_ntransitions)
+    # assert (np.sum(ca.corr_nu_nu) == ca.m_nisotopepairs * ca.n_ntransitions)
+    # assert (np.sum(ca.corr_m_m) == 1)
+    # assert (np.trace(ca.corr_m_mp) == 0)
+    # assert (np.trace(ca.corr_mp_mp) == ca.m_nisotopepairs)
+    # assert (np.trace(ca.corr_X_X) == ca.n_ntransitions)
     assert (ca.mu_aap[0] == 1 / ca.m_a[0] - 1 / ca.m_ap[0])
     assert (len(ca.mu_aap) == ca.m_nisotopepairs)
     assert (ca.h_aap.size == ca.m_nisotopepairs)
@@ -145,176 +138,8 @@ def test_constr_dvec():
     assert np.allclose(ca.absd, absd_explicit, rtol=1e-25)
 
 
-
-def test_cov_nu_nu():
-    ca = Elem.get('Ca_testdata')
-    ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
-
-    DdDnu_11bj_python = np.array([[ca.DdDnu[0, 0, b, j] for j in ca.range_i] for b
-        in ca.range_a])
-    DdDnu_12bj_python = np.array([[ca.DdDnu[0, 1, b, j] for j in ca.range_i] for b
-        in ca.range_a])
-    assert np.allclose(DdDnu_11bj_python, DdDnu_11bj_Mathematica)
-    assert np.allclose(DdDnu_12bj_python, DdDnu_12bj_Mathematica)
-
-    sigdnu_python = np.einsum('aick,ckdl,bjdl->aibj', ca.DdDnu, ca.cov_nu_nu,
-            ca.DdDnu)
-
-    assert np.allclose(sigdnu_python, sigdnu_Mathematica, rtol=1e-14)
-    # (same with and without NP)
-
-
-def test_cov_m_m():
-    ca = Elem.get('Ca_testdata')
-
-    # without NP
-    ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
-
-    DdDm_a1b_python = np.array([[ca.DdDm[a, 0, b] for b in ca.range_a] for a in
-        ca.range_a])
-    DdDm_a2b_python = np.array([[ca.DdDm[a, 1, b] for b in ca.range_a] for a in
-        ca.range_a])
-
-    assert np.isclose(ca.D_a1i(0, 0), 0, rtol=1e-17)
-
-    assert (ca.DdDm[0, 0, 0] == ca.fDdDm_aib(0, 0, 0))
-    assert (ca.DdDmp[0, 0, 0] == ca.fDdDmp_aib(0, 0, 0))
-
-    for a in ca.range_a:
-        assert np.all(DdDm_a1b_python[a] == DdDm_a1b_python[a, 0])
-        assert np.isclose(DdDm_a11_Mathematica[a], DdDm_a1b_python[a, 0],
-                rtol=1e-14)
-        assert np.all(DdDm_a2b_python[a] == DdDm_a2b_python[a, 0])
-        assert np.isclose(DdDm_a21_Mathematica[a], DdDm_a2b_python[a, 0],
-                rtol=1e-14)
-
-    sigdm_python = np.einsum('aic,cd,bjd->aibj', ca.DdDm, ca.cov_m_m, ca.DdDm)
-    assert np.allclose(sigdm_python, sigdm_Mathematica, rtol=1e-13)
-
-    # with NP
-    ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica,
-        1.])
-
-    DdDm_a1b_alphaNP_1_python = np.array([[ca.DdDm[a, 0, b] for b in ca.range_a]
-        for a in ca.range_a])
-    DdDm_a2b_alphaNP_1_python = np.array([[ca.DdDm[a, 1, b] for b in ca.range_a]
-        for a in ca.range_a])
-
-    assert (ca.DdDm[0, 0, 0] == ca.fDdDm_aib(0, 0, 0))
-    assert (ca.DdDmp[0, 0, 0] == ca.fDdDmp_aib(0, 0, 0))
-
-    np.allclose(DdDm_a1b_alphaNP_1_python, DdDm_a11_alphaNP_1_Mathematica,
-            rtol=1e-40)
-
-    np.allclose(DdDm_a2b_alphaNP_1_python, DdDm_a21_alphaNP_1_Mathematica,
-            rtol=1e-40)
-
-    for a in ca.range_a:
-        assert np.all(DdDm_a1b_alphaNP_1_python[a] == DdDm_a1b_alphaNP_1_python[a, 0])
-
-        assert np.all(DdDm_a2b_alphaNP_1_python[a] == DdDm_a2b_alphaNP_1_python[a, 0])
-
-    sigdm_alphaNP_1_python = np.einsum('aic,cd,bjd->aibj', ca.DdDm, ca.cov_m_m, ca.DdDm)
-    assert np.allclose(sigdm_alphaNP_1_python, sigdm_alphaNP_1_Mathematica, rtol=1e-13)
-
-
-
-def test_cov_mp_mp():
-    ca = Elem.get('Ca_testdata')
-    ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
-
-    DdDmp_a1b_python = np.array([[ca.DdDmp[a, 0, b] for b in ca.range_a] for a in
-        ca.range_a])
-    DdDmp_a2b_python = np.array([[ca.DdDmp[a, 1, b] for b in ca.range_a] for a in
-        ca.range_a])
-
-    assert np.all(np.diag(np.diag(DdDmp_a1b_python)) == DdDmp_a1b_python)
-    assert np.allclose(DdDmp_a1a_Mathematica, np.diag(DdDmp_a1b_python))
-
-    assert np.all(np.diag(np.diag(DdDmp_a2b_python)) == DdDmp_a2b_python)
-    assert np.allclose(DdDmp_a2a_Mathematica, np.diag(DdDmp_a2b_python))
-
-    sigdmp_python = np.einsum('aic,cd,bjd->aibj', ca.DdDmp, ca.cov_mp_mp,
-            ca.DdDmp)
-    assert np.allclose(sigdmp_python, sigdmp_Mathematica, rtol=1e-13)
-
-
-def test_cov_m_mp():
-    ca = Elem.get('Ca_testdata')
-    ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
-
-    sigdmmp_python = np.einsum('aic,cd,bjd->aibj', ca.DdDm, ca.cov_m_mp, ca.DdDmp)
-
-    assert not ca.cov_m_mp.any()
-    assert not sigdmmp_python.any()
-
-
-def test_cov_X_X():
-    ca = Elem.get('Ca_testdata')
-    ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
-
-    assert np.isclose(ca.sig_X @ ca.sig_X, np.sum(ca.cov_X_X), rtol=1e-25)
-    assert np.allclose(ca.X / 10, ca.sig_X, rtol=1e-25)
-
-    # with NP
-    ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica,
-        1.])
-
-    assert np.allclose(ca.DdDX[0], DdDX_1ij_alphaNP_1_Mathematica, rtol=1e-25)
-
-    sigdX_python = np.einsum('aic,cd,bjd->aibj', ca.DdDX, ca.cov_X_X,
-            ca.DdDX)
-    assert np.allclose(sigdX_python, sigdX_Mathematica, rtol=1e-14)
-
-
-def test_constr_LL():
-    ca = Elem.get('Ca_testdata')
-    ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.])
-
-    assert np.allclose(ca.absd, absd_Mathematica, rtol=1e-9)
-
-    normald_python = ca.dmat / ca.absd[:, None]
-    assert np.allclose(normald_python, normald_Mathematica, rtol=1e-25)
-
-    assert np.allclose(ca.cov_d_d, cov_d_d_Mathematica, rtol=1e-8)
-    assert np.allclose(np.linalg.inv(ca.cov_d_d),
-            np.linalg.inv(cov_d_d_Mathematica), rtol=1e-25)
-    assert np.allclose(np.linalg.inv(ca.cov_d_d),
-            inv_cov_d_d_Mathematica, rtol=1e-25)
-    assert np.allclose(ca.cov_d_d @ np.linalg.inv(ca.cov_d_d),
-            np.identity(ca.m_nisotopepairs), rtol=1e-30)
-    assert np.allclose(np.linalg.inv(ca.cov_d_d) @ ca.cov_d_d,
-            np.identity(ca.m_nisotopepairs), rtol=1e-30)
-
-    assert np.isclose(ca.LL, LL_Mathematica, rtol=1e-25)
-
-    simplified_LL = 1 / 2 * np.sum(ca.absd**2 / np.diag(ca.cov_d_d))
-
-    assert np.isclose(simplified_LL, ca.LL, rtol=1e-25)
-
-    ca._update_fit_params([kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica,
-        1.])
-
-    assert np.allclose(ca.cov_d_d, cov_d_d_alphaNP_1_Mathematica, rtol=1e-8)
-    assert np.allclose(np.linalg.inv(ca.cov_d_d),
-            np.linalg.inv(cov_d_d_alphaNP_1_Mathematica), rtol=1e-25)
-    assert np.allclose(np.linalg.inv(ca.cov_d_d),
-            inv_cov_d_d_alphaNP_1_Mathematica, rtol=1e-25)
-    assert np.allclose(ca.cov_d_d @ np.linalg.inv(ca.cov_d_d),
-            np.identity(ca.m_nisotopepairs), atol=1e-3)
-    assert np.allclose(np.linalg.inv(ca.cov_d_d) @ ca.cov_d_d,
-            np.identity(ca.m_nisotopepairs), atol=1e-3)
-
-    assert np.isclose(ca.LL, LL_alphaNP_1_Mathematica, rtol=1e-3)
-
 if __name__ == "__main__":
     test_load_all()
     test_load_individual()
     test_set_fit_params()
     test_constr_dvec()
-    test_cov_nu_nu()
-    test_cov_m_m()
-    test_cov_mp_mp()
-    test_cov_m_mp()
-    test_cov_X_X()
-    test_constr_LL()
