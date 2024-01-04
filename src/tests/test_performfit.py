@@ -1,7 +1,7 @@
 import numpy as np
 
-from qiss.loadelems import Elem
-from qiss.kingmc import perform_odr, perform_linreg, linfit
+from kifit.loadelems import Elem
+from kifit.performfit import perform_odr, perform_linreg, linfit
 
 import matplotlib.pyplot as plt
 

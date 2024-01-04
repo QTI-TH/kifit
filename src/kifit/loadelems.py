@@ -1,14 +1,14 @@
 import os
 import numpy as np
-from qiss.cache_update import update_fct
-from qiss.cache_update import cached_fct
-from qiss.cache_update import cached_fct_property
-from qiss.user_elements import user_elems
-from qiss.optimizers import Optimizer
+from kifit.cache_update import update_fct
+from kifit.cache_update import cached_fct
+from kifit.cache_update import cached_fct_property
+from kifit.user_elements import user_elems
+from kifit.optimizers import Optimizer
 
 _data_path = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    '../qiss_data'
+    '../kifit_data'
 ))
 
 
@@ -33,7 +33,7 @@ class Elem:
         """
         if element not in self.VALID_ELEM:
             raise NameError("""Element {} not supported. You may want to add it
-                    to src/qiss/user_elems""".format(element))
+                    to src/kifit/user_elems""".format(element))
 
         print("Loading raw data")
         self.id = element

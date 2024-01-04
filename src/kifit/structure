@@ -1,0 +1,10 @@
+from globals import elements_input
+
+# elemnets_input should be a list of strings
+# elements_input = ['Ca', ...]
+
+    elements = [FitParam(ElemData(u)) for u in elements]
+ll = LL(elements)
+
+dowhile (...):
+    ll.update()

@@ -5,8 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-from qiss.loadelems import Elem
-from qiss.kingmc import perform_odr, perform_linreg, linfit
+from kifit.loadelems import Elem
+from kifit.kingmc import perform_odr, perform_linreg, linfit
 
 
 ca = Elem.get('Ca_testdata')

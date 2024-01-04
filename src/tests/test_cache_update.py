@@ -1,6 +1,6 @@
-from qiss.cache_update import update_fct
-from qiss.cache_update import cached_fct
-from qiss.cache_update import cached_fct_property
+from kifit.cache_update import update_fct
+from kifit.cache_update import cached_fct
+from kifit.cache_update import cached_fct_property
 
 
 # class to test custom cache and update calls

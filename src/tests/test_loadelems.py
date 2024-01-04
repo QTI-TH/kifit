@@ -1,6 +1,6 @@
 import numpy as np
 from pprint import pprint
-from qiss.loadelems import Elem
+from kifit.loadelems import Elem
 from Mathematica_crosschecks import *
 
 
