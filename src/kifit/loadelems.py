@@ -4,7 +4,8 @@ from kifit.cache_update import update_fct
 from kifit.cache_update import cached_fct
 from kifit.cache_update import cached_fct_property
 from kifit.user_elements import user_elems
-from kifit.optimizers import Optimizer
+from kifit.performfit import perform_odr
+from scipy.stats import multivariate_normal
 
 _data_path = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
@@ -23,7 +24,7 @@ class Elem:
     # VALID_ELEM = ['Ca']
     VALID_ELEM = user_elems
     INPUT_FILES = ['nu', 'signu', 'isotopes', 'Xcoeffs', 'sigXcoeffs']
-    elem_init_atr = ['nu', 'sig_nu', 'isotope_data', 'Xcoeffs', 'sig_Xcoeffs']
+    elem_init_atr = ['nu_in', 'sig_nu_in', 'isotope_data', 'Xcoeffs', 'sig_Xcoeffs']
 
     def __init__(self, element: str):
         """
@@ -48,7 +49,7 @@ class Elem:
 
         if ((atr == 'Xcoeffs') or (atr == 'sig_Xcoeffs')):
 
-            val = val.reshape(-1, self.n_ntransitions + 1)
+            val = val.reshape(-1, self.ntransitions + 1)
 
         setattr(self, atr, val)
 
@@ -64,6 +65,23 @@ class Elem:
             # if not os.path.exists(file_path):
             #     raise ImportError(f"Path {file_path} does not exist.")
             self.__load(self.elem_init_atr[i], file_type, file_path)
+
+        setattr(self, 'nu', self.nu_in)
+
+        setattr(self, 'sig_nu', self.sig_nu_in)
+
+        setattr(self, 'm_a_in', self.isotope_data[1])
+        setattr(self, 'm_a', self.m_a_in)
+
+        setattr(self, 'sig_m_a_in', self.isotope_data[2])
+        setattr(self, 'sig_m_a', self.sig_m_a_in)
+
+        setattr(self, 'm_ap_in', self.isotope_data[4])
+        setattr(self, 'm_ap', self.m_ap_in)
+
+        setattr(self, 'sig_m_ap_in', self.isotope_data[5])
+        setattr(self, 'sig_m_ap', self.sig_m_ap_in)
+
 
     def _init_Xcoeffs(self):
         """
@@ -81,9 +99,32 @@ class Elem:
             self.sig_X = self.sig_Xcoeffs[0, 1:]
 
     def _init_fit_params(self):
-        self.Kperp1 = np.zeros(self.n_ntransitions)
-        self.ph1 = np.zeros(self.n_ntransitions - 1)
-        self.alphaNP = 0
+        """
+        Initialise Kperp1, ph1 to the values obtained through orthogonal
+        distance regression on the experimental input data and initialise
+        alphaNP to 0.
+
+        """
+
+        # self.Kperp1 = np.zeros(self.ntransitions)
+        # self.ph1 = np.zeros(self.ntransitions - 1)
+        (
+            _, _,
+            self.kp1_init, self.ph1_init, self.sig_kp1_init, self.sig_ph1_init
+        ) = perform_odr(
+            self.mu_norm_isotope_shifts_in, self.sig_mu_norm_isotope_shifts_in,
+            reftrans_index=0)
+
+        self.alphaNP_init = 0.
+        self.sig_alphaNP_init = 0.
+
+        self.kp1 = self.kp1_init
+        self.ph1 = self.ph1_init
+        self.alphaNP = self.alphaNP_init
+
+        self.sig_kp1 = self.sig_kp1_init
+        self.sig_ph1 = self.sig_ph1_init
+        self.sig_alphaNP = self.sig_alphaNP_init
 
     def __repr__(self):
         return self.id + '[' + ','.join(list(self.__dict__.keys())) + ']'
@@ -123,28 +164,61 @@ class Elem:
         """
         Set the fit parameters
 
-           thetas = {kperp1, ph1, alphaNP},
+           {kp1, ph1, alphaNP}
 
-        where kperp1 and ph1 are (n-1)-vectors and alphaNP is a scalar, to the
-        values provided in "thetas".
+        and their uncertainties (pst, they dont exist hahahaha)
+
+           {sig_kp1, sig_ph1, sig_alphaNP},
+
+        where (sig_)kp1 and (sig_)ph1 are (n-1)-vectors and alphaNP is a scalar,
+        to the values provided in "thetas" and "sigthetas", respectively.
 
         """
-        if ((len(thetas[0]) != self.n_ntransitions - 1)
-                or (len(thetas[1]) != self.n_ntransitions - 1)):
-            raise AttributeError("""Passed fit parameters do not have
-            appropriate dimensions""")
+        # if ((len(thetas[0]) != self.ntransitions - 1)
+        #         or (len(thetas[1]) != self.ntransitions - 1)):
+        #     raise AttributeError("""Passed fit parameters do not have
+        #     appropriate dimensions""")
+        #
+        # if np.array([(-np.pi / 2 > phij) or (phij > np.pi / 2) for phij in thetas[1]]).any():
+        #     raise ValueError("""Passed phij values are not within 1st / 4th
+        #     quadrant.""")
 
-        if np.array([(-np.pi / 2 > phij) or (phij > np.pi / 2) for phij in thetas[1]]).any():
+        self.kp1 = thetas[:self.ntransitions - 1]
+        self.ph1 = thetas[self.ntransitions - 1: 2 * self.ntransitions - 2]
+        self.alphaNP = thetas[-1]
+
+        if ((len(self.kp1) != self.ntransitions - 1) or (len(self.ph1) != self.ntransitions - 1)):
+            raise AttributeError("""Passed fit parameters do not have appropriate dimensions""")
+        #
+        if np.array([(-np.pi / 2 > phij) or (phij > np.pi / 2) for phij in self.ph1]).any():
             raise ValueError("""Passed phij values are not within 1st / 4th
             quadrant.""")
 
-        self.Kperp1 = np.insert(thetas[0], 0, 0.)
-        self.ph1 = thetas[1]
-        self.alphaNP = thetas[2]
+        # self.sig_kp1 = sigthetas[0]
+        # self.sig_ph1 = sigthetas[1]
+        # self.sig_alphaNP = sigthetas[2]
 
-        print("new Kperp1 ", thetas[0])
-        print("new ph1    ", thetas[1])
-        print("new alphaNP", thetas[2])
+    @update_fct
+    def _update_elem_params(self, vals):
+        """
+        Set the element parameters
+
+           {m_a, m_ap, nu}
+
+        and their uncertainties
+
+           {sig_m_a, sig_m_ap, sig_nu}
+
+        to the values provided in "vals" and "sigvals", respectively.
+
+        """
+        self.m_a = vals[:self.nisotopepairs]
+        self.m_ap = vals[self.nisotopepairs:2 * self.nisotopepairs]
+        self.nu = vals[2 * self.nisotopepairs:].reshape(self.nisotopepairs, -1)
+
+        # self.sig_m_a = sigvals[0]
+        # self.sig_m_ap = sigvals[1]
+        # self.sig_nu = sigvals[2]
 
     # ELEM PROPERTIES ##########################################################
 
@@ -163,54 +237,184 @@ class Elem:
 
         """
         return self.isotope_data[3]
-
+    #
+    # @cached_fct_property
+    # def m_a_in(self):
+    #     """
+    #     Return masses of reference isotopes A as given in input files.
+    #
+    #     """
+    #     return self.isotope_data[1]
+    #
+    # @cached_fct_property
+    # def m_ap_in(self):
+    #     """
+    #     Return masses of isotopes A' as given in input files.
+    #
+    #     """
+    #     return self.isotope_data[4]
+    #
+    # @cached_fct_property
+    # def sig_m_a_in(self):
+    #     """
+    #     Return uncertainties on masses of reference isotopes A as given in input
+    #     files.
+    #
+    #     """
+    #     return self.isotope_data[2]
+    #
+    # @cached_fct_property
+    # def sig_m_ap_in(self):
+    #     """
+    #     Return uncertainties on masses of isotopes A' as given in input files.
+    #
+    #     """
+    #     return self.isotope_data[5]
+    #
     @cached_fct_property
-    def m_a(self):
+    def nisotopepairs(self):
         """
-        Return masses of reference isotopes A
-
-        """
-        return self.isotope_data[1]
-
-    @cached_fct_property
-    def m_ap(self):
-        """
-        Return masses of isotopes A'
-
-        """
-        return self.isotope_data[4]
-
-    @cached_fct_property
-    def sig_m_a(self):
-        """
-        Return uncertainties on masses of reference isotopes A
-
-        """
-        return self.isotope_data[2]
-
-    @cached_fct_property
-    def sig_m_ap(self):
-        """
-        Return uncertainties on masses of isotopes A'
-
-        """
-        return self.isotope_data[5]
-
-    @cached_fct_property
-    def m_nisotopepairs(self):
-        """
-        Return number of isotope pairs m
+        Return number of isotope pairs
 
         """
         return len(self.a_nisotope)
 
     @cached_fct_property
-    def n_ntransitions(self):
+    def ntransitions(self):
         """
-        Return number of transitions n
+        Return number of transitions
 
         """
-        return self.nu.shape[1]
+        return self.nu_in.shape[1]
+
+    @cached_fct_property
+    def means_input_params(self):
+        """
+        Return all mean values of the input parameters
+
+           {m_a, m_ap, nu}.
+
+        These are provided by the input files.
+
+        """
+
+        # print(self.nu_in.flatten())
+        # print(self.m_a_in)
+        return np.concatenate((self.m_a_in, self.m_ap_in, self.nu_in), axis=None)
+        # import sys
+        # sys.exit()
+        # return np.array([self.m_a_in, self.m_ap_in, self.nu_in.flatten()]).reshape(-1)
+
+    @cached_fct_property
+    def means_fit_params(self):
+        """
+        Return all initial values of the fit parameters
+
+           {kp1, ph1, alphaNP}.
+
+        These are computed using an initial linear fit.
+        """
+        # return np.array([self.kp1_init, self.ph1_init, self.alphaNP_init]).reshape(-1)
+        return np.concatenate((self.kp1_init, self.ph1_init, self.alphaNP_init), axis=None)
+
+    @cached_fct_property
+    def stdevs_input_params(self):
+        """
+        Return all standard deviations of the input parameters
+
+           {m_a, m_ap, nu}.
+
+        These are provided by the input files.
+
+        """
+        # return np.array([self.sig_m_a_in, self.sig_m_ap_in, self.sig_nu_in.flatten()]).reshape(-1)
+        return np.concatenate((self.sig_m_a_in, self.sig_m_ap_in, self.sig_nu_in), axis=None)
+
+    @cached_fct_property
+    def stdevs_fit_params(self):
+        """
+        Return all standard deviations of the fit parameters
+
+           {kp1, ph1, alphaNP}.
+
+        These are computed using an initial linear fit.
+        """
+        # return np.array([self.sig_kp1_init, self.sig_ph1_init, self.sig_alphaNP_init]).reshape(-1)
+        return np.concatenate((self.sig_kp1_init, self.sig_ph1_init, self.sig_alphaNP_init), axis=None)
+
+    @cached_fct_property
+    def range_a(self):
+        """
+        Returns range of isotope indices
+           [0, 2, ...., m-1]
+        """
+        return np.arange(self.nisotopepairs)
+
+    @cached_fct_property
+    def range_i(self):
+        """
+        Returns range of transition indices
+           [0, 2, ...., n-1]
+        """
+        return np.arange(self.ntransitions)
+
+    @cached_fct_property
+    def range_j(self):
+        """
+        Returns range of indices of transitions that are not reference
+        transitions.
+           [1, ...., n-1]
+        """
+        return np.arange(1, self.ntransitions)
+
+    # QUANTITIES DERIVED FROM INPUT ELEMENT PROPERTIES #########################
+
+    @cached_fct_property
+    def mu_aap_in(self):
+        """
+        Return difference of the inverse nuclear masses
+
+            mu = 1 / m_a - 1 / m_a'
+
+        where a, a` are isotope pairs and m_a, m_a' are the masses given by the
+        input files. mu_aap is an (nisotopepairs)-vector.
+
+        """
+        dim = len(self.m_ap_in)
+
+        return np.divide(np.ones(dim), self.m_a_in) - np.divide(np.ones(dim),
+                self.m_ap_in)
+
+    @cached_fct_property
+    def mu_norm_isotope_shifts_in(self):
+        """
+        Generate mass normalised isotope shifts from input data
+
+            nu / mu
+
+        and write (nisotopepairs x ntransitions)-matrix to file.
+
+        """
+        return np.divide(self.nu_in.T, self.mu_aap_in).T
+
+    @cached_fct_property
+    def sig_mu_norm_isotope_shifts_in(self):
+        """
+        Generate uncertainties on mass normalised isotope shifts and write
+        (nisotopepairs x ntransitions)-matrix to file.
+
+        """
+        return np.absolute(np.array([[self.mu_norm_isotope_shifts_in[a, i]
+            * np.sqrt((self.sig_nu_in[a, i] / self.nu_in[a, i])**2
+                + (self.m_a_in[a]**2 * self.sig_m_ap_in[a]**2 / self.m_ap_in[a]**2
+                    + self.m_ap_in[a]**2 * self.sig_m_a_in[a]**2 / self.m_a_in[a]**2)
+                / (self.m_a_in[a] - self.m_ap_in[a])**2) for i in self.range_i] for a
+            in self.range_a]))
+
+
+    # QUANTITIES DERIVED FROM SAMPLED ELEMENT PROPERTIES ######################
+
+    # Nuclear Factors #########################################################
 
     @cached_fct_property
     def mu_aap(self):
@@ -219,39 +423,14 @@ class Elem:
 
             mu = 1 / m_a - 1 / m_a'
 
-        where a, a` are isotope pairs.
-        mu_aap is an m-vector.
+        where a, a` are isotope pairs and m_a, m_a' are the sample masses.
+        mu_aap is an (nisotopepairs)-vector.
 
         """
         dim = len(self.m_ap)
 
-        return np.divide(np.ones(dim), self.m_a) - np.divide(np.ones(dim), self.m_ap)
-
-    @cached_fct_property
-    def mu_norm_isotope_shifts(self):
-        """
-        Generate mass normalised isotope shifts and write mxn-matrix to file.
-
-            nu / mu
-
-        """
-        return np.divide(self.nu.T, self.mu_aap).T
-
-    @cached_fct_property
-    def sig_mu_norm_isotope_shifts(self):
-        """
-        Generate uncertainties on mass normalised isotope shifts and write
-        (m x n)-matrix to file.
-
-        """
-        return np.absolute(np.array([[self.mu_norm_isotope_shifts[a, i]
-            * np.sqrt((self.sig_nu[a, i] / self.nu[a, i])**2
-                + (self.m_a[a]**2 * self.sig_m_ap[a]**2 / self.m_ap[a]**2
-                    + self.m_ap[a]**2 * self.sig_m_a[a]**2 / self.m_a[a]**2)
-                / (self.m_a[a] - self.m_ap[a])**2) for i in self.range_i] for a
-            in self.range_a]))
-
-    # CONSTRUCTING THE LOG-LIKELIHOOD FUNCTION ################################
+        return np.divide(np.ones(dim), self.m_a) - np.divide(np.ones(dim),
+                self.m_ap)
 
     @cached_fct_property
     def h_aap(self):
@@ -262,22 +441,14 @@ class Elem:
         """
         return (self.a_nisotope - self.ap_nisotope) / self.mu_aap
 
+    # Electronic Factors ######################################################
     @cached_fct_property
-    def X1(self):
+    def Kperp1(self):
         """
-        Return electronic coefficient X_ij of the new physics term.
+        Component of mass shift vector that is perpendicular to the King line.
 
         """
-        return (self.X - self.F1 * self.X[0])
-
-    @cached_fct_property
-    def np_term(self):
-        """
-        Generate the (m x n)-dimensional new physics term starting from
-        theoretical input and fit parameters.
-
-        """
-        return self.alphaNP * np.tensordot(self.h_aap, self.X1, axes=0)
+        return np.insert(self.kp1, 0, 0.)
 
     @cached_fct_property
     def F1(self):
@@ -306,29 +477,22 @@ class Elem:
         return np.insert(sec(self.ph1), 0, 0)
 
     @cached_fct_property
-    def range_a(self):
+    def X1(self):
         """
-        Returns range of isotope indices
-           [0, 2, ...., m-1]
-        """
-        return np.arange(self.m_nisotopepairs)
+        Return electronic coefficient X_ij of the new physics term.
 
-    @cached_fct_property
-    def range_i(self):
         """
-        Returns range of transition indices
-           [0, 2, ...., n-1]
-        """
-        return np.arange(self.n_ntransitions)
+        return (self.X - self.F1 * self.X[0])
 
+    # Construction of the Loglikelihood Function ##############################
     @cached_fct_property
-    def range_j(self):
+    def np_term(self):
         """
-        Returns range of indices of transitions that are not reference
-        transitions.
-           [1, ...., n-1]
+        Generate the (nisotopepairs x ntransitions)-dimensional new physics term
+        starting from theoretical input and fit parameters.
+
         """
-        return np.arange(1, self.n_ntransitions)
+        return self.alphaNP * np.tensordot(self.h_aap, self.X1, axes=0)
 
     @cached_fct
     def D_a1i(self, a: int, i: int):
@@ -371,13 +535,13 @@ class Elem:
         Return full distances matrix.
 
         """
-        return np.array([[self.d_ai(a, i) for i in self.range_i] for a in
-            self.range_a])
+        return np.array([[self.d_ai(a, i) for i in self.range_i] for a in self.range_a])
 
     @cached_fct_property
     def absd(self):
         """
-        Returns m-vector of Euclidean norms of the n-vectors d^{AA'}.
+        Returns (nisotopepairs)-vector of Euclidean norms of the
+        (ntransitions)-vectors d^{AA'}.
 
         """
         return np.sqrt(np.diag(self.dmat @ self.dmat.T))

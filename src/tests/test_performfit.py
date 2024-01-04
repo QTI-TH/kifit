@@ -19,8 +19,8 @@ def test_linfit():
         sig_kperp1s_linreg, sig_ph1s_linreg) = perform_linreg(
         ca.mu_norm_isotope_shifts, reftrans_index=0)
 
-    assert betas_odr.shape == (ca.n_ntransitions - 1, 2)
-    assert betas_linreg.shape == (ca.n_ntransitions - 1, 2)
+    assert betas_odr.shape == (ca.ntransitions - 1, 2)
+    assert betas_linreg.shape == (ca.ntransitions - 1, 2)
 
     assert np.all(np.isclose(betas_odr, betas_linreg, rtol=1e-2))
     assert np.all(np.isclose(sig_betas_odr, sig_betas_linreg, rtol=1))
@@ -35,7 +35,7 @@ def test_linfit():
     betas_dat = np.array([np.polyfit(xvals, yvals[:, i], 1) for i in
         range(yvals.shape[1])])
 
-    assert betas_dat.shape == (ca.n_ntransitions -1, 2)
+    assert betas_dat.shape == (ca.ntransitions -1, 2)
     assert np.all(np.isclose(betas_dat, betas_odr, rtol=1e-2))
 
 

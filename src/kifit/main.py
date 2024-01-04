@@ -4,21 +4,73 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 from kifit.loadelems import Elem
-from kifit.kingmc import perform_odr, perform_linreg, linfit
+from kifit.performfit import perform_odr, perform_linreg, linfit
 
+from scipy.stats import multivariate_normal
+np.random.seed(1)
 
 ca = Elem.get('Ca_testdata')
 
-betas_odr, sig_betas_odr, kperp1s, ph1s, sig_kperp1s, sig_ph1s = perform_odr(
-    ca.mu_norm_isotope_shifts,  # [:, [0, 1]],
-    ca.sig_mu_norm_isotope_shifts,  # [:, [0, 1]],
-    reftrans_index=0)
+print("ca ma in")
+print(ca.m_a_in)
+print("ca ma")
+print(ca.m_a)
+print("ca nu in")
+print(ca.nu_in)
+print("ca nu")
+print(ca.nu)
 
-print("kperp1s", kperp1s)
-# ca.update_fit_params([kperp1s, ph1s, 0])
+print("ca nu flat")
+print(ca.nu.flatten())
 
+print("means fit params")
+print(ca.means_fit_params)
+
+print("means input params")
+print(ca.means_input_params)
+
+
+num_samples = 5000
+
+ca_elem_params = multivariate_normal.rvs(
+    ca.means_input_params,
+    ca.stdevs_input_params,
+    size=num_samples
+)
+
+ca_fit_params = multivariate_normal.rvs(
+    ca.means_fit_params,
+    ca.stdevs_fit_params,
+    size=num_samples
+)
+
+absd_init = ca.absd
+absd_list = []
+for i in range(num_samples):
+    if i % (num_samples // 100) == 0:
+        prog = np.round(i / num_samples * 100, 1)
+        print("Progress", prog, "%")
+    ca._update_elem_params(ca_elem_params[i])
+    ca._update_fit_params(ca_fit_params[i])
+    absd_list.append(ca.absd)
+
+absd_list = np.array(absd_list)
+
+cov_absd_np = np.cov(absd_list.T)
+print("cov_absd_np", cov_absd_np)
+covmat = np.array([[np.cov(absd_list.T[a], absd_list.T[b])
+    for b in range(ca.nisotopepairs)] for a in range(ca.nisotopepairs)])
+print("covmat", covmat)
+
+cov_absd = np.array([[np.average([
+    (absd_list[s, a] - absd_init[a]) * (absd_list[s, b] - absd_init[b])
+    for s in range(num_samples)])
+    for a in range(ca.nisotopepairs)] for b in range(ca.nisotopepairs)])
+print("cov")
+print(cov_absd)
+
+print("absd list", absd_list)
 
 
 #
@@ -54,7 +106,3 @@ print("kperp1s", kperp1s)
 # plt.tight_layout()
 # plt.legend()
 # plt.show()
-
-
-
-

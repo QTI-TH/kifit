@@ -1,26 +1,33 @@
+USE_CACHE = True
+
 # use lru_cache ?
+
+
 def cached_fct(old_func):
     """
     Decorate functions to cache return value.
     """
     def new_func(self, *args, **kwargs):
-        # set-up cache registry on class instance
-        if not hasattr(self, 'function_cache'):
-            self.function_cache = {}
-            self.n_cache_calls = {}  # counts cache lookups
+        if USE_CACHE:
+            # set-up cache registry on class instance
+            if not hasattr(self, 'function_cache'):
+                self.function_cache = {}
+                self.n_cache_calls = {}  # counts cache lookups
 
-        # ASSUMING KWARGS=0, and ARGS simple integers
-        cache_tag = (old_func.__name__, tuple(args))
-        assert len(kwargs) == 0
+            # ASSUMING KWARGS=0, and ARGS simple integers
+            cache_tag = (old_func.__name__, tuple(args))
+            assert len(kwargs) == 0
 
-        if (cache_tag not in self.function_cache) or (self.function_cache[cache_tag] is None):
-            ret = old_func(self, *args, **kwargs)
-            self.function_cache[cache_tag] = ret
-            self.n_cache_calls[cache_tag] = 0
+            if (cache_tag not in self.function_cache) or (self.function_cache[cache_tag] is None):
+                ret = old_func(self, *args, **kwargs)
+                self.function_cache[cache_tag] = ret
+                self.n_cache_calls[cache_tag] = 0
+            else:
+                self.n_cache_calls[cache_tag] += 1
+
+            return self.function_cache[cache_tag]
         else:
-            self.n_cache_calls[cache_tag] += 1
-
-        return self.function_cache[cache_tag]
+            return old_func(self, *args, **kwargs)
 
     return new_func
 
