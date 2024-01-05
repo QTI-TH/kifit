@@ -441,8 +441,7 @@ class Elem:
         starting from theoretical input and fit parameters.
 
         """
-        return np.absolute(self.alphaNP * np.tensordot(self.h_aap, self.X1,
-            axes=0))
+        return self.alphaNP * np.tensordot(self.h_aap, self.X1, axes=0)
 
     @cached_fct
     def D_a1i(self, a: int, i: int):

@@ -152,7 +152,7 @@ def test_constr_dvec():
 
 
 if __name__ == "__main__":
-    test_load_all()
-    test_load_individual()
-    test_set_fit_params()
+    #test_load_all()
+    #test_load_individual()
+    #test_set_fit_params()
     test_constr_dvec()
