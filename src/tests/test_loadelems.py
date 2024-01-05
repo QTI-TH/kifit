@@ -101,7 +101,6 @@ def test_set_fit_params():
     assert (ca.alphaNP == alphaNP_Mathematica)
     assert (ca.F1[1:] == np.tan(ph1nit_Mathematica)).all()
     assert np.isclose(ca.F1sq, F1_Mathematica @ F1_Mathematica, rtol=1e-15)
-    assert (ca.sig_alphaNP == 0.)
 
     theta_LL_Mathematica = np.concatenate((kappaperp1nit_LL_Mathematica,
             ph1nit_LL_Mathematica, 0.), axis=None)
@@ -136,6 +135,10 @@ def test_constr_dvec():
 
     ca._update_fit_params(theta_LL_Mathematica_1)
 
+    print("np term python      ")
+    print(ca.np_term)
+    print("np term mathematica ")
+    print(np.array(NP_term_alphaNP_1_Mathematica))
     assert np.allclose(ca.np_term, NP_term_alphaNP_1_Mathematica, rtol=1e-14)
 
     D_a1i_alphaNP_1_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]

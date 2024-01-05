@@ -16,16 +16,6 @@ ca = Elem.get('Ca_testdata')
 
 num_samples = 5000
 
-# ca_elem_params = multivariate_normal.rvs(
-#     ca.means_input_params,
-#     ca.stdevs_input_params,
-#     size=num_samples
-# )
-# ca_fit_params = multivariate_normal.rvs(
-#     ca.means_fit_params,
-#     ca.stdevs_fit_params,
-#     size=num_samples
-# )
 print("alphaNP_init", ca.alphaNP_init)
 print("sig_alphaNP_init", ca.sig_alphaNP_init)
 
@@ -121,7 +111,8 @@ cov_absd_samples = np.array([[[
 mean_absd = np.average(absd_samples, axis=0)
 
 cov_absd = np.cov(absd_samples, rowvar=False)
-
+print("cov_absd)")
+print(cov_absd)
 
 def choLL(absd, covmat):
 
@@ -143,56 +134,117 @@ for s in range(num_samples):
 
 fig, ax = plt.subplots()
 ax.scatter(ca_fit_params.T[-1], chollist, label="cholli")
+# ax.set_xlim(-1e-8, 1e-8)
+# ax.set_ylim(0, 1e3)
+ax.set_xlim(-1e-11, 1e-11)
 plt.savefig("cholliplot.pdf")
 
+##############################################################################
 
-#
-# simple_LL = 1 / 2 * (
-#     np.array([np.sum(np.array([
-#         absd_samples[s, a]**2 / dev_absd_samples[s, a]**2
-#         for a in range(ca.nisotopepairs)]))
-#         + np.sum(np.array([np.log(dev_absd_samples[s, b]**2)
-#             for b in range(ca.nisotopepairs)]))
-#         for s in range(num_samples)]))
+ca_elem_params = multivariate_normal.rvs(
+    ca.means_input_params,
+    np.diag(ca.stdevs_input_params**2),
+    size=num_samples
+)
+# ca_fit_params = multivariate_normal.rvs(
+#     ca.means_fit_params,
+#     np.diag(ca.stdevs_fit_params),
+#     size=num_samples
+# )
 
-# print("np cov")
-# print(cov_absd_np)
-# print("sample cov 0")
-# print(cov_absd_samples[:10])
-# LL = np.array([
-#     absd_samples[s] @ np.linalg.inv(cov_absd_samples[s]) @ absd_samples[s]
-#     for s in range(num_samples)])
-# print("LL", LL)
+absd_samples = []
+for i in range(num_samples):
+    if i % (num_samples // 100) == 0:
+        prog = np.round(i / num_samples * 100, 1)
+        print("Progress", prog, "%")
+    ca._update_elem_params(ca_elem_params[i])
+    ca._update_fit_params(ca_fit_params[i])
+    absd_samples.append(ca.absd)
+
+
+absd_samples = np.array(absd_samples)
+
+cov_absd = np.cov(absd_samples, rowvar=False)
+
+print("cov_absd)")
+print(cov_absd)
+
+print("alphas")
+print(ca_fit_params.T[-1])
+
+chollist = []
+for s in range(num_samples):
+    chollist.append(choLL(absd_samples[s], cov_absd))
+
+fig, ax = plt.subplots()
+ax.scatter(ca_fit_params.T[-1], chollist, label="cholli")
+# ax.set_xlim(-1e-8, 1e-8)
+# ax.set_ylim(0, 1e3)
+plt.savefig("wigglycholliplot.pdf")
+
+###############################################################################
+
+ca_elem_params = multivariate_normal.rvs(
+    ca.means_input_params,
+    np.diag(ca.stdevs_input_params**2),
+    size=num_samples
+)
+ca_fit_params = multivariate_normal.rvs(
+    ca.means_fit_params,
+    np.diag(ca.stdevs_fit_params**2),
+    size=num_samples
+)
+
+absd_samples = []
+
+for i in range(num_samples):
+    if i % (num_samples // 100) == 0:
+        prog = np.round(i / num_samples * 100, 1)
+        print("Progress", prog, "%")
+    ca._update_elem_params(ca_elem_params[i])
+    ca._update_fit_params(ca_fit_params[i])
+    absd_samples.append(ca.absd)
+
+absd_samples = np.array(absd_samples)
+cov_absd = np.cov(absd_samples, rowvar=False)
+
+
+print("alphas")
+print(ca_fit_params.T[-1])
+
+chollist = []
+for s in range(num_samples):
+    chollist.append(choLL(absd_samples[s], cov_absd))
+
+fig, ax = plt.subplots()
+ax.scatter(ca_fit_params.T[-1], chollist, label="cholli")
+# ax.set_xlim(-1e-8, 1e-8)
+# ax.set_ylim(0, 1e3)
+plt.savefig("evenwiggliercholliplot.pdf")
+
+
+
+###############################################################################
+
+# mean_absd = np.average(absd_samples, axis=0)
 #
-# # get element and linear fit parameters
-# elem = Elem.get('Ca_testdata')
+# cov_absd_samples = np.array([[[
+#     (absd_samples[s, a] - mean_absd[a]) * (absd_samples[s, b] - mean_absd[b])
+#     for a in range(ca.nisotopepairs)] for b in range(ca.nisotopepairs)]
+#     for s in range(num_samples)])  # not positive definite most of the time
 #
-# betas_odr, sig_betas_odr, kperp1s, ph1s, sig_kperp1s, sig_ph1s = perform_odr(
-#     elem.mu_norm_isotope_shifts,  # [:, [0, 1]],
-#     elem.sig_mu_norm_isotope_shifts,  # [:, [0, 1]],
-#     reftrans_index=0)
 #
-# (betas_linreg, sig_betas_linreg, kperp1s_linreg, ph1s_linreg,
-#     sig_kperp1s_linreg, sig_ph1s_linreg) = perform_linreg(
-#     elem.mu_norm_isotope_shifts, reftrans_index=0)
+# print("cov_absd_samples[0]")
+# print(cov_absd_samples[0])
 #
-# xvals = elem.mu_norm_isotope_shifts.T[0]
-# sxvals = elem.sig_mu_norm_isotope_shifts.T[0]
-# yvals = elem.mu_norm_isotope_shifts[:, 1:]
-# syvals = elem.sig_mu_norm_isotope_shifts.T[1:]
-# xfit = np.linspace(min(xvals) * 0.95, 1.05 * max(xvals), 1000)
+# print("alphas")
+# print(ca_fit_params.T[-1])
+#
+# chollist = []
+# for s in range(num_samples):
+#     chollist.append(choLL(absd_samples[s], cov_absd_samples[s]))
 #
 # fig, ax = plt.subplots()
-# transtyle = ['-', '--', ':']
-#
-# for i in range(yvals.shape[1]):
-#     yfit_odr = linfit(betas_odr[i], xfit)
-#     ax.plot(xfit, yfit_odr, 'orange', label='odr', linestyle=transtyle[i])
-#     yfit_linreg = linfit(betas_linreg[i], xfit)
-#     ax.plot(xfit, yfit_linreg, 'r', label='linreg', linestyle=transtyle[i])
-#     ax.scatter(xvals, yvals.T[i], color='b')
-#     ax.errorbar(xvals, yvals.T[i], xerr=sxvals, yerr=syvals.T[i], marker='o', ms=4)
-#
-# plt.tight_layout()
-# plt.legend()
-# plt.show()
+# ax.scatter(ca_fit_params.T[-1], chollist, label="cholli")
+# ax.set_xlim(-1e-8, 1e-8)
+# ax.set_ylim(0, 1e3)
