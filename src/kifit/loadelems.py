@@ -24,7 +24,8 @@ class Elem:
     # VALID_ELEM = ['Ca']
     VALID_ELEM = user_elems
     INPUT_FILES = ['nu', 'signu', 'isotopes', 'Xcoeffs', 'sigXcoeffs']
-    elem_init_atr = ['nu_in', 'sig_nu_in', 'isotope_data', 'Xcoeffs', 'sig_Xcoeffs']
+    elem_init_atr = ['nu_in', 'sig_nu_in', 'isotope_data', 'Xcoeff_data',
+        'sig_Xcoeff_data']
 
     def __init__(self, element: str):
         """
@@ -39,15 +40,15 @@ class Elem:
         print("Loading raw data")
         self.id = element
         self._init_elem()
-        self._init_fit_params()
         self._init_Xcoeffs()
+        self._init_fit_params()
 
     def __load(self, atr: str, file_type: str, file_path: str):
         print('Loading attribute {} for element {} from {}'.format(
             atr, self.id, file_path))
         val = np.loadtxt(file_path)
 
-        if ((atr == 'Xcoeffs') or (atr == 'sig_Xcoeffs')):
+        if ((atr == 'Xcoeff_data') or (atr == 'sig_Xcoeff_data')):
 
             val = val.reshape(-1, self.ntransitions + 1)
 
@@ -67,20 +68,15 @@ class Elem:
             self.__load(self.elem_init_atr[i], file_type, file_path)
 
         setattr(self, 'nu', self.nu_in)
-
         setattr(self, 'sig_nu', self.sig_nu_in)
 
         setattr(self, 'm_a_in', self.isotope_data[1])
         setattr(self, 'm_a', self.m_a_in)
-
         setattr(self, 'sig_m_a_in', self.isotope_data[2])
-        setattr(self, 'sig_m_a', self.sig_m_a_in)
 
         setattr(self, 'm_ap_in', self.isotope_data[4])
         setattr(self, 'm_ap', self.m_ap_in)
-
         setattr(self, 'sig_m_ap_in', self.isotope_data[5])
-        setattr(self, 'sig_m_ap', self.sig_m_ap_in)
 
 
     def _init_Xcoeffs(self):
@@ -89,14 +85,14 @@ class Elem:
         mass mphi.
 
         """
-        self.mphi = self.Xcoeffs[0, 0]
-        self.X = self.Xcoeffs[0, 1:]
+        self.mphi = self.Xcoeff_data[0, 0]
+        self.X = self.Xcoeff_data[0, 1:]
 
-        if self.sig_Xcoeffs[0, 0] != self.mphi:
+        if self.sig_Xcoeff_data[0, 0] != self.mphi:
             raise ValueError("""Mediator masses mphi do not match in files with
             X-coefficients and their uncertainties.""")
         else:
-            self.sig_X = self.sig_Xcoeffs[0, 1:]
+            self.sig_X = self.sig_Xcoeff_data[0, 1:]
 
     def _init_fit_params(self):
         """
@@ -116,15 +112,13 @@ class Elem:
             reftrans_index=0)
 
         self.alphaNP_init = 0.
-        self.sig_alphaNP_init = 0.
 
         self.kp1 = self.kp1_init
         self.ph1 = self.ph1_init
         self.alphaNP = self.alphaNP_init
 
-        self.sig_kp1 = self.sig_kp1_init
-        self.sig_ph1 = self.sig_ph1_init
-        self.sig_alphaNP = self.sig_alphaNP_init
+        self.sig_alphaNP_init = np.absolute(np.max(self.absd) / np.min(
+            np.tensordot(self.h_aap, self.X1[1:], axes=0)))
 
     def __repr__(self):
         return self.id + '[' + ','.join(list(self.__dict__.keys())) + ']'
@@ -147,17 +141,17 @@ class Elem:
         a given mediator mass.
 
         """
-        if (x < 0 or len(self.Xcoeffs) - 1 < x):
+        if (x < 0 or len(self.Xcoeff_data) - 1 < x):
             raise IndexError(f"Index {x} not within permitted range for x.")
 
-        self.mphi = self.Xcoeffs[x, 0]
-        self.X = self.Xcoeffs[x, 1:]
+        self.mphi = self.Xcoeff_data[x, 0]
+        self.X = self.Xcoeff_data[x, 1:]
 
-        if self.sig_Xcoeffs[x, 0] != self.mphi:
+        if self.sig_Xcoeff_data[x, 0] != self.mphi:
             raise ValueError("""Mediator masses mphi do not match in files with
                     X-coefficients and their uncertainties.""")
         else:
-            self.sig_X = self.sig_Xcoeffs[x, 1:]
+            self.sig_X = self.sig_Xcoeff_data[x, 1:]
 
     @update_fct
     def _update_fit_params(self, thetas):
@@ -166,12 +160,9 @@ class Elem:
 
            {kp1, ph1, alphaNP}
 
-        and their uncertainties (pst, they dont exist hahahaha)
-
-           {sig_kp1, sig_ph1, sig_alphaNP},
-
-        where (sig_)kp1 and (sig_)ph1 are (n-1)-vectors and alphaNP is a scalar,
-        to the values provided in "thetas" and "sigthetas", respectively.
+        where kp1 and ph1 are (n-1)-vectors and alphaNP is a scalar,
+        to the values provided in the (2 * (n-1) + 1)-dimensional vector
+        "thetas".
 
         """
         # if ((len(thetas[0]) != self.ntransitions - 1)
@@ -194,9 +185,6 @@ class Elem:
             raise ValueError("""Passed phij values are not within 1st / 4th
             quadrant.""")
 
-        # self.sig_kp1 = sigthetas[0]
-        # self.sig_ph1 = sigthetas[1]
-        # self.sig_alphaNP = sigthetas[2]
 
     @update_fct
     def _update_elem_params(self, vals):
@@ -205,20 +193,13 @@ class Elem:
 
            {m_a, m_ap, nu}
 
-        and their uncertainties
-
-           {sig_m_a, sig_m_ap, sig_nu}
-
-        to the values provided in "vals" and "sigvals", respectively.
+        to the values provided in "vals".
 
         """
         self.m_a = vals[:self.nisotopepairs]
         self.m_ap = vals[self.nisotopepairs:2 * self.nisotopepairs]
         self.nu = vals[2 * self.nisotopepairs:].reshape(self.nisotopepairs, -1)
 
-        # self.sig_m_a = sigvals[0]
-        # self.sig_m_ap = sigvals[1]
-        # self.sig_nu = sigvals[2]
 
     # ELEM PROPERTIES ##########################################################
 
@@ -237,40 +218,7 @@ class Elem:
 
         """
         return self.isotope_data[3]
-    #
-    # @cached_fct_property
-    # def m_a_in(self):
-    #     """
-    #     Return masses of reference isotopes A as given in input files.
-    #
-    #     """
-    #     return self.isotope_data[1]
-    #
-    # @cached_fct_property
-    # def m_ap_in(self):
-    #     """
-    #     Return masses of isotopes A' as given in input files.
-    #
-    #     """
-    #     return self.isotope_data[4]
-    #
-    # @cached_fct_property
-    # def sig_m_a_in(self):
-    #     """
-    #     Return uncertainties on masses of reference isotopes A as given in input
-    #     files.
-    #
-    #     """
-    #     return self.isotope_data[2]
-    #
-    # @cached_fct_property
-    # def sig_m_ap_in(self):
-    #     """
-    #     Return uncertainties on masses of isotopes A' as given in input files.
-    #
-    #     """
-    #     return self.isotope_data[5]
-    #
+
     @cached_fct_property
     def nisotopepairs(self):
         """
@@ -340,7 +288,8 @@ class Elem:
         These are computed using an initial linear fit.
         """
         # return np.array([self.sig_kp1_init, self.sig_ph1_init, self.sig_alphaNP_init]).reshape(-1)
-        return np.concatenate((self.sig_kp1_init, self.sig_ph1_init, self.sig_alphaNP_init), axis=None)
+        return np.diag(np.concatenate((self.sig_kp1_init, self.sig_ph1_init,
+            self.sig_alphaNP_init), axis=None))
 
     @cached_fct_property
     def range_a(self):
@@ -492,7 +441,8 @@ class Elem:
         starting from theoretical input and fit parameters.
 
         """
-        return self.alphaNP * np.tensordot(self.h_aap, self.X1, axes=0)
+        return np.absolute(self.alphaNP * np.tensordot(self.h_aap, self.X1,
+            axes=0))
 
     @cached_fct
     def D_a1i(self, a: int, i: int):

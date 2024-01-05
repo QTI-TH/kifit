@@ -22,8 +22,8 @@ def test_load_individual():
     assert np.all(np.nan_to_num(ca.nu) == np.nan_to_num(Ca.nu))
     assert np.isclose(np.sum(ca.m_a), 119.88777255, rtol=1e-5)
     assert np.isclose(np.sum(ca.m_ap), 133.86662192999998, rtol=1e-5)
-    assert np.isclose(np.sum(ca.sig_m_a**2), 1.452e-15, rtol=1e-5)
-    assert np.isclose(np.sum(ca.sig_m_ap**2), 1.15961e-13, rtol=1e-5)
+    assert np.isclose(np.sum(ca.sig_m_a_in**2), 1.452e-15, rtol=1e-5)
+    assert np.isclose(np.sum(ca.sig_m_ap_in**2), 1.15961e-13, rtol=1e-5)
 
     assert ca.nisotopepairs == len(ca.ap_nisotope)
     assert ca.nisotopepairs == len(ca.m_a)
@@ -35,18 +35,18 @@ def test_load_individual():
     assert len(ca.m_a) == len(ca.m_ap)
     assert all(u != v for u, v in zip(ca.m_a, ca.m_ap))
 
-    assert (len(ca.Xcoeffs) > 0), len(ca.Xcoeffs)
-    assert (len(ca.sig_Xcoeffs) > 0), len(ca.sig_Xcoeffs)
+    assert (len(ca.Xcoeff_data) > 0), len(ca.Xcoeff_data)
+    assert (len(ca.sig_Xcoeff_data) > 0), len(ca.sig_Xcoeff_data)
     assert len(ca.X) == ca.ntransitions, len(ca.X)
     assert len(ca.sig_X) == ca.ntransitions, len(ca.sig_X)
 
-    for x in range(len(ca.Xcoeffs)):
-        assert len(ca.Xcoeffs[x]) == ca.ntransitions + 1, len(ca.Xcoeffs[x])
-        assert len(ca.sig_Xcoeffs[x]) == ca.ntransitions + 1, len(ca.sig_Xcoeffs[x])
+    for x in range(len(ca.Xcoeff_data)):
+        assert len(ca.Xcoeff_data[x]) == ca.ntransitions + 1, len(ca.Xcoeff_data[x])
+        assert len(ca.sig_Xcoeff_data[x]) == ca.ntransitions + 1
 
     assert (ca.nu.size == ca.nisotopepairs * ca.ntransitions)
-    assert np.allclose(ca.mu_norm_isotope_shifts, mnu_Mathematica, rtol=1e-14)
-    assert np.allclose(ca.sig_mu_norm_isotope_shifts, sig_mnu_Mathematica,
+    assert np.allclose(ca.mu_norm_isotope_shifts_in, mnu_Mathematica, rtol=1e-14)
+    assert np.allclose(ca.sig_mu_norm_isotope_shifts_in, sig_mnu_Mathematica,
             rtol=1e-14)
     # assert (np.sum(ca.corr_nu_nu) == ca.nisotopepairs * ca.ntransitions)
     # assert (np.sum(ca.corr_m_m) == 1)
@@ -81,13 +81,9 @@ def test_set_fit_params():
     ph1temp = np.array([np.pi / 2 - np.pi / (i + 2) for i in
         range(ca.ntransitions - 1)])
     alphaNPtemp = 1 / (4 * np.pi)
-
-    sigkappeperp1temp = 1e-5 * kappaperp1temp
-    sigph1temp = 1e-3 * ph1temp
-    sigalphaNPtemp = 0
-
-    ca._update_fit_params([kappaperp1temp, ph1temp, alphaNPtemp],
-            [sigkappeperp1temp, sigph1temp, sigalphaNPtemp])
+    thetatemp = np.concatenate((kappaperp1temp, ph1temp, alphaNPtemp),
+        axis=None)
+    ca._update_fit_params(thetatemp)
     assert (np.sum(ca.kp1) == np.sum(kappaperp1temp))
     assert (np.sum(ca.Kperp1) == np.sum(kappaperp1temp))
     assert (len(ca.Kperp1) == (len(kappaperp1temp) + 1))
@@ -95,31 +91,21 @@ def test_set_fit_params():
     assert (len(ca.ph1) == len(ph1temp))
     assert (ca.alphaNP == alphaNPtemp)
     assert all(ca.F1[1:] == np.tan(ph1temp))
-    assert (np.sum(ca.sig_kp1) == np.sum(sigkappeperp1temp))
-    assert (np.sum(ca.sig_ph1) == np.sum(sigph1temp))
-    assert (ca.sig_alphaNP == sigalphaNPtemp)
 
-    sig_kappaperp1nit_Mathematica = np.zeros(ca.ntransitions - 1)
-    sig_ph1nit_Mathematica = np.zeros(ca.ntransitions - 1)
-
-    ca._update_fit_params(
-        [kappaperp1nit_Mathematica, ph1nit_Mathematica, alphaNP_Mathematica],
-        [sig_kappaperp1nit_Mathematica, sig_ph1nit_Mathematica, 0.])
+    theta_Mathematica = np.concatenate((kappaperp1nit_Mathematica,
+        ph1nit_Mathematica, alphaNP_Mathematica), axis=None)
+    ca._update_fit_params(theta_Mathematica)
     assert (np.sum(ca.Kperp1) == np.sum(kappaperp1nit_Mathematica))
     assert (np.sum(ca.kp1) == np.sum(kappaperp1nit_Mathematica))
     assert (np.sum(ca.ph1) == np.sum(ph1nit_Mathematica))
     assert (ca.alphaNP == alphaNP_Mathematica)
     assert (ca.F1[1:] == np.tan(ph1nit_Mathematica)).all()
     assert np.isclose(ca.F1sq, F1_Mathematica @ F1_Mathematica, rtol=1e-15)
-    assert (np.sum(ca.sig_kp1) == np.sum(sig_kappaperp1nit_Mathematica))
-    assert (np.sum(ca.sig_ph1) == np.sum(sig_ph1nit_Mathematica))
     assert (ca.sig_alphaNP == 0.)
 
-
-    ca._update_fit_params(
-        [kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.],
-        [sig_kappaperp1nit_Mathematica, sig_ph1nit_Mathematica, 0.])
-
+    theta_LL_Mathematica = np.concatenate((kappaperp1nit_LL_Mathematica,
+            ph1nit_LL_Mathematica, 0.), axis=None)
+    ca._update_fit_params(theta_LL_Mathematica)
     assert (np.sum(ca.Kperp1) == np.sum(kappaperp1nit_LL_Mathematica))
     assert (np.sum(ca.ph1) == np.sum(ph1nit_LL_Mathematica))
     assert (ca.alphaNP == alphaNP_Mathematica)
@@ -130,14 +116,11 @@ def test_set_fit_params():
 def test_constr_dvec():
     ca = Elem.get('Ca_testdata')
 
-    sig_kappaperp1nit_Mathematica = np.zeros(ca.ntransitions - 1)
-    sig_ph1nit_Mathematica = np.zeros(ca.ntransitions - 1)
+    theta_LL_Mathematica = np.concatenate((kappaperp1nit_LL_Mathematica,
+            ph1nit_LL_Mathematica, 0.), axis=None)
 
     # without NP
-    ca._update_fit_params(
-        [kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 0.],
-        [sig_kappaperp1nit_Mathematica, sig_ph1nit_Mathematica, 0.])
-
+    ca._update_fit_params(theta_LL_Mathematica)
     assert (np.isclose(spp, spm, rtol=1e-7) for (spp, spm) in zip(ca.secph1,
         secph1nit_LL_Mathematica)), (ca.secph1, secph1nit_LL_Mathematica)
     assert np.allclose(ca.mu_aap, mu_aap_Mathematica, rtol=1e-10)
@@ -148,9 +131,10 @@ def test_constr_dvec():
     assert np.allclose(dmat_Mathematica, ca.dmat, rtol=1e-8)   # can we do better here?
 
     # with NP
-    ca._update_fit_params(
-        [kappaperp1nit_LL_Mathematica, ph1nit_LL_Mathematica, 1.],
-        [sig_kappaperp1nit_Mathematica, sig_ph1nit_Mathematica, 0.])
+    theta_LL_Mathematica_1 = np.concatenate((kappaperp1nit_LL_Mathematica,
+            ph1nit_LL_Mathematica, 1.), axis=None)
+
+    ca._update_fit_params(theta_LL_Mathematica_1)
 
     assert np.allclose(ca.np_term, NP_term_alphaNP_1_Mathematica, rtol=1e-14)
 
