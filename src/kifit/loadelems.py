@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from itertools import permutations, product
 from kifit.cache_update import update_fct
 from kifit.cache_update import cached_fct
 from kifit.cache_update import cached_fct_property
@@ -14,7 +15,31 @@ _data_path = os.path.abspath(os.path.join(
 
 
 def sec(x: float):
+    """
+    Compute secant.
+
+    """
     return 1 / np.cos(x)
+
+
+def Levi_Civita_generator(n):
+    """
+    Generate indices and signs of Levi-Civita tensor of dimension n.
+
+    """
+    if n < 1:
+        raise ValueError("Dimension must be at least 1.")
+
+    index_permutations = permutations(range(n))
+
+    for indices in index_permutations:
+        sign = 1
+        for i in range(n):
+            for j in range(i + 1, n):
+                if indices[i] > indices[j]:
+                    sign *= -1
+
+        yield indices, sign
 
 
 class Elem:
@@ -494,3 +519,44 @@ class Elem:
 
         """
         return np.sqrt(np.diag(self.dmat @ self.dmat.T))
+
+
+    @cached_fct
+    def alphaNP_GKP(self, dim):
+        """
+        Returns numpy array of values for alphaNP computed using the Generalised
+        King Plot formula starting from a data matrix of dimensions
+
+           (nisotopepairs, ntransitions) = (dim, dim-1),   dim >= 3.
+
+        """
+        if dim < 3:
+            raise ValueError("""Generalised King Plot formula is only valid for
+            dim >=3.""")
+        if dim > self.nisotopepairs or dim > self.ntransitions + 1:
+            raise ValueError("""dim is larger than dimension of provided
+            data.""")
+
+        numumat = np.c_[self.mu_norm_isotope_shifts_in, self.mu_aap_in]
+
+        for a_inds, i_inds in product(permutations(self.range_a, dim),
+                permutations(self.range_i, dim)):
+
+            part_numumat = numumat[np.ix_(a_inds, i_inds)]
+
+            vol_data = np.math.factorial(dim - 1) * np.linalg.det(part_numumat)
+        # vol_alphaNP_1 = np.sum(
+
+        return vol_data
+        # return np.linalg.det(self.
+
+
+    @cached_fct_property
+    def alphaNP_NGKP(self):
+        """
+        Returns value for alphaNP computed using the no-mass Generalised King
+        Plot formula.
+
+        """
+
+
