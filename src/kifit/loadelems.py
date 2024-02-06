@@ -1,12 +1,14 @@
 import os
 import numpy as np
 from itertools import permutations, product
+from functools import cache
+
 from kifit.cache_update import update_fct
 from kifit.cache_update import cached_fct
 from kifit.cache_update import cached_fct_property
 from kifit.user_elements import user_elems
+
 from kifit.performfit import perform_odr
-from scipy.stats import multivariate_normal
 
 _data_path = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
@@ -27,8 +29,8 @@ def Levi_Civita_generator(n):
     Generate indices and signs of Levi-Civita tensor of dimension n.
 
     """
-    if n < 1:
-        raise ValueError("Dimension must be at least 1.")
+    if n < 2:
+        raise ValueError("Dimension must be at least 2.")
 
     index_permutations = permutations(range(n))
 
@@ -40,6 +42,15 @@ def Levi_Civita_generator(n):
                     sign *= -1
 
         yield indices, sign
+
+
+@cache
+def LeviCivita(dim):
+    """
+    Save Levi-Civita indices and signs for later.
+
+    """
+    return list(Levi_Civita_generator(dim))
 
 
 class Elem:
@@ -103,7 +114,6 @@ class Elem:
         setattr(self, 'm_ap', self.m_ap_in)
         setattr(self, 'sig_m_ap_in', self.isotope_data[5])
 
-
     def _init_Xcoeffs(self):
         """
         Initialise the X coefficients to the set computed for a given mediator
@@ -111,13 +121,13 @@ class Elem:
 
         """
         self.mphi = self.Xcoeff_data[0, 0]
-        self.X = self.Xcoeff_data[0, 1:]
+        self.Xvec = self.Xcoeff_data[0, 1:]
 
         if self.sig_Xcoeff_data[0, 0] != self.mphi:
             raise ValueError("""Mediator masses mphi do not match in files with
             X-coefficients and their uncertainties.""")
         else:
-            self.sig_X = self.sig_Xcoeff_data[0, 1:]
+            self.sig_Xvec = self.sig_Xcoeff_data[0, 1:]
 
     def _init_fit_params(self):
         """
@@ -143,7 +153,23 @@ class Elem:
         self.alphaNP = self.alphaNP_init
 
         self.sig_alphaNP_init = np.absolute(np.max(self.absd) / np.min(
-            np.tensordot(self.h_aap, self.X1[1:], axes=0)))
+            np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))
+
+    @update_fct
+    def set_alphaNP_init(self, alpha, sigalpha=None):
+        """
+        Set alphaNP_init to alpha and sig_alphaNP_init to sigalpha. Useful if
+
+            alphaNP ~ N(0, sig_alphaNP_init)
+
+        is a particularly bad prior.
+
+        """
+        if hasattr(alpha, "__len__"):
+            raise ValueError("""alphaNP is a scalar.""")
+        self.alphaNP_init = alpha
+        if sigalpha is not None:
+            self.sig_alphaNP_init = sigalpha
 
     def __repr__(self):
         return self.id + '[' + ','.join(list(self.__dict__.keys())) + ']'
@@ -170,13 +196,13 @@ class Elem:
             raise IndexError(f"Index {x} not within permitted range for x.")
 
         self.mphi = self.Xcoeff_data[x, 0]
-        self.X = self.Xcoeff_data[x, 1:]
+        self.Xvec = self.Xcoeff_data[x, 1:]
 
         if self.sig_Xcoeff_data[x, 0] != self.mphi:
             raise ValueError("""Mediator masses mphi do not match in files with
                     X-coefficients and their uncertainties.""")
         else:
-            self.sig_X = self.sig_Xcoeff_data[x, 1:]
+            self.sig_Xvec = self.sig_Xcoeff_data[x, 1:]
 
     @update_fct
     def _update_fit_params(self, thetas):
@@ -209,7 +235,6 @@ class Elem:
         if np.array([(-np.pi / 2 > phij) or (phij > np.pi / 2) for phij in self.ph1]).any():
             raise ValueError("""Passed phij values are not within 1st / 4th
             quadrant.""")
-
 
     @update_fct
     def _update_elem_params(self, vals):
@@ -344,14 +369,14 @@ class Elem:
     # QUANTITIES DERIVED FROM INPUT ELEMENT PROPERTIES #########################
 
     @cached_fct_property
-    def mu_aap_in(self):
+    def muvec_in(self):
         """
         Return difference of the inverse nuclear masses
 
             mu = 1 / m_a - 1 / m_a'
 
         where a, a` are isotope pairs and m_a, m_a' are the masses given by the
-        input files. mu_aap is an (nisotopepairs)-vector.
+        input files. muvec is an (nisotopepairs)-vector.
 
         """
         dim = len(self.m_ap_in)
@@ -364,12 +389,25 @@ class Elem:
         """
         Generate mass normalised isotope shifts from input data
 
-            nu / mu
+            nu / mu.
+
+        This is a (nisotopepairs x ntransitions)-matrix.
+
+        """
+        return np.divide(self.nu_in.T, self.muvec_in).T
+
+    @cached_fct_property
+    def mu_norm_isotope_shifts(self):
+        """
+        Generate mass normalised isotope shifts
+
+            nu / mu.
 
         and write (nisotopepairs x ntransitions)-matrix to file.
 
         """
-        return np.divide(self.nu_in.T, self.mu_aap_in).T
+        return np.divide(self.nu.T, self.muvec).T
+
 
     @cached_fct_property
     def sig_mu_norm_isotope_shifts_in(self):
@@ -391,14 +429,14 @@ class Elem:
     # Nuclear Factors #########################################################
 
     @cached_fct_property
-    def mu_aap(self):
+    def muvec(self):
         """
         Return difference of the inverse nuclear masses
 
             mu = 1 / m_a - 1 / m_a'
 
         where a, a` are isotope pairs and m_a, m_a' are the sample masses.
-        mu_aap is an (nisotopepairs)-vector.
+        muvec is an (nisotopepairs)-vector.
 
         """
         dim = len(self.m_ap)
@@ -407,13 +445,34 @@ class Elem:
                 self.m_ap)
 
     @cached_fct_property
-    def h_aap(self):
+    def mu_norm_muvec(self):
         """
-        Generate nuclear form factor h for the new physics term.
-        h is an m-vector.
+        Return mu vector, normalised by itself.
+        mu_norm_muvec is an (nisotopepairs)-vector.
 
         """
-        return (self.a_nisotope - self.ap_nisotope) / self.mu_aap
+        return np.ones((self.muvec).shape)
+
+    @cached_fct_property
+    def avec(self):
+        """
+        Generate nuclear form factor
+
+            a^{AA'} = A - A'
+
+        for the new physics term. avec is an nisotopepairs-vector.
+
+        """
+        return self.a_nisotope - self.ap_nisotope
+
+    @cached_fct_property
+    def mu_norm_avec(self):
+        """
+        Generate mass-normalised nuclear form factor h for the new physics term.
+        h is an nisotopepairs-vector.
+
+        """
+        return self.avec / self.muvec
 
     # Electronic Factors ######################################################
     @cached_fct_property
@@ -456,7 +515,7 @@ class Elem:
         Return electronic coefficient X_ij of the new physics term.
 
         """
-        return (self.X - self.F1 * self.X[0])
+        return (self.Xvec - self.F1 * self.Xvec[0])
 
     # Construction of the Loglikelihood Function ##############################
     @cached_fct_property
@@ -466,7 +525,7 @@ class Elem:
         starting from theoretical input and fit parameters.
 
         """
-        return self.alphaNP * np.tensordot(self.h_aap, self.X1, axes=0)
+        return self.alphaNP * np.tensordot(self.mu_norm_avec, self.X1, axes=0)
 
     @cached_fct
     def D_a1i(self, a: int, i: int):
@@ -480,7 +539,7 @@ class Elem:
 
         elif ((i in self.range_j) and (a in self.range_a)):
             return (self.nu[a, i] - self.F1[i] * self.nu[a, 0]
-                    - self.mu_aap[a] * self.np_term[a, i])
+                    - self.muvec[a] * self.np_term[a, i])
         else:
             raise IndexError('Index passed to D_a1i is out of range.')
 
@@ -492,12 +551,12 @@ class Elem:
         """
         if ((i == 0) & (a in self.range_a)):
             return - 1 / self.F1sq * np.sum(np.array([self.F1[j]
-                * (self.D_a1i(a, j) / self.mu_aap[a]
+                * (self.D_a1i(a, j) / self.muvec[a]
                     - self.secph1[j] * self.Kperp1[j])
                 for j in self.range_j]))
 
         elif ((i in self.range_j) & (a in self.range_a)):
-            return (self.D_a1i(a, i) / self.mu_aap[a]
+            return (self.D_a1i(a, i) / self.muvec[a]
                     - self.secph1[i] * self.Kperp1[i]
                     + self.F1[i] * self.d_ai(a, 0))
         else:
@@ -520,7 +579,98 @@ class Elem:
         """
         return np.sqrt(np.diag(self.dmat @ self.dmat.T))
 
+    @cached_fct
+    def alphaNP_GKP_parts(self, dim):
+        """
+        Returns numpy array of values for alphaNP computed using the Generalised
+        King Plot formula starting from a data matrix of dimensions
 
+           (nisotopepairs, ntransitions) = (dim, dim-1),   dim >= 3.
+
+        """
+        if dim < 3:
+            raise ValueError("""Generalised King Plot formula is only valid for
+            dim >=3.""")
+        if dim > self.nisotopepairs or dim > self.ntransitions + 1:
+            raise ValueError("""dim is larger than dimension of provided
+            data.""")
+
+        indexlist = []
+        alphalist = []
+
+        for a_inds, i_inds in product(permutations(self.range_a, dim),
+                permutations(self.range_i, dim - 1)):
+
+            indexlist.append([a_inds, i_inds])
+
+            numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+            mumat = self.mu_norm_muvec[np.ix_(a_inds)]
+            # Xmat = self.Xvec[np.ix_(i_inds)]
+            hmat = self.mu_norm_avec[np.ix_(a_inds)]
+
+            vol_data = np.linalg.det(np.c_[numat, mumat])
+            # print("i_inds", i_inds)
+            vol_alphaNP1 = []
+            for i, eps_i in LeviCivita(dim - 1):
+                # print("i", i)
+                # print("i_inds[i[0]]", i_inds[i[0]])
+                # print(" ")
+                vol_alphaNP1.append([i_inds[i[0]], eps_i * np.linalg.det(np.c_[
+                    hmat,  # to be multiplied by Xmat[i[0]]
+                    np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
+                    mumat])])
+            alphalist.append([vol_data, vol_alphaNP1])
+
+        return alphalist, indexlist
+
+    # @cached_fct
+    # def alphaNP_GKP_assembled(self, dim):
+    #     parts = self.alphaNP_GKP_parts(dim)
+    #
+    #     alphaNP = 0
+    #     for parti in enumerate(parts):
+    #         vol_alphaNP1 = np.product(self.Xvec[i0] * voli0 for i0, voli0 in parti[1]
+    #         alphaNP += parti[0] / vol_alphaNP1
+
+    # @cached_fct
+    # def alphaNP_NMGKP(self, dim):
+    #     """
+    #     Returns value for alphaNP computed using the no-mass Generalised King
+    #     Plot formula.
+    #
+    #     """
+    #     if dim < 3:
+    #         raise ValueError("""Generalised King Plot formula is only valid for
+    #         dim >=3.""")
+    #     if dim > self.nisotopepairs or dim > self.ntransitions:
+    #         raise ValueError("""dim is larger than dimension of provided
+    #         data.""")
+    #
+    #     # indexlist = []
+    #     alphalist = []
+    #
+    #     for a_inds, i_inds in product(permutations(self.range_a, dim),
+    #             permutations(self.range_i, dim)):
+    #
+    #         # indexlist.append([a_inds, i_inds])
+    #
+    #         numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+    #         Xmat = self.Xvec[np.ix_(i_inds)]
+    #         hmat = self.mu_norm_avec[np.ix_(a_inds)]
+    #
+    #         vol_data = np.linalg.det(numat)
+    #
+    #         vol_alphaNP1 = 0
+    #         for i, eps_i in LeviCivita(dim):
+    #             vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+    #                 Xmat[i[0]] * hmat,
+    #                 np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
+    #         alphalist.append(vol_data / vol_alphaNP1)
+    #
+    #     alphalist = np.math.factorial(dim - 1) * np.array(alphalist)
+    #
+    #     return alphalist   # , indexlist
+    #
     @cached_fct
     def alphaNP_GKP(self, dim):
         """
@@ -537,26 +687,68 @@ class Elem:
             raise ValueError("""dim is larger than dimension of provided
             data.""")
 
-        numumat = np.c_[self.mu_norm_isotope_shifts_in, self.mu_aap_in]
+        # indexlist = []
+        alphalist = []
 
         for a_inds, i_inds in product(permutations(self.range_a, dim),
-                permutations(self.range_i, dim)):
+                permutations(self.range_i, dim - 1)):
 
-            part_numumat = numumat[np.ix_(a_inds, i_inds)]
+            # indexlist.append([a_inds, i_inds])
 
-            vol_data = np.math.factorial(dim - 1) * np.linalg.det(part_numumat)
-        # vol_alphaNP_1 = np.sum(
+            numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+            mumat = self.mu_norm_muvec[np.ix_(a_inds)]
+            Xmat = self.Xvec[np.ix_(i_inds)]
+            hmat = self.mu_norm_avec[np.ix_(a_inds)]
 
-        return vol_data
-        # return np.linalg.det(self.
+            vol_data = np.linalg.det(np.c_[numat, mumat])
 
+            vol_alphaNP1 = 0
+            for i, eps_i in LeviCivita(dim - 1):
+                vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+                    Xmat[i[0]] * hmat,
+                    np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
+                    mumat]))
+            alphalist.append(vol_data / vol_alphaNP1)
 
-    @cached_fct_property
-    def alphaNP_NGKP(self):
+        alphalist = np.math.factorial(dim - 2) * np.array(alphalist)
+
+        return alphalist   # , indexlist
+
+    @cached_fct
+    def alphaNP_NMGKP(self, dim):
         """
         Returns value for alphaNP computed using the no-mass Generalised King
         Plot formula.
 
         """
+        if dim < 3:
+            raise ValueError("""Generalised King Plot formula is only valid for
+            dim >=3.""")
+        if dim > self.nisotopepairs or dim > self.ntransitions:
+            raise ValueError("""dim is larger than dimension of provided
+            data.""")
 
+        # indexlist = []
+        alphalist = []
 
+        for a_inds, i_inds in product(permutations(self.range_a, dim),
+                permutations(self.range_i, dim)):
+
+            # indexlist.append([a_inds, i_inds])
+
+            numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+            Xmat = self.Xvec[np.ix_(i_inds)]
+            hmat = self.mu_norm_avec[np.ix_(a_inds)]
+
+            vol_data = np.linalg.det(numat)
+
+            vol_alphaNP1 = 0
+            for i, eps_i in LeviCivita(dim):
+                vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+                    Xmat[i[0]] * hmat,
+                    np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
+            alphalist.append(vol_data / vol_alphaNP1)
+
+        alphalist = np.math.factorial(dim - 1) * np.array(alphalist)
+
+        return alphalist   # , indexlist

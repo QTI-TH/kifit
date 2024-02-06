@@ -1,7 +1,7 @@
 import numpy as np
 
 alphaNP_Mathematica = 0.
-mu_aap_Mathematica = [
+muvec_Mathematica = [
     0.001190396349958500, 0.002273111495032099, 0.004169442382310047
 ]
 

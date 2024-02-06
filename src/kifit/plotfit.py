@@ -56,17 +56,18 @@ def draw_linfit(elem, plotname="linfit", show=False):
         plt.show()
 
 
-def draw_mc_output(paramlist, llist,
-        confints=True, nsigmas=[1, 2], dof=1,
+def draw_mc_output(elem, paramlist, llist, x=0,
+        confints=True, nsigmas=[1, 2], dof=1, showGKP=False, showNMGKP=False,
         xlabel='x', ylabel=r"$\Delta \chi^2$", plotname='testplot',
         xlims=[None, None], ylims=[None, None], show=False):
     """
-    Draw 2-dimensional scatter plot starting from xvals, yvals.
-    (Useful to show output of Monte Carlo.) Plot is saved in plots directory
-    under plotname.
+    Draw 2-dimensional scatter plot showing the likelihood associated with the
+    parameter values given in paramlist. If the lists were computed for multiple
+    X-coefficients, the argument x can be used to access a given set of samples.
+    The resulting plot is saved in plots directory under plotname.
 
     """
-    delchisqlist = get_delchisq(llist)
+    delchisqlist = get_delchisq(llist[x])
 
     fig, ax = plt.subplots()
     ax.scatter(paramlist, delchisqlist, s=1)
@@ -83,6 +84,9 @@ def draw_mc_output(paramlist, llist,
                 hlinels = '-'
             ax.axhline(y=delchisqcrit, color='orange', linewidth=1,
                 linestyle=hlinels)
+    if showGKP:
+        for aNP in elem.alphaNP_GKP:
+            ax.axhline   #continue here
 
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)

@@ -136,41 +136,67 @@ def get_llist(absdsamples, nsamples):
     Get ll for list of absd-samples.
 
     """
-    if (len(absdsamples) != nsamples):
+    if (len(absdsamples[0]) != nsamples):
         raise ValueError("""Mismatch between nsamples and length of absdsamples.""")
-    cov_absd = np.cov(np.array(absdsamples), rowvar=False)
 
-    llist = []
-    for s in range(nsamples):
-        llist.append(choLL(absdsamples[s], cov_absd))
+    allist = []
+    for x in range(len(absdsamples)):
+        cov_absd = np.cov(np.array(absdsamples[x]), rowvar=False)
 
-    return np.array(llist)
+        llist = []
+        for s in range(nsamples):
+            llist.append(choLL(absdsamples[x, s], cov_absd))
+        allist.append(llist)
+
+    return np.array(allist)
 
 
-def get_ll_for_varying_alphaNP(elem, nsamples):
+def sample_ll_fixed_elemparams(elem, nsamples, mphivar=False):
     """
     Get a set of nsamples samples of absd by varying alphaNP only.
 
        alphaNP ~ N(0, sig[alphaNP_init])
 
+    If mphivar=True, this procedure is repeated for all X-coefficients provided
+    for elem.
+
     """
+    print("""Generating %s samples for the orthogonal distance King fit with
+    fixed element parameters. mphi is %s varied.""" % (nsamples,
+        ("" if mphivar else "not")))
+
     fitparams = elem.means_fit_params
     sigalphaNP = elem.sig_alphaNP_init
     fitparamsamples = np.tensordot(np.ones(nsamples), fitparams, axes=0)
     alphaNPsamples = np.random.normal(fitparams[-1], sigalphaNP, nsamples)
     fitparamsamples[:, -1] = alphaNPsamples
-    absdsamples = []
-    for s in range(nsamples):
-        print_progress(s, nsamples)
-        elem._update_fit_params(fitparamsamples[s])
-        absdsamples.append(elem.absd)
+    allabsdsamples = []
 
-    return (get_llist(absdsamples, nsamples), alphaNPsamples)
+    if mphivar:
+        Nx = len(elem.Xcoeff_data)
+    else:
+        Nx = 1
+
+    allabsdsamples = []
+    for x in range(Nx):
+        if mphivar:
+            elem._update_Xcoeffs(x)
+            print_progress(x * nsamples, Nx * nsamples)
+        absdsamples = []
+        for s in range(nsamples):
+            if not mphivar:
+                print_progress(s, nsamples)
+            elem._update_fit_params(fitparamsamples[s])
+            absdsamples.append(elem.absd)
+        allabsdsamples.append(absdsamples)
+
+    return (get_llist(np.array(allabsdsamples), nsamples), alphaNPsamples)
 
 
-def get_ll_for_varying_elemparams_and_alphaNP(elem, nsamples):
+def samplelem(elem, nsamples, orthkifit=True, genkifit=[], nmgenkifit=[],
+        mphivar=False):
     """
-    Get a set of nsamples samples of absd by varying the masses and isotope
+    Get a set of nsamples samples of elem by varying the masses and isotope
     shifts according to the means and standard deviations given in the input
     files, as well as alphaNP.
 
@@ -178,26 +204,95 @@ def get_ll_for_varying_elemparams_and_alphaNP(elem, nsamples):
        m' ~ N(<m'>, sig[m'])
        v  ~ N(<v>,  sig[v])
 
-       alphaNP ~ N(0, sig[alphaNP_init])
+       alphaNP ~ N(0, sig[alphaNP_init]).
+
+    If mphivar=True, this procedure is repeated for all X-coefficients provided
+    for elem.
+    If orthkifit=True, the loglikelihood is computed using the orthogonal King
+    fit.
+    If genkifit=[dim1, dim2,...], alphaNP is computed using the (dim1,
+    dim2,...)-dimensional Generalised King plot.
+    If nmgenkifit=[dim1, dim2,...], alphaNP is computed using the (dim1,
+    dim2,...)-dimensional no-mass Generalised King plot.
 
     """
+    if genkifit==[]:
+        gkf = False
+    else:
+        gkf = True
+
+    if nmgenkifit==[]:
+        nmgkf = False
+    else:
+        nmgkf = True
+
     elemparamsamples = get_paramsamples(elem.means_input_params,
             elem.stdevs_input_params, nsamples)
 
-    fitparams = elem.means_fit_params
-    sigalphaNP = elem.sig_alphaNP_init
-    fitparamsamples = np.tensordot(np.ones(nsamples), fitparams, axes=0)
-    alphaNPsamples = np.random.normal(fitparams[-1], sigalphaNP, nsamples)
-    fitparamsamples[:, -1] = alphaNPsamples
+    if orthkifit:
+        fitparams = elem.means_fit_params
+        sigalphaNP = elem.sig_alphaNP_init
+        print("testi", fitparams)
 
-    absdsamples = []
-    for s in range(nsamples):
-        print_progress(s, nsamples)
-        elem._update_elem_params(elemparamsamples[s])
-        elem._update_fit_params(fitparamsamples[s])
-        absdsamples.append(elem.absd)
+        fitparamsamples = np.tensordot(np.ones(nsamples), fitparams, axes=0)
+        alphaNPsamples = np.random.normal(fitparams[-1], sigalphaNP, nsamples)
+        fitparamsamples[:, -1] = alphaNPsamples
 
-    return (get_llist(absdsamples, nsamples), elemparamsamples, alphaNPsamples)
+        allabsdsamples = []
+
+    if mphivar:
+        Nx = len(elem.Xcoeff_data)
+    else:
+        Nx = 1
+
+    allalphaGKPsamples = []
+    allalphaNMGKPsamples = []
+
+    for x in range(Nx):
+        if mphivar:
+            elem._update_Xcoeffs(x)
+            print_progress(x * nsamples, Nx * nsamples)
+        if orthkifit:
+            absdsamples = []
+        if gkf:
+            alphaGKPsamples = [[] for dim in genkifit]
+        if nmgkf:
+            alphaNMGKPsamples = [[] for dim in nmgenkifit]
+
+        for s in range(nsamples):
+            if not mphivar:
+                print_progress(s, nsamples)
+
+            elem._update_elem_params(elemparamsamples[s])
+
+            if orthkifit:
+                elem._update_fit_params(fitparamsamples[s])
+                absdsamples.append(elem.absd)
+
+            if gkf:
+                for dim in genkifit:
+                    # alphaGKPsamples[dim - 3].append(elem.alphaNP_GKP(dim))
+                    alphaGKPsamples[dim - 3].append(elem.alphaNP_GKP(dim))
+
+            if nmgkf:
+                for dim in nmgenkifit:
+                    # alphaNMGKPsamples[dim - 3].append(elem.alphaNP_NMGKP(dim))
+                    alphaNMGKPsamples[dim - 3].append(elem.alphaNP_NMGKP(dim))
+
+        if orthkifit:
+            allabsdsamples.append(absdsamples)
+        if gkf:
+            allalphaGKPsamples.append(alphaGKPsamples)
+        if nmgkf:
+            allalphaNMGKPsamples.append(alphaNMGKPsamples)
+
+    alphaNPllist = []
+    if orthkifit:
+        alphaNPllist.append([
+            alphaNPsamples, get_llist(np.array(allabsdsamples), nsamples)])
+
+    return (alphaNPllist, allalphaGKPsamples,
+            allalphaNMGKPsamples, elemparamsamples)
 
 
 def get_delchisq(llist):
@@ -232,10 +327,144 @@ def get_confints(paramlist, delchisqlist, nsigmas=2, dof=1):
     delchisq_crit = get_delchisq_crit(nsigmas, dof)
 
     pos = np.argwhere(delchisqlist < delchisq_crit).flatten()
+    print("delchisq_crit", delchisq_crit)
+    print("delchisqlist ", delchisqlist)
 
-    if len(pos) !=2:
-        print("For " + str(nsigmas)
-            + " sigma I found following limits for your confidence intervals:")
-        print(np.sort(paramlist[pos]))
+    print("""For %s sigma I found following limits for your confidence
+            intervals:""" % nsigmas)
+    print(np.sort(paramlist[pos]))
 
     return delchisq_crit, paramlist[pos]
+
+
+def sample_GKP_alphaNP(elem, dim, nsamples, mphivar=False):
+    """
+    Get a set of nsamples samples of alphaNP by varying the masses and isotope
+    shifts according to the means and standard deviations given in the input
+    files, as well as alphaNP.
+
+       m  ~ N(<m>,  sig[m])
+       m' ~ N(<m'>, sig[m'])
+       v  ~ N(<v>,  sig[v])
+
+    For each of these samples and for all possible combinations of the data,
+    compute alphaNP using the Generalised King Plot formula with
+
+        (nisotopepairs, ntransitions) = (dim, dim-1).
+
+    """
+    print("""Using the %s - dimensional Generalised King Plot to compute
+    alphaNP for %s samples. mphi is %s varied.""" % (dim, nsamples, ("" if
+        mphivar else "not")))
+
+    elemparamsamples = get_paramsamples(elem.means_input_params,
+        elem.stdevs_input_params, nsamples)
+
+    if mphivar:
+        Nx = len(elem.Xcoeff_data)
+    else:
+        Nx = 1
+
+    allalphaNPsamples = []
+    for x in range(Nx):
+        if mphivar:
+            elem._update_Xcoeffs(x)
+            print_progress(x * nsamples, Nx * nsamples)
+        alphaNPsamples = []
+        for s in range(nsamples):
+            if not mphivar:
+                print_progress(s, nsamples)
+            elem._update_elem_params(elemparamsamples[s])
+            alphaNPsamples.append(elem.alphaNP_GKP(dim))
+        allalphaNPsamples.append(alphaNPsamples)
+
+    return np.array(allalphaNPsamples), elemparamsamples
+
+
+#
+#
+# def sample_GKP_alphaNP(elem, dim, nsamples, mphivar=False):
+#     """
+#     Get a set of nsamples samples of alphaNP by varying the masses and isotope
+#     shifts according to the means and standard deviations given in the input
+#     files, as well as alphaNP.
+#
+#        m  ~ N(<m>,  sig[m])
+#        m' ~ N(<m'>, sig[m'])
+#        v  ~ N(<v>,  sig[v])
+#
+#     For each of these samples and for all possible combinations of the data,
+#     compute alphaNP using the Generalised King Plot formula with
+#
+#         (nisotopepairs, ntransitions) = (dim, dim-1).
+#
+#     """
+#     print("""Using the %s - dimensional Generalised King Plot to compute
+#     alphaNP for %s samples. mphi is %s varied.""" % (dim, nsamples, ("" if
+#         mphivar else "not")))
+#
+#     elemparamsamples = get_paramsamples(elem.means_input_params,
+#         elem.stdevs_input_params, nsamples)
+#
+#     if mphivar:
+#         Nx = len(elem.Xcoeff_data)
+#     else:
+#         Nx = 1
+#
+#     allalphaNPsamples = []
+#     for x in range(Nx):
+#         if mphivar:
+#             elem._update_Xcoeffs(x)
+#             print_progress(x * nsamples, Nx * nsamples)
+#         alphaNPsamples = []
+#         for s in range(nsamples):
+#             if not mphivar:
+#                 print_progress(s, nsamples)
+#             elem._update_elem_params(elemparamsamples[s])
+#             alphaNPsamples.append(elem.alphaNP_GKP(dim))
+#         allalphaNPsamples.append(alphaNPsamples)
+#
+#     return np.array(allalphaNPsamples), elemparamsamples
+#
+#
+# def sample_NMGKP_alphaNP(elem, dim, nsamples, mphivar=False):
+#     """
+#     Get a set of nsamples samples of alphaNP by varying the masses and isotope
+#     shifts according to the means and standard deviations given in the input
+#     files, as well as alphaNP.
+#
+#        m  ~ N(<m>,  sig[m])
+#        m' ~ N(<m'>, sig[m'])
+#        v  ~ N(<v>,  sig[v])
+#
+#     For each of these samples and for all possible combinations of the data,
+#     compute alphaNP using the no-mass Generalised King Plot formula with
+#
+#         (nisotopepairs, ntransitions) = (dim, dim)
+#
+#     """
+#     print("""Using the %s - dimensional no-mass Generalised King Plot to compute
+#     alphaNP for %s samples. mphi is %s varied.""" % (dim, nsamples, ("" if
+#         mphivar else "not")))
+#     elemparamsamples = get_paramsamples(elem.means_input_params,
+#         elem.stdevs_input_params, nsamples)
+#
+#     if mphivar:
+#         Nx = len(elem.Xcoeff_data)
+#     else:
+#         Nx = 1
+#
+#     allalphaNPsamples = []
+#     for x in range(Nx):
+#         if mphivar:
+#             elem._update_Xcoeffs(x)
+#             print_progress(x * nsamples, Nx * nsamples)
+#         alphaNPsamples = []
+#         for s in range(nsamples):
+#             if not mphivar:
+#                 print_progress(s, nsamples)
+#             elem._update_elem_params(elemparamsamples[s])
+#             alphaNPsamples.append(elem.alphaNP_NMGKP(dim))
+#         allalphaNPsamples.append(alphaNPsamples)
+#
+#     return np.array(allalphaNPsamples), elemparamsamples

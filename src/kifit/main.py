@@ -1,32 +1,44 @@
 from kifit.loadelems import Elem
-from kifit.performfit import (get_ll_for_varying_alphaNP,
-    get_ll_for_varying_elemparams_and_alphaNP, get_delchisq_crit)
+from kifit.performfit import (sample_ll_fixed_elemparams, samplelem,
+    get_delchisq_crit)
 from kifit.plotfit import draw_mc_output
 
-ca = Elem.get('Ca_testdata')
+ca = Elem.get('Yb')
 
 num_samples = 50000
 
+# FIT
 # Varying alphaNP only
-ll_alphaNPvar, alphaNPvar_simp = get_ll_for_varying_alphaNP(ca, num_samples)
-
-draw_mc_output(alphaNPvar_simp, ll_alphaNPvar,
-    confints=True, nsigmas=[1, 2], dof=1, xlabel=r"$\alpha_{\mathrm{NP}}$",
-    plotname=("alphaNPvar_" + str(num_samples)))
+# ll_alphaNPvar, alphaNPvar_simp = sample_ll_fixed_elemparams(ca, num_samples,
+#     mphivar=True)
+#
+# draw_mc_output(alphaNPvar_simp, ll_alphaNPvar,
+#     confints=True, nsigmas=[1, 2], dof=1, xlabel=r"$\alpha_{\mathrm{NP}}$",
+#     plotname=("alphaNPvar_" + str(num_samples)))
+#
 
 # Varying elem data and alphaNP
-ll_elemalphaNPvar, elemvar, alphaNPvar_full = get_ll_for_varying_elemparams_and_alphaNP(ca, num_samples)
+ca.set_alphaNP_init(min(ca.alphaNP_GKP(3), key=abs), 1e-5)
+alphaNPllist, alphaNP_GKP, alphaNP_NMGKP, elemvar = samplelem(ca, num_samples,
+    orthkifit=True, genkifit=[], nmgenkifit=[], mphivar=False)
 
-draw_mc_output(alphaNPvar_full, ll_elemalphaNPvar,
+draw_mc_output(alphaNPllist[0][0], alphaNPllist[0][1],
     confints=True, nsigmas=[1, 2], dof=1, xlabel=r"$\alpha_{\mathrm{NP}}$",
-    plotname=("elemalphaNPvar_" + str(num_samples)))
-
+    plotname=("elemalphaNPvar_" + str(num_samples) + "_" + ca.id))
 llim = 10 * get_delchisq_crit(2, 1)
-draw_mc_output(alphaNPvar_full, ll_elemalphaNPvar,
-    confints=True, nsigmas=[1, 2], dof=1, xlabel=r"$\alpha_{\mathrm{NP}}$",
-    xlims=[-1e-12, 1e-12], ylims=[0, llim],
-    plotname=("zoom_elemalphaNPvar_" + str(num_samples)))
 
+draw_mc_output(alphaNPllist[0][0], alphaNPllist[0][1],
+    confints=True, nsigmas=[1, 2], dof=1, xlabel=r"$\alpha_{\mathrm{NP}}$",
+    xlims=[-1e-6, 1e-6], ylims=[0, llim],
+    plotname=("zoom_elemalphaNPvar_" + str(num_samples) + "_" + ca.id))
+
+
+# llim = 10 * get_delchisq_crit(2, 1)
+# draw_mc_output(alphaNPvar_full, ll_elemalphaNPvar,
+#     confints=True, nsigmas=[1, 2], dof=1, xlabel=r"$\alpha_{\mathrm{NP}}$",
+#     xlims=[-1e-12, 1e-12], ylims=[0, llim],
+#     plotname=("zoom_elemalphaNPvar_" + str(num_samples) + "_" + ca.id))
+#
 
 ###############################################################################
 

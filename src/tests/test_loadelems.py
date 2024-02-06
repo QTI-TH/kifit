@@ -1,8 +1,8 @@
 import numpy as np
 from pprint import pprint
-from kifit.loadelems import Elem
+from kifit.loadelems import Elem, Levi_Civita_generator, LeviCivita
 from Mathematica_crosschecks import *
-
+from itertools import permutations
 
 def test_load_all():
     all_element_data = Elem.load_all()
@@ -37,8 +37,8 @@ def test_load_individual():
 
     assert (len(ca.Xcoeff_data) > 0), len(ca.Xcoeff_data)
     assert (len(ca.sig_Xcoeff_data) > 0), len(ca.sig_Xcoeff_data)
-    assert len(ca.X) == ca.ntransitions, len(ca.X)
-    assert len(ca.sig_X) == ca.ntransitions, len(ca.sig_X)
+    assert len(ca.Xvec) == ca.ntransitions, len(ca.Xvec)
+    assert len(ca.sig_Xvec) == ca.ntransitions, len(ca.sig_Xvec)
 
     for x in range(len(ca.Xcoeff_data)):
         assert len(ca.Xcoeff_data[x]) == ca.ntransitions + 1, len(ca.Xcoeff_data[x])
@@ -53,11 +53,11 @@ def test_load_individual():
     # assert (np.trace(ca.corr_m_mp) == 0)
     # assert (np.trace(ca.corr_mp_mp) == ca.nisotopepairs)
     # assert (np.trace(ca.corr_X_X) == ca.ntransitions)
-    assert (ca.mu_aap[0] == 1 / ca.m_a[0] - 1 / ca.m_ap[0])
-    assert (len(ca.mu_aap) == ca.nisotopepairs)
-    assert (ca.h_aap.size == ca.nisotopepairs)
-    assert np.allclose(ca.h_aap, np.array([(ca.a_nisotope[a] - ca.ap_nisotope[a])
-        / ca.mu_aap[a] for a in ca.range_a]), rtol=1e-5)
+    assert (ca.muvec[0] == 1 / ca.m_a[0] - 1 / ca.m_ap[0])
+    assert (len(ca.muvec) == ca.nisotopepairs)
+    assert (ca.mu_norm_avec.size == ca.nisotopepairs)
+    assert np.allclose(ca.mu_norm_avec, np.array([(ca.a_nisotope[a] - ca.ap_nisotope[a])
+        / ca.muvec[a] for a in ca.range_a]), rtol=1e-5)
     assert (ca.np_term.size == ca.nisotopepairs * ca.ntransitions)
     assert np.all([i.is_integer() for i in ca.a_nisotope])
     assert np.all([i.is_integer() for i in ca.ap_nisotope])
@@ -122,7 +122,7 @@ def test_constr_dvec():
     ca._update_fit_params(theta_LL_Mathematica)
     assert (np.isclose(spp, spm, rtol=1e-7) for (spp, spm) in zip(ca.secph1,
         secph1nit_LL_Mathematica)), (ca.secph1, secph1nit_LL_Mathematica)
-    assert np.allclose(ca.mu_aap, mu_aap_Mathematica, rtol=1e-10)
+    assert np.allclose(ca.muvec, muvec_Mathematica, rtol=1e-10)
 
     D_a1i_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
     assert np.allclose(D_a1i_Mathematica, D_a1i_python, rtol=1e-15)
@@ -135,10 +135,6 @@ def test_constr_dvec():
 
     ca._update_fit_params(theta_LL_Mathematica_1)
 
-    print("np term python      ")
-    print(ca.np_term)
-    print("np term mathematica ")
-    print(np.array(NP_term_alphaNP_1_Mathematica))
     assert np.allclose(ca.np_term, NP_term_alphaNP_1_Mathematica, rtol=1e-14)
 
     D_a1i_alphaNP_1_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
@@ -151,8 +147,56 @@ def test_constr_dvec():
     assert np.allclose(ca.absd, absd_explicit, rtol=1e-25)
 
 
+def levi_civita_tensor(d):
+    arr = np.zeros([d for _ in range(d)])
+    for x in permutations(tuple(range(d))):
+        mat = np.zeros((d, d), dtype=np.int32)
+        for i, j in enumerate(x):
+            mat[i][j] = 1
+        arr[x] = int(np.linalg.det(mat))
+    return arr
+
+
+def test_levi_civita():
+    eps2_gen = Levi_Civita_generator(2)
+    eps2 = levi_civita_tensor(2)
+
+    eps2_gentens = np.zeros(eps2.shape)
+    for inds, sign in eps2_gen:
+        eps2_gentens[inds] = sign
+    assert np.array_equal(eps2, eps2_gentens)
+
+    eps4_gen = Levi_Civita_generator(4)
+    eps4 = levi_civita_tensor(4)
+
+    eps4_gentens = np.zeros(eps4.shape)
+    for inds, sign in eps4_gen:
+        eps4_gentens[inds] = sign
+    assert np.array_equal(eps4, eps4_gentens)
+
+
+def test_alphaNP_GKP():
+    ca = Elem.get('Ca_testdata')
+    alphaparts = ca.alphaNP_GKP_parts(3)
+    alphas = ca.alphaNP_GKP(3)
+
+    print("alphaNP GKP", alphas)
+    print("alphaNPpart", alphaparts)
+
+
+def test_alphaNP_NMGKP():
+    ca = Elem.get('Ca_testdata')
+
+    alphas = ca.alphaNP_NMGKP(3)
+
+    print("alphaNP NMGKP", alphas)
+
+
 if __name__ == "__main__":
-    #test_load_all()
-    #test_load_individual()
-    #test_set_fit_params()
+    test_load_all()
+    test_load_individual()
+    test_set_fit_params()
     test_constr_dvec()
+    test_levi_civita()
+    test_alphaNP_GKP()
+    test_alphaNP_NMGKP()
