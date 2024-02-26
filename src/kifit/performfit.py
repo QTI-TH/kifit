@@ -168,16 +168,32 @@ def generate_element_sample(elem, nsamples: int):
     return parameters_samples
 
 
-def generate_alphaNP_sample(elem, nsamples: int):
+def generate_alphaNP_sample(
+    elem, nsamples: int, search_mode: str = "random", delta=None
+):
     """
     Generate ``nsamples`` of alphaNP according to ``elem`` initial conditions.
     """
     init_alphaNP = elem.means_fit_params[-1]
-    alphaNP_samples = np.random.normal(init_alphaNP, elem.sig_alphaNP_init, nsamples)
+    if search_mode == "random":
+        alphaNP_samples = np.random.normal(
+            init_alphaNP, elem.sig_alphaNP_init, nsamples
+        )
+    elif search_mode == "grid":
+        alphaNP_samples = np.linspace(
+            init_alphaNP - delta, init_alphaNP + delta, nsamples
+        )
     return alphaNP_samples
 
 
-def compute_sample_ll(elem, nsamples, mphivar: bool = False, save_sample: bool = False):
+def compute_sample_ll(
+    elem,
+    element_samples,
+    mphivar: bool = False,
+    save_sample: bool = False,
+    search_mode: str = "random",
+    delta: float = 0.5,
+):
     """
     Generate alphaNP list for element ``elem`` according to ``parameters_samples``.
 
@@ -192,12 +208,11 @@ def compute_sample_ll(elem, nsamples, mphivar: bool = False, save_sample: bool =
         List[float], List[float]: alphaNP samples and list of associated log likelihood.
     """
 
-    # generate sample of elements
-    parameters_samples = generate_element_sample(elem, nsamples)
-    # fix fit parameters
+    nsamples = len(element_samples)
     fit_params_samples = np.tile(elem.means_fit_params, (nsamples, 1))
-    # varying just alphaNP
-    fit_params_samples[:, -1] = generate_alphaNP_sample(elem=elem, nsamples=nsamples)
+    fit_params_samples[:, -1] = generate_alphaNP_sample(
+        elem=elem, nsamples=nsamples, search_mode=search_mode, delta=delta
+    )
 
     allabsdsamples = []
 
@@ -206,24 +221,74 @@ def compute_sample_ll(elem, nsamples, mphivar: bool = False, save_sample: bool =
     else:
         Nx = 1
 
-    for x in tqdm(range(Nx)):
+    for x in range(Nx):
         if mphivar:
             elem._update_Xcoeffs(x)
 
         absdsamples = []
 
         for s in range(nsamples):
-            elem._update_elem_params(parameters_samples[s])
+            elem._update_elem_params(element_samples[s])
             elem._update_fit_params(fit_params_samples[s])
             absdsamples.append(elem.absd)
 
     allabsdsamples.append(absdsamples)
 
     if save_sample:
-        np.save(arr=parameters_samples, file="parameters_samples")
+        np.save(arr=element_samples, file="parameters_samples")
         np.save(arr=fit_params_samples, file="fit_params_samples")
 
     return fit_params_samples[:, -1], get_llist(np.array(allabsdsamples), nsamples)
+
+
+def iterative_mc_search(
+    elem,
+    element_samples,
+    mphivar: bool = False,
+    grid_ratio: float = 0.5,
+    decay_rate: float = 0.95,
+    niter: int = 3,
+    return_history: bool = True,
+):
+    """Perform iterative search."""
+
+    from kifit.plotfit import plot_loss_varying_alphaNP
+
+    best_alphas, best_ll = [], []
+
+    for i in tqdm(range(niter)):
+        if i == 0:
+            alphas, ll = compute_sample_ll(
+                elem,
+                element_samples=element_samples,
+                mphivar=mphivar,
+                search_mode="random",
+            )
+        else:
+            alphas, ll = compute_sample_ll(
+                elem,
+                element_samples=element_samples,
+                mphivar=mphivar,
+                search_mode="grid",
+                delta=delta,
+            )
+
+        best_index = np.argmin(ll)
+        elem.means_fit_params[-1] = alphas[best_index]
+        best_alphas.append(alphas[best_index])
+        best_ll.append(ll[0][best_index])
+
+        if i == 0:
+            delta = grid_ratio * np.abs(best_alphas[-1])
+        else:
+            delta = delta * decay_rate
+
+        plot_loss_varying_alphaNP(alphas, ll, filename=f"{i}")
+
+    if return_history:
+        return alphas, ll, best_alphas, best_ll
+    else:
+        return alphas, ll
 
 
 def get_delchisq(llist):
