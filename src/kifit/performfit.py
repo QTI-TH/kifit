@@ -174,7 +174,7 @@ def generate_alphaNP_sample(
     """
     Generate ``nsamples`` of alphaNP according to ``elem`` initial conditions.
     """
-    init_alphaNP = elem.means_fit_params[-1]
+    init_alphaNP = elem.alphaNP
     if search_mode == "random":
         alphaNP_samples = np.random.normal(
             init_alphaNP, elem.sig_alphaNP_init, nsamples
@@ -274,19 +274,23 @@ def iterative_mc_search(
             )
 
         best_index = np.argmin(ll)
-        elem.means_fit_params[-1] = alphas[best_index]
+        elem.alphaNP = alphas[best_index]
         best_alphas.append(alphas[best_index])
         best_ll.append(ll[0][best_index])
 
         if i == 0:
-            delta = grid_ratio * np.abs(best_alphas[-1])
+            delta = grid_ratio * np.abs(elem.alphaNP)
         else:
             delta = delta * decay_rate
 
         plot_loss_varying_alphaNP(alphas, ll, filename=f"{i}")
 
+    # best of bests
+    winner_index = np.argmin(best_ll)
+    winner_alpha = best_alphas[winner_index]
+
     if return_history:
-        return alphas, ll, best_alphas, best_ll
+        return alphas, ll, best_alphas, best_ll, winner_alpha
     else:
         return alphas, ll
 
