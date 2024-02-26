@@ -1,11 +1,11 @@
 from kifit.loadelems import Elem
 from kifit.performfit import (sample_ll_fixed_elemparams, samplelem,
-    get_delchisq_crit)
-from kifit.plotfit import draw_mc_output
+    get_delchisq_crit, sample_alphaNP_GKP)
+from kifit.plotfit import draw_mc_output, draw_alphaNP_GKP
 
 ca = Elem.get('Yb')
-
-num_samples = 50000
+print(ca.get_dimensions)
+num_samples = 1000
 
 # FIT
 # Varying alphaNP only
@@ -18,19 +18,19 @@ num_samples = 50000
 #
 
 # Varying elem data and alphaNP
-ca.set_alphaNP_init(min(ca.alphaNP_GKP(3), key=abs), 1e-5)
-alphaNPllist, alphaNP_GKP, alphaNP_NMGKP, elemvar = samplelem(ca, num_samples,
-    orthkifit=True, genkifit=[], nmgenkifit=[], mphivar=False)
-
-draw_mc_output(alphaNPllist[0][0], alphaNPllist[0][1],
-    confints=True, nsigmas=[1, 2], dof=1, xlabel=r"$\alpha_{\mathrm{NP}}$",
-    plotname=("elemalphaNPvar_" + str(num_samples) + "_" + ca.id))
-llim = 10 * get_delchisq_crit(2, 1)
-
-draw_mc_output(alphaNPllist[0][0], alphaNPllist[0][1],
-    confints=True, nsigmas=[1, 2], dof=1, xlabel=r"$\alpha_{\mathrm{NP}}$",
-    xlims=[-1e-6, 1e-6], ylims=[0, llim],
-    plotname=("zoom_elemalphaNPvar_" + str(num_samples) + "_" + ca.id))
+# ca.set_alphaNP_init(min(ca.alphaNP_GKP(3), key=abs), 1e-5)
+# alphaNPllist, alphaNP_GKP, alphaNP_NMGKP, elemvar = samplelem(ca, num_samples,
+#     orthkifit=True, genkifit=[], nmgenkifit=[], mphivar=False)
+#
+# draw_mc_output(alphaNPllist[0][0], alphaNPllist[0][1],
+#     confints=True, nsigmas=[1, 2], dof=1, xlabel=r"$\alpha_{\mathrm{NP}}$",
+#     plotname=("elemalphaNPvar_" + str(num_samples) + "_" + ca.id))
+# llim = 10 * get_delchisq_crit(2, 1)
+#
+# draw_mc_output(alphaNPllist[0][0], alphaNPllist[0][1],
+#     confints=True, nsigmas=[1, 2], dof=1, xlabel=r"$\alpha_{\mathrm{NP}}$",
+#     xlims=[-1e-6, 1e-6], ylims=[0, llim],
+#     plotname=("zoom_elemalphaNPvar_" + str(num_samples) + "_" + ca.id))
 
 
 # llim = 10 * get_delchisq_crit(2, 1)
@@ -40,6 +40,9 @@ draw_mc_output(alphaNPllist[0][0], alphaNPllist[0][1],
 #     plotname=("zoom_elemalphaNPvar_" + str(num_samples) + "_" + ca.id))
 #
 
+draw_alphaNP_GKP(ca, [3, 4], num_samples)
+# mphis, alphaNPs, sigalphaNPs = sample_alphaNP_GKP(ca, 3, num_samples,
+#     mphivar=False)
 ###############################################################################
 
 # ca_elem_params = multivariate_normal.rvs(

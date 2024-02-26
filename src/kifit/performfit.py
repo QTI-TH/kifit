@@ -337,11 +337,11 @@ def get_confints(paramlist, delchisqlist, nsigmas=2, dof=1):
     return delchisq_crit, paramlist[pos]
 
 
-def sample_GKP_alphaNP(elem, dim, nsamples, mphivar=False):
+def sample_alphaNP_GKP(elem, dim, nsamples, mphivar=False):
     """
     Get a set of nsamples samples of alphaNP by varying the masses and isotope
     shifts according to the means and standard deviations given in the input
-    files, as well as alphaNP.
+    files:
 
        m  ~ N(<m>,  sig[m])
        m' ~ N(<m'>, sig[m'])
@@ -353,32 +353,84 @@ def sample_GKP_alphaNP(elem, dim, nsamples, mphivar=False):
         (nisotopepairs, ntransitions) = (dim, dim-1).
 
     """
-    print("""Using the %s - dimensional Generalised King Plot to compute
-    alphaNP for %s samples. mphi is %s varied.""" % (dim, nsamples, ("" if
-        mphivar else "not")))
-
+    print()
+    print("""Using the %s-dimensional Generalised King Plot to compute
+    alphaNP for %s samples. mphi is %svaried.""" % (dim, nsamples, ("" if
+        mphivar else "not ")))
+    print()
+    print("""Initialising alphaNP GKP""")
+    print()
     elemparamsamples = get_paramsamples(elem.means_input_params,
         elem.stdevs_input_params, nsamples)
 
+    voldatsamples = []
+    vol1samples = []
+
+    # nutilsamples = []   # add mass-normalised isotope shifts for cross-check
+
+    for s in range(nsamples):
+        print_progress(s, nsamples)
+        elem._update_elem_params(elemparamsamples[s])
+        alphaNPparts = elem.alphaNP_GKP_part(dim)
+        voldatsamples.append(alphaNPparts[0])
+        vol1samples.append(alphaNPparts[1])
+        if s == 0:
+            xindlist = alphaNPparts[2]
+        else:
+            assert xindlist == alphaNPparts[2], (xindlist, alphaNPparts[2])
+
+    # voldatsamples has the form [sample][alphaNP-permutation]
+    # vol1samples has the form [sample][alphaNP-permutation][eps-term]
+
+    # for each term, average over all samples.
+
+    meanvoldat = np.average(np.array(voldatsamples), axis=0)  # [permutation]
+    sigvoldat = np.std(np.array(voldatsamples), axis=0)
+
+    meanvol1 = np.average(np.array(vol1samples), axis=0)  # [perm][eps-term]
+    sigvol1 = np.std(np.array(vol1samples), axis=0)
+
+    print()
+    print("""Computing alphaNP GKP""")
+    print()
     if mphivar:
         Nx = len(elem.Xcoeff_data)
     else:
         Nx = 1
 
-    allalphaNPsamples = []
+    mphi_list = []
+    alphaNP_list = []  # alphaNP list for best alphaNP and all
+    sig_alphaNP_list = []
+
     for x in range(Nx):
         if mphivar:
             elem._update_Xcoeffs(x)
-            print_progress(x * nsamples, Nx * nsamples)
-        alphaNPsamples = []
-        for s in range(nsamples):
-            if not mphivar:
-                print_progress(s, nsamples)
-            elem._update_elem_params(elemparamsamples[s])
-            alphaNPsamples.append(elem.alphaNP_GKP(dim))
-        allalphaNPsamples.append(alphaNPsamples)
+            mphi_list.append(elem.mphi)
+            print_progress(nsamples * x, nsamples * Nx)
 
-    return np.array(allalphaNPsamples), elemparamsamples
+        """ p: alphaNP-permutation index and xpinds: X-indices for sample p"""
+        nperm = len(xindlist)   # number of permutations of the i and a indices
+
+        alphaNP_p_list = []
+        sig_alphaNP_p_list = []
+        for p, xpinds in enumerate(xindlist):
+            if not mphivar:
+                print_progress(p, nperm)
+            meanvol1_p = np.array([elem.Xvec[xp] for xp in xpinds]) @ (meanvol1[p])
+            sigvol1_p_sq = (np.array([elem.Xvec[xp]**2 for xp in xpinds])
+                @ (sigvol1[p]**2))
+
+            alphaNP_p_list.append(meanvoldat[p] / meanvol1_p)
+            sig_alphaNP_p_list.append(
+                (sigvoldat[p] / meanvol1_p)**2
+                + (meanvoldat[p] / meanvol1_p**2)**2 * sigvol1_p_sq)
+        alphaNP_list.append(alphaNP_p_list)
+        sig_alphaNP_list.append(sig_alphaNP_p_list)
+
+    alphaNP_list = np.math.factorial(dim - 2) * np.array(alphaNP_list)
+    sig_alphaNP_list = np.math.factorial(dim - 2) * np.array(sig_alphaNP_list)
+
+    return mphi_list, alphaNP_list, sig_alphaNP_list
 
 
 #

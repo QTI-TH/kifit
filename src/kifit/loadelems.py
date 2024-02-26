@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from itertools import permutations, product
+from itertools import permutations, combinations, product
 from functools import cache
 
 from kifit.cache_update import update_fct
@@ -284,6 +284,15 @@ class Elem:
 
         """
         return self.nu_in.shape[1]
+
+    @cached_fct_property
+    def get_dimensions(self):
+        """
+        Return dimensions of element data in the form
+
+            (nisotopepairs, ntransitions)
+        """
+        return (self.nisotopepairs, self.ntransitions), self.nu_in
 
     @cached_fct_property
     def means_input_params(self):
@@ -580,12 +589,28 @@ class Elem:
         return np.sqrt(np.diag(self.dmat @ self.dmat.T))
 
     @cached_fct
-    def alphaNP_GKP_parts(self, dim):
+    def alphaNP_GKP_part(self, dim):
         """
-        Returns numpy array of values for alphaNP computed using the Generalised
-        King Plot formula starting from a data matrix of dimensions
+        Prepares the ingredients needed for the computation of alphaNP using the
+        Generalised King Plot formula with
 
            (nisotopepairs, ntransitions) = (dim, dim-1),   dim >= 3.
+
+        The procedure is repeated for all possible combinations of the data that
+        fit into this form.
+
+        Since this part of the computation of alphaNP is independent of the
+        X-coefficients, it only needs to be evaluated once per element and per
+        dim.
+
+        Returns:
+            - voldatlist, a numpy array containing the values of the numerator
+              for each permutation of the data (dimension: number of combinations),
+            - vol1st, numpy array containing the terms in the denominator
+              (dimensions: number of combinations, number of epsilon-terms per
+              permutation) and
+            - xindlist, a list that keeps track of the indices of the required
+              X-coefficients (dimensions same as vol1st).
 
         """
         if dim < 3:
@@ -595,42 +620,74 @@ class Elem:
             raise ValueError("""dim is larger than dimension of provided
             data.""")
 
-        indexlist = []
-        alphalist = []
+        voldatlist = []
+        vol1st = []
+        xindlist = []
 
-        for a_inds, i_inds in product(permutations(self.range_a, dim),
-                permutations(self.range_i, dim - 1)):
-
-            indexlist.append([a_inds, i_inds])
+        # print("dim", dim)
+        # print("no. perm", len(list(product(combinations(self.range_a, dim),
+        #     combinations(self.range_i, dim - 1)))))
+        #
+        for a_inds, i_inds in product(combinations(self.range_a, dim),
+                combinations(self.range_i, dim - 1)):
+            # taking into account ordering
+            # indexlist.append([a_inds, i_inds])
+            # print("i_inds", i_inds)
 
             numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
             mumat = self.mu_norm_muvec[np.ix_(a_inds)]
-            # Xmat = self.Xvec[np.ix_(i_inds)]
             hmat = self.mu_norm_avec[np.ix_(a_inds)]
 
-            vol_data = np.linalg.det(np.c_[numat, mumat])
-            # print("i_inds", i_inds)
-            vol_alphaNP1 = []
+            voldatlist.append(np.linalg.det(np.c_[numat, mumat]))
+            vol1part = []
+            xindpart = []
             for i, eps_i in LeviCivita(dim - 1):
-                # print("i", i)
-                # print("i_inds[i[0]]", i_inds[i[0]])
-                # print(" ")
-                vol_alphaNP1.append([i_inds[i[0]], eps_i * np.linalg.det(np.c_[
-                    hmat,  # to be multiplied by Xmat[i[0]]
-                    np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
-                    mumat])])
-            alphalist.append([vol_data, vol_alphaNP1])
+                xindpart.append(i_inds[i[0]])  # X always gets first index
+                vol1part.append(
+                    eps_i * np.linalg.det(np.c_[
+                        hmat,  # to be multiplied by Xmat[i[0]]
+                        np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,
+                        mumat]))
+            vol1st.append(vol1part)
+            # print("xindpart", xindpart)
+            xindlist.append(xindpart)
 
-        return alphalist, indexlist
+        # print("part voldatlist", len(voldatlist))
+        # print("part vol1st    ", len(vol1st))
+        # print("1st elem       ", len(vol1st[0]))
+        # print("part xindlist  ", len(xindlist))
+        # print("1st elem       ", len(xindlist[0]))
 
-    # @cached_fct
-    # def alphaNP_GKP_assembled(self, dim):
-    #     parts = self.alphaNP_GKP_parts(dim)
-    #
-    #     alphaNP = 0
-    #     for parti in enumerate(parts):
-    #         vol_alphaNP1 = np.product(self.Xvec[i0] * voli0 for i0, voli0 in parti[1]
-    #         alphaNP += parti[0] / vol_alphaNP1
+        return np.array(voldatlist), np.array(vol1st), xindlist  #, indexlist
+
+    @cached_fct
+    def alphaNP_GKP_combinations(self, dim):
+        """
+        Evaluates alphaNP using the ingredients computed by alphaNP_GKP_part for
+        dim=dim.
+
+        If the X-coefficients are varied, this part of the computation of
+        alphaNP should be repeated for each set of X-coefficients.
+
+        Returns a list of p alphaNP-values, where p is the number of
+        combinations of the data of dimension
+
+           (nisotopepairs, ntransitions) = (dim, dim-1),   dim >= 3.
+
+        """
+        voldat, vol1part, xindlist = self.alphaNP_GKP_part(dim)
+
+        alphalist = []
+
+        """ p: alphaNP permutation index and xpinds: X-indices for sample p"""
+        for p, xpinds in enumerate(xindlist):
+            # print("s", s)
+            # print("X[s01]", self.Xvec[xsinds[1]])
+            vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
+            alphalist.append(voldat[p] / vol1p)
+        alphalist = np.math.factorial(dim - 2) * alphalist
+
+        return alphalist
 
     # @cached_fct
     # def alphaNP_NMGKP(self, dim):
@@ -649,8 +706,8 @@ class Elem:
     #     # indexlist = []
     #     alphalist = []
     #
-    #     for a_inds, i_inds in product(permutations(self.range_a, dim),
-    #             permutations(self.range_i, dim)):
+    #     for a_inds, i_inds in product(combinations(self.range_a, dim),
+    #             combinations(self.range_i, dim)):
     #
     #         # indexlist.append([a_inds, i_inds])
     #
@@ -690,8 +747,8 @@ class Elem:
         # indexlist = []
         alphalist = []
 
-        for a_inds, i_inds in product(permutations(self.range_a, dim),
-                permutations(self.range_i, dim - 1)):
+        for a_inds, i_inds in product(combinations(self.range_a, dim),
+                combinations(self.range_i, dim - 1)):
 
             # indexlist.append([a_inds, i_inds])
 
@@ -731,8 +788,8 @@ class Elem:
         # indexlist = []
         alphalist = []
 
-        for a_inds, i_inds in product(permutations(self.range_a, dim),
-                permutations(self.range_i, dim)):
+        for a_inds, i_inds in product(combinations(self.range_a, dim),
+                combinations(self.range_i, dim)):
 
             # indexlist.append([a_inds, i_inds])
 

@@ -177,11 +177,14 @@ def test_levi_civita():
 
 def test_alphaNP_GKP():
     ca = Elem.get('Ca_testdata')
-    alphaparts = ca.alphaNP_GKP_parts(3)
-    alphas = ca.alphaNP_GKP(3)
+    vold, vol1, inds = ca.alphaNP_GKP_part(3)
+    assert len(vold) == len(vol1), (len(vold), len(vol1))
 
-    print("alphaNP GKP", alphas)
-    print("alphaNPpart", alphaparts)
+    alphalist_GKP = ca.alphaNP_GKP(3)
+    alphalist_assembled = ca.alphaNP_GKP_combinations(3)
+
+    assert np.allclose(alphalist_GKP, alphalist_assembled, rtol=1e-50)
+
 
 
 def test_alphaNP_NMGKP():

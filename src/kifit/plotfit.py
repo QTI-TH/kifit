@@ -2,9 +2,10 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import chi2
+from scipy.interpolate import interp1d
 
 from kifit.performfit import (linfit, perform_linreg, perform_odr, get_delchisq,
-    get_confints)
+    get_confints, sample_alphaNP_GKP)
 
 _plot_path = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
@@ -13,6 +14,17 @@ _plot_path = os.path.abspath(os.path.join(
 if not os.path.exists(_plot_path):
     os.makedirs(_plot_path)
 
+###############################################################################
+
+default_colour = [
+    '#1f77b4', '#ff7f0e', '#2ca02c',
+    '#d62728', '#9467bd', '#8c564b',
+    '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+
+# functions for interpolation
+##############################################################################
+
+###############################################################################
 
 def draw_linfit(elem, plotname="linfit", show=False):
     """
@@ -95,4 +107,83 @@ def draw_mc_output(elem, paramlist, llist, x=0,
     plt.savefig(_plot_path + "/" + plotname + ".pdf")
     if show:
         plt.show()
+    return 0
+
+
+def draw_alphaNP_GKP(elem, dims, nsamples,
+        upperbound=True, nsigmas=[2],
+        xlabel=r"$m_\phi~$[eV]", ylabel=r"$\alpha_{\mathrm{NP}}$",
+        plotname='alphaNP_GKP',
+        xlims=[None, None], ylims=[None, None], show=False):
+
+    """
+
+    The resulting plot is saved in plots directory under plotname.
+
+    """
+
+    minpos_ind = [[] for dim in dims]
+    maxneg_ind = [[] for dim in dims]
+
+    minpos_alphaNPs = [[] for dim in dims]
+    minpos_sigalphaNPs = [[] for dim in dims]
+    maxneg_alphaNPs = [[] for dim in dims]
+    maxneg_sigalphaNPs = [[] for dim in dims]
+
+    fig, ax = plt.subplots()
+
+    for d, dim in enumerate(dims):
+        mphis_d, alphaNPs_d, sigalphaNPs_d = sample_alphaNP_GKP(elem, dim, nsamples,
+            mphivar=True)
+
+        alphaNPs_d = np.array(alphaNPs_d)  # [x][perm]
+        sigalphaNPs = np.array(sigalphaNPs_d)  # [x][perm]
+
+        # minimal positive alphaNP
+        ###############################
+        # index
+        minpos_ind[d] = np.argmin(np.where(alphaNPs_d > 0, alphaNPs_d, np.inf),
+            axis=1)  # [x]
+        # val
+        a = alphaNPs_d[np.arange(alphaNPs_d.shape[0]), minpos_ind[d]]
+        minpos_alphaNPs[d] = np.where(a > 0, a, np.nan)
+
+        # sigval
+        sa = sigalphaNPs[np.arange(alphaNPs_d.shape[0]), minpos_ind[d]]
+        minpos_sigalphaNPs[d] = np.where(a > 0, sa, np.nan)
+
+        ax.scatter(mphis_d, minpos_alphaNPs[d] + 2 * minpos_sigalphaNPs[d],
+            s=4, color=default_colour[d],
+            label=elem.id + ", dim " + str(dim) + " GKP")
+
+        # maximal negative alphaNP
+        ###############################
+        # index
+        maxneg_ind[d] = np.argmax(np.where(alphaNPs_d < 0, alphaNPs_d, -np.inf),
+            axis=1)
+        # val
+        b = alphaNPs_d[np.arange(alphaNPs_d.shape[0]), maxneg_ind[d]]
+        maxneg_alphaNPs[d] = np.where(b < 0, b, np.nan)
+
+        # sigval
+        sb = sigalphaNPs[np.arange(alphaNPs_d.shape[0]), maxneg_ind[d]]
+        maxneg_sigalphaNPs[d] = np.where(b < 0, sb, np.nan)
+
+        ax.scatter(mphis_d, maxneg_alphaNPs[d] - 2 * maxneg_sigalphaNPs[d],
+            s=4, color=default_colour[d])
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_ylabel(ylabel)
+    ax.axhline(y=0, c='k')
+
+    shrubbery = 10 ** np.floor(np.log10(np.min((np.nanmin(minpos_alphaNPs),
+        -np.nanmax(maxneg_alphaNPs)))))
+
+    ax.set_xscale('log')
+    ax.set_yscale('symlog', linthresh=shrubbery)
+    ax.legend()
+
+    plt.savefig(_plot_path + "/" + "minpos_" + plotname + "_" + elem.id + ".pdf")
+
     return 0

@@ -1,7 +1,8 @@
 import numpy as np
 
 from kifit.loadelems import Elem
-from kifit.performfit import perform_odr, perform_linreg, linfit
+from kifit.performfit import (perform_odr, perform_linreg, linfit,
+    sample_alphaNP_GKP)
 
 # import matplotlib.pyplot as plt
 
@@ -38,6 +39,18 @@ def test_linfit():
     assert betas_dat.shape == (ca.ntransitions -1, 2)
     assert np.all(np.isclose(betas_dat, betas_odr, rtol=1e-2))
 
+
+def test_sample_alphaNP_GKP():
+
+    ca = Elem.get('Ca')
+
+    mphis, alphas, sigalphas = sample_alphaNP_GKP(ca, 3, 100, mphivar=True)
+    print("alphas", alphas)
+    print("sig_alphas / alphas", sigalphas / alphas)
+
+
+
+
 # def test_mc():
 #
 #
@@ -73,3 +86,4 @@ def test_linfit():
 
 if __name__ == "__main__":
     test_linfit()
+    test_sample_alphaNP_GKP()
