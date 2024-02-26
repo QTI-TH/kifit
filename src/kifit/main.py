@@ -4,9 +4,12 @@ import numpy as np
 from kifit import performfit
 from kifit.loadelems import Elem
 
-nsamples = 1
+nsamples = 1000
 elem = Elem.get("Yb")
 
-print(elem.means_input_params)
+alphaNP_list, ll_list = performfit.compute_sample_ll(
+    elem=elem, nsamples=nsamples, save_sample=False
+)
 
-sample = performfit.generate_element_sample(elem=elem, nsamples=nsamples)
+plt.scatter(alphaNP_list, ll_list)
+plt.show()

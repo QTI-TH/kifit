@@ -2,8 +2,7 @@ import numpy as np
 from scipy.linalg import cholesky
 from scipy.odr import ODR, Model, RealData
 from scipy.stats import chi2, linregress, multivariate_normal
-
-from kifit import Elem
+from tqdm import tqdm
 
 np.random.seed(1)
 
@@ -158,7 +157,7 @@ def get_llist(absdsamples, nsamples):
     return np.array(allist)
 
 
-def generate_element_sample(elem: Elem, nsamples: int):
+def generate_element_sample(elem, nsamples: int):
     """
     Generate ``nsamples`` of ``elem`` varying the input parameters according
     to the provided standard deviations.
@@ -169,16 +168,36 @@ def generate_element_sample(elem: Elem, nsamples: int):
     return parameters_samples
 
 
-def samplelem(elem, nsamples, mphivar=False):
+def generate_alphaNP_sample(elem, nsamples: int):
+    """
+    Generate ``nsamples`` of alphaNP according to ``elem`` initial conditions.
+    """
+    init_alphaNP = elem.means_fit_params[-1]
+    alphaNP_samples = np.random.normal(init_alphaNP, elem.sig_alphaNP_init, nsamples)
+    return alphaNP_samples
 
-    fitparams = elem.means_fit_params
-    sigalphaNP = elem.sig_alphaNP_init
 
-    print("testi", fitparams)
+def compute_sample_ll(elem, nsamples, mphivar: bool = False, save_sample: bool = False):
+    """
+    Generate alphaNP list for element ``elem`` according to ``parameters_samples``.
 
-    fitparamsamples = np.tensordot(np.ones(nsamples), fitparams, axes=0)
-    alphaNPsamples = np.random.normal(fitparams[-1], sigalphaNP, nsamples)
-    fitparamsamples[:, -1] = alphaNPsamples
+    Args:
+        elem (Elem): target element.
+        nsamples (int): number of samples.
+        mphivar (bool): if ``True``, this procedure is repeated for all
+            X-coefficients provided for elem.
+        save_sample (bool): if ``True``, the parameters and alphaNP samples are saved.
+
+    Return:
+        List[float], List[float]: alphaNP samples and list of associated log likelihood.
+    """
+
+    # generate sample of elements
+    parameters_samples = generate_element_sample(elem, nsamples)
+    # fix fit parameters
+    fit_params_samples = np.tile(elem.means_fit_params, (nsamples, 1))
+    # varying just alphaNP
+    fit_params_samples[:, -1] = generate_alphaNP_sample(elem=elem, nsamples=nsamples)
 
     allabsdsamples = []
 
@@ -187,27 +206,24 @@ def samplelem(elem, nsamples, mphivar=False):
     else:
         Nx = 1
 
-    for x in range(Nx):
+    for x in tqdm(range(Nx)):
         if mphivar:
             elem._update_Xcoeffs(x)
-            print_progress(x * nsamples, Nx * nsamples)
 
         absdsamples = []
 
         for s in range(nsamples):
-            if not mphivar:
-                print_progress(s, nsamples)
-
-            elem._update_elem_params(elemparamsamples[s])
-            elem._update_fit_params(fitparamsamples[s])
+            elem._update_elem_params(parameters_samples[s])
+            elem._update_fit_params(fit_params_samples[s])
             absdsamples.append(elem.absd)
 
     allabsdsamples.append(absdsamples)
 
-    alphaNPllist = []
-    alphaNPllist.append([alphaNPsamples, get_llist(np.array(allabsdsamples), nsamples)])
+    if save_sample:
+        np.save(arr=parameters_samples, file="parameters_samples")
+        np.save(arr=fit_params_samples, file="fit_params_samples")
 
-    return (alphaNPllist, elemparamsamples)
+    return fit_params_samples[:, -1], get_llist(np.array(allabsdsamples), nsamples)
 
 
 def get_delchisq(llist):
