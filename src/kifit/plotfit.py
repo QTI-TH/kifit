@@ -99,7 +99,9 @@ def draw_mc_output(
 
     if confints:
         for ns in nsigmas:
-            delchisqcrit, parampos = get_confints(paramlist, delchisqlist, ns, dof)
+            delchisqcrit, parampos = get_confints(
+                paramlist, delchisqlist, ns, dof, verbose=False
+            )
             ax.axvspan(np.min(parampos), np.max(parampos), alpha=0.5, color="darkgreen")
             if ns == 1:
                 hlinels = "--"
@@ -126,12 +128,13 @@ def plot_loss_varying_alphaNP(
     """Scatterplot of ``alphaNP`` versus ``ll``."""
 
     best_index = np.argmin(ll_list)
+    ll_list = get_delchisq(ll_list[0])
 
     plt.figure(figsize=(document_width * 10, document_width * 10 * 6 / 8))
     plt.scatter(alphaNP_list, ll_list, color="black", s=10, alpha=0.6)
     plt.scatter(
         alphaNP_list[best_index],
-        ll_list[0][best_index],
+        ll_list[best_index],
         label="Best candidate",
         color="red",
         s=50,

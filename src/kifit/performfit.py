@@ -252,7 +252,7 @@ def iterative_mc_search(
 ):
     """Perform iterative search."""
 
-    from kifit.plotfit import plot_loss_varying_alphaNP
+    from kifit.plotfit import draw_mc_output, plot_loss_varying_alphaNP
 
     best_alphas, best_ll = [], []
 
@@ -283,7 +283,9 @@ def iterative_mc_search(
         else:
             delta = delta * decay_rate
 
-        plot_loss_varying_alphaNP(alphas, ll, filename=f"{i}")
+        print(delta)
+
+        draw_mc_output(elem, alphas, get_delchisq(ll), plotname=f"{i}")
 
     # best of bests
     winner_index = np.argmin(best_ll)
@@ -310,7 +312,7 @@ def get_delchisq_crit(nsigmas=2, dof=1):
     return chi2.ppf(conf_level, dof)
 
 
-def get_confints(paramlist, delchisqlist, nsigmas=2, dof=1):
+def get_confints(paramlist, delchisqlist, nsigmas=2, dof=1, verbose=True):
     """
     Interpolate data in xvals & yvals and compute nsigmas-confidence intervals.
 
@@ -329,14 +331,16 @@ def get_confints(paramlist, delchisqlist, nsigmas=2, dof=1):
     delchisq_crit = get_delchisq_crit(nsigmas, dof)
 
     pos = np.argwhere(delchisqlist < delchisq_crit).flatten()
-    print("delchisq_crit", delchisq_crit)
-    print("delchisqlist ", delchisqlist)
 
-    print(
-        """For %s sigma I found following limits for your confidence
-            intervals:"""
-        % nsigmas
-    )
+    if verbose:
+        print("delchisq_crit", delchisq_crit)
+        print("delchisqlist ", delchisqlist)
+
+        print(
+            """For %s sigma I found following limits for your confidence
+                intervals:"""
+            % nsigmas
+        )
     print(np.sort(paramlist[pos]))
 
     return delchisq_crit, paramlist[pos]
