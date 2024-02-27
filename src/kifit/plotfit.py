@@ -2,6 +2,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.optimize import curve_fit
 from scipy.stats import chi2
 
 from kifit.performfit import (
@@ -84,6 +85,7 @@ def draw_mc_output(
     xlims=[None, None],
     ylims=[None, None],
     show=False,
+    parabolic_fit=True,
 ):
     """
     Draw 2-dimensional scatter plot showing the likelihood associated with the
@@ -95,14 +97,37 @@ def draw_mc_output(
     delchisqlist = get_delchisq(llist[x])
 
     fig, ax = plt.subplots()
-    ax.scatter(paramlist, delchisqlist, s=1)
+
+    if parabolic_fit:
+
+        def parabola(x, a, b, c):
+            return a * x**2 + b * x + c
+
+        scipy_p, _ = curve_fit(
+            f=parabola,
+            xdata=paramlist,
+            ydata=delchisqlist,
+            p0=[1.0 / elem.alphaNP, 0.0, 0.0],
+        )
+        fit_predictions = parabola(paramlist, *scipy_p)
+        fit_minimum_index = np.argmin(fit_predictions)
+        ax.plot(
+            paramlist,
+            fit_predictions,
+            color="black",
+            ls="--",
+            lw=1,
+            label=rf"$\alpha$ fit min: {paramlist[fit_minimum_index]:.4e}",
+        )
+
+    ax.scatter(paramlist, delchisqlist, s=1, alpha=0.5, color="royalblue")
 
     if confints:
         for ns in nsigmas:
             delchisqcrit, parampos = get_confints(
                 paramlist, delchisqlist, ns, dof, verbose=False
             )
-            ax.axvspan(np.min(parampos), np.max(parampos), alpha=0.5, color="darkgreen")
+            ax.axvspan(np.min(parampos), np.max(parampos), alpha=0.5, color="red")
             if ns == 1:
                 hlinels = "--"
             else:
@@ -116,7 +141,8 @@ def draw_mc_output(
     ax.set_ylabel(ylabel)
     ax.set_xlim(xlims[0], xlims[1])
     ax.set_ylim(ylims[0], ylims[1])
-    plt.savefig(_plot_path + "/" + plotname + ".pdf")
+    plt.legend()
+    plt.savefig(_plot_path + "/" + plotname + ".png")
     if show:
         plt.show()
     return 0
@@ -147,3 +173,21 @@ def plot_loss_varying_alphaNP(
 
     if save:
         plt.savefig(f"alpha_vs_ll_{filename}.pdf", bbox_inches="tight")
+
+
+def makegif(path):
+    import os
+
+    from PIL import Image
+
+    images = []
+    for i in range(len(os.listdir(path))):
+        images.append(Image.open(path + f"/{i}.png"))
+    images[0].save(
+        "plots/iteration.gif",
+        save_all=True,
+        append_images=images[1:],
+        optimize=False,
+        duration=400,
+        loop=0,
+    )
