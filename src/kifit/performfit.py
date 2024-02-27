@@ -241,18 +241,36 @@ def compute_sample_ll(
     return fit_params_samples[:, -1], get_llist(np.array(allabsdsamples), nsamples)
 
 
+def calculate_grid_delta(alphaNP_list, ll_list, data_ratio: float = 0.5):
+    """
+    Take the minimum LL value in ``ll_list``, check the asymmetry of the sample
+    and define the next delta as ``data_ratio`` interval of the shortest wing.
+    """
+    best_ll_index = np.argmin(ll_list)
+    nsamples = len(alphaNP_list)
+
+    if best_ll_index >= int(nsamples / 2):
+        critical_alphas_interval = alphaNP_list[best_ll_index:]
+    else:
+        critical_alphas_interval = alphaNP_list[:best_ll_index]
+
+    new_extreme = int(len(critical_alphas_interval) * data_ratio)
+    delta = np.abs(alphaNP_list[best_ll_index] - critical_alphas_interval[new_extreme])
+
+    return delta
+
+
 def iterative_mc_search(
     elem,
     element_samples,
     mphivar: bool = False,
-    grid_ratio: float = 0.5,
-    decay_rate: float = 0.95,
+    decay_rate: float = 0.1,
     niter: int = 3,
     return_history: bool = True,
 ):
     """Perform iterative search."""
 
-    from kifit.plotfit import draw_mc_output, plot_loss_varying_alphaNP
+    from kifit.plotfit import draw_mc_output
 
     best_alphas, best_ll = [], []
 
@@ -279,11 +297,11 @@ def iterative_mc_search(
         best_ll.append(ll[0][best_index])
 
         if i == 0:
-            delta = grid_ratio * np.abs(elem.alphaNP)
+            delta = elem.sig_alphaNP_init
         else:
-            delta = delta * decay_rate
+            delta = calculate_grid_delta(alphas, ll)
 
-        print(delta)
+        print(f"delta: {delta}")
 
         draw_mc_output(elem, alphas, get_delchisq(ll), plotname=f"{i}")
 
@@ -341,7 +359,7 @@ def get_confints(paramlist, delchisqlist, nsigmas=2, dof=1, verbose=True):
                 intervals:"""
             % nsigmas
         )
-    print(np.sort(paramlist[pos]))
+        print(np.sort(paramlist[pos]))
 
     return delchisq_crit, paramlist[pos]
 
