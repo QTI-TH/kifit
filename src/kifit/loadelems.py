@@ -114,6 +114,8 @@ class Elem:
         setattr(self, 'm_ap', self.m_ap_in)
         setattr(self, 'sig_m_ap_in', self.isotope_data[5])
 
+        setattr(self, 'dnorm', np.mean(self.nu_in / self.sig_nu_in))
+
     def _init_Xcoeffs(self):
         """
         Initialise the X coefficients to the set computed for a given mediator
@@ -155,6 +157,7 @@ class Elem:
 
         self.sig_alphaNP_init = np.absolute(np.max(self.absd) / np.min(
             np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))
+        print("sig_alphaNP_init", self.sig_alphaNP_init)
 
     @update_fct
     def set_alphaNP_init(self, alpha, sigalpha=None):
@@ -566,15 +569,15 @@ class Elem:
 
         """
         if ((i == 0) & (a in self.range_a)):
-            return - 1 / self.F1sq * np.sum(np.array([self.F1[j]
+            return (- 1 / self.F1sq * np.sum(np.array([self.F1[j]
                 * (self.D_a1i(a, j) / self.muvec[a]
                     - self.secph1[j] * self.Kperp1[j])
-                for j in self.range_j]))
+                for j in self.range_j]))) / self.dnorm
 
         elif ((i in self.range_j) & (a in self.range_a)):
             return (self.D_a1i(a, i) / self.muvec[a]
                     - self.secph1[i] * self.Kperp1[i]
-                    + self.F1[i] * self.d_ai(a, 0))
+                    + self.F1[i] * self.d_ai(a, 0)) / self.dnorm
         else:
             raise IndexError('Index passed to d_ai is out of range.')
 

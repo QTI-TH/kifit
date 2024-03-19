@@ -138,21 +138,27 @@ def print_progress(s, nsamples):
     return 0
 
 
-def choLL(absd, covmat):
+def choLL(absd, covmat, lam=0):
     """
     For a given sample of absd, with the covariance matrix covmat, compute the
     log-likelihood using the Cholesky decomposition of covmat.
 
     """
-
-    chol_covmat = cholesky(covmat, lower=True)
+    chol_covmat = cholesky(covmat + lam * np.identity(covmat.shape[0]), lower=True)
 
     A = np.linalg.solve(chol_covmat, absd)
     At = np.linalg.solve(chol_covmat.T, absd)
 
+    # print("ll1", np.dot(A, A) / 2 + np.dot(At, At) / 2)
+    # print("ll2", np.sum(np.log(np.diag(chol_covmat))) * 1e16)
+    # print("ll3", len(absd) / 2 * np.log(2 * np.pi))
+    #
+    # ll = (np.dot(A, A) / 2 + np.dot(At, At) / 2
+    #     + np.sum(np.log(np.diag(chol_covmat))) * 1e16
+    #     + len(absd) / 2 * np.log(2 * np.pi))
+    #
     ll = (np.dot(A, A) / 2 + np.dot(At, At) / 2
-        + np.sum(np.log(np.diag(chol_covmat)))
-        + len(absd) / 2 * np.log(2 * np.pi))
+          + np.sum(np.log(np.diag(chol_covmat))))
 
     return ll
 
@@ -292,7 +298,7 @@ def sample_alphaNP_fit(elem, nsamples, mphivar=False):
 
         llist.append(get_llist(np.array(absdsamples), nsamples))
 
-    return np.array(alphalist), np.array(llist), np.array(elemparamsamples)
+    return (np.array(alphalist), np.array(llist), np.array(elemparamsamples))
 
 
 def get_delchisq(llist):

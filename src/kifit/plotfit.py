@@ -27,6 +27,7 @@ default_colour = [
 det_colour = 'b'
 fit_colour = 'darkgreen'
 
+
 # lighten & darken colours
 ##############################################################################
 
@@ -156,10 +157,11 @@ def plot_alphaNP_ll(elem, alphalist, llist, x=0,
 
     if confints:
         for ns in nsigmas:
-            delchisqcrit_x, parampos_x = get_confints(
-                alphalist[x], delchisqlist_x, ns, dof)
+            delchisqcrit_x = get_delchisq_crit(nsigmas=ns, dof=dof)
+            parampos_x = get_confints(
+                alphalist[x], delchisqlist_x, delchisqcrit_x)
             ax.axvspan(np.min(parampos_x), np.max(parampos_x), alpha=.5,
-            color='darkgreen')
+            color=fit_colour)
             print("delchisqcrit", delchisqcrit_x)
             print("parampos", np.min(parampos_x))
             if ns==1:
@@ -184,13 +186,13 @@ def plot_alphaNP_ll(elem, alphalist, llist, x=0,
     ax.set_ylabel(ylabel)
     ax.set_xlim(xlims[0], xlims[1])
     ax.set_ylim(ylims[0], ylims[1])
-    plt.savefig(_plot_path + "/alphaNP_ll" + elem.id + "_x" + str(x) + ".pdf")
+    plt.savefig(_plot_path + "/alphaNP_ll_" + elem.id + "_x" + str(x) + ".pdf")
     if show:
         plt.show()
     return 0
 
 
-def plot_mphi_alphaNP_det_bound(ax, elem, d, dim, nsamples, nsigmas,
+def plot_mphi_alphaNP_det_bound(ax, elem, dimindex, dim, nsamples, nsigmas,
         minpos, maxneg, shrubberymin, shrubberymax,
         gkp=True, showbestdetbounds=False, showalldetbounds=False):
     """
@@ -208,19 +210,19 @@ def plot_mphi_alphaNP_det_bound(ax, elem, d, dim, nsamples, nsigmas,
     if showalldetbounds:
         for p in range(alphas.shape[1]):
             ax.scatter(elem.mphis, (alphas.T)[p] + nsigmas * (sigalphas.T)[p],
-                s=4, color=lighten_color(default_colour[d], 0.5))
+                s=4, color=lighten_color(default_colour[dimindex], 0.5))
     (minpos_alphas, minpos_sigalphas, maxneg_alphas, maxneg_sigalphas) = \
         get_minpos_maxneg_alphaNP_bounds(alphas, sigalphas, nsigmas)
 
     if showbestdetbounds:
         ax.scatter(elem.mphis, minpos_alphas + nsigmas * minpos_sigalphas,
-            s=6, color=default_colour[d],
+            s=6, color=default_colour[dimindex],
             label=elem.id + ", dim " + str(dim) + " " + method_tag)
 
         ax.scatter(elem.mphis, maxneg_alphas - nsigmas * maxneg_sigalphas,
-            s=6, color=default_colour[d])
+            s=6, color=default_colour[dimindex])
 
-    if d == 0:
+    if dimindex == 0:
         # mphis = mphis
         minpos = minpos_alphas + nsigmas * minpos_sigalphas
         maxneg = maxneg_alphas - nsigmas * maxneg_sigalphas
@@ -242,7 +244,7 @@ def plot_mphi_alphaNP_det_bound(ax, elem, d, dim, nsamples, nsigmas,
 def plot_mphi_alphaNP_fit_bound(ax, elem, alphalist, llist,
         shrubberymin, shrubberymax,
         nsigmas=2, plotabs=True,
-        showbestfitpts=False, showallallowedfitpts=False):
+        showallowedfitpts=False):
 
     alphamin = []
     alphamax = []
@@ -252,7 +254,7 @@ def plot_mphi_alphaNP_fit_bound(ax, elem, alphalist, llist,
     for x in range(alphalist.shape[0]):
 
         delchisqlist_x = get_delchisq(llist[x])
-        delchisqcrit_x, alphacrit_x = get_confints(alphalist[x], delchisqlist_x,
+        alphacrit_x = get_confints(alphalist[x], delchisqlist_x,
             delchisqcrit)
 
         # get most generous bounds on alphaNP
@@ -262,31 +264,24 @@ def plot_mphi_alphaNP_fit_bound(ax, elem, alphalist, llist,
         alphamin.append(alphamin_x)
         alphamax.append(alphamax_x)
 
-        if showallallowedfitpts:
-            allowed_alphas_x = np.array([
+        #  multiplying back
+        if showallowedfitpts:
+            allowed_alphas_x = elem.dnorm * np.array([
                 a for a in alphalist[x] if alphamin_x < a < alphamax_x])
-
             if plotabs:
-                ax.scatter(elem.mphis[x], np.abs(allowed_alphas_x), color='b', s=1)
+                ax.scatter(elem.mphis[x] * np.ones(len(allowed_alphas_x)),
+                    np.abs(allowed_alphas_x), color=fit_colour, s=1)
 
             else:
-                ax.scatter(elem.mphis[x], allowed_alphas_x, color='b', s=1)
-
-        if showbestfitpts:
-            if plotabs:
-                ax.scatter(elem.mphis[x],
-                    np.max(np.abs(alphamin_x), np.abs(alphamax_x)),
-                    c='r', s=1)
-            else:
-                ax.scatter(elem.mphis[x], alphamin_x, c='r', s=1)
-                ax.scatter(elem.mphis[x], alphamax_x, c='r', s=1)
+                ax.scatter(elem.mphis[x] * np.ones(len(allowed_alphas_x)),
+                    allowed_alphas_x, color=fit_colour, s=1)
 
         if alphamin_x < 0:
             shrubberymin = np.max([alphamin_x, shrubberymin])
         if alphamax_x > 0:
             shrubberymax = np.min([np.max(alphacrit_x), shrubberymax])
 
-    fit_label = 'fit ' + str(nsigmas) + r'$\sigma$-excluded'
+    # fit_label = 'fit ' + str(nsigmas) + r'$\sigma$-excluded'
 
     maxabsalphas = np.max([np.abs(alphamin), np.abs(alphamax)], axis=0)
 
@@ -304,19 +299,22 @@ def plot_mphi_alphaNP_fit_bound(ax, elem, alphalist, llist,
         bin_mphis.append((elem.mphis[inds])[binind])
         bin_alphas.append((maxabsalphas[inds])[binind])
 
-    ax.plot(bin_mphis, bin_alphas, color=fit_colour, label=fit_label)
+    bin_alphas = elem.dnorm * np.array(bin_alphas)   # here multiplying back
+
+    ax.plot(bin_mphis, bin_alphas, color=fit_colour)  # , label=fit_label)
 
     f = interp1d(bin_mphis, bin_alphas,
         kind='slinear', fill_value="extrapolate")
-    ax.plot(elem.mphis, f(elem.mphis), color='b')
+    fitinterpolpts = f(elem.mphis)
+    ax.plot(elem.mphis, fitinterpolpts, color='darkgreen', linestyle='--')
 
-    return ax, shrubberymin, shrubberymax
+    return ax, fitinterpolpts, shrubberymin, shrubberymax
 
 
 def plot_mphi_alphaNP(elem, alphalist, llist, gkpdims, nmgkpdims, ndetsamples,
         nsigmas=2, plotabs=True,
         xlims=[None, None], ylims=[None, None],
-        showbestfitpts=False, showallallowedfitpts=False,
+        showallowedfitpts=False,
         showbestdetbounds=False, showalldetbounds=False):
 
     """
@@ -335,10 +333,11 @@ def plot_mphi_alphaNP(elem, alphalist, llist, gkpdims, nmgkpdims, ndetsamples,
     # fit
     ###########################################################################
 
-    ax, shrubberymin, shrubberymax = plot_mphi_alphaNP_fit_bound(
+    ax, fitinterpolpts, shrubberymin, shrubberymax = plot_mphi_alphaNP_fit_bound(
         ax, elem, alphalist, llist,
         shrubberymin, shrubberymax,
-        nsigmas=nsigmas, plotabs=plotabs, showallallowedfitpts=showallallowedfitpts)
+        nsigmas=nsigmas, plotabs=plotabs,
+        showallowedfitpts=showallowedfitpts)
 
     # determinant methods
     ###########################################################################
@@ -373,7 +372,6 @@ def plot_mphi_alphaNP(elem, alphalist, llist, gkpdims, nmgkpdims, ndetsamples,
         plotname = 'mphi_alphaNP'
         ylabel = r"$\alpha_{\mathrm{NP}}/\alpha_{\mathrm{EM}}$"
 
-
     gkp_label = (('(' + ', '.join(str(gd) for gd in gkpdims) + ')-dim GKP') if
         len(gkpdims) > 0 else '')
     nmgkp_label = (('(' + ', '.join(str(nmd) for nmd in nmgkpdims)
@@ -382,19 +380,21 @@ def plot_mphi_alphaNP(elem, alphalist, llist, gkpdims, nmgkpdims, ndetsamples,
 
     det_label = gkp_label + label_coupling + nmgkp_label
 
-    ax.plot(elem.mphis, minpos, color=det_colour, label=det_label)
+    ax.plot(elem.mphis, minpos, color=det_colour)  # , label=det_label)
     ax.plot(elem.mphis, maxneg, color=det_colour)
 
     if ylims[0] is None:
-        ymin = np.nanmin(maxneg)
+        ymin = np.nanmin([np.nanmin(maxneg), np.nanmin(fitinterpolpts)])
     else:
         ymin = ylims[0]
 
     if ylims[1] is None:
-        ymax = np.nanmax(minpos)
+        ymax = np.nanmax([np.nanmax(minpos), np.nanmax(fitinterpolpts)])
     else:
         ymax = ylims[1]
 
+    ax.fill_between(elem.mphis, fitinterpolpts, ymax, color=fit_colour,
+        alpha=.3, label='fit ' + str(nsigmas) + r'$\sigma$-excluded')
     ax.fill_between(elem.mphis, minpos, ymax, color=det_colour, alpha=.3,
         label=det_label + ' ' + str(nsigmas) + r'$\sigma$-excluded')
     ax.fill_between(elem.mphis, ymin, maxneg, color=det_colour, alpha=.3)
@@ -414,6 +414,7 @@ def plot_mphi_alphaNP(elem, alphalist, llist, gkpdims, nmgkpdims, ndetsamples,
 
     ax.legend()
 
-    plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + ".pdf")
+    plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + "_"
+        + str(len(alphalist[0])) + "_fit_samples.pdf")
 
     return 0
