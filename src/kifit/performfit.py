@@ -295,10 +295,16 @@ def sample_alphaNP_fit(elem, nsamples, mphivar=False):
             elem._update_elem_params(elemparamsamples[s])
             elem._update_fit_params(fitparamsamples[s])
             absdsamples.append(elem.absd)
-
         llist.append(get_llist(np.array(absdsamples), nsamples))
 
-    return (np.array(alphalist), np.array(llist), np.array(elemparamsamples))
+    alphalist = elem.dnorm * np.array(alphalist)
+    llist = elem.dnorm * np.array(llist)
+
+    alphalist = np.array(alphalist)
+    llist = np.array(llist)
+
+    return alphalist, llist, np.array(elemparamsamples)
+    # return (np.array(alphalist), np.array(llist), np.array(elemparamsamples))
 
 
 def get_delchisq(llist):
@@ -462,7 +468,7 @@ def sample_alphaNP_det(elem, dim, nsamples, mphivar=False, gkp=True,
             if mphivar:
                 elem._update_Xcoeffs(x)
                 # mphi_list.append(elem.mphi)
-                print_progress(nsamples * x, nsamples * Nx)
+                # print_progress(nsamples * x, nsamples * Nx)
 
             """ p: alphaNP-permutation index and xpinds: X-indices for sample p"""
             alphaNP_p_list = []
@@ -488,44 +494,46 @@ def sample_alphaNP_det(elem, dim, nsamples, mphivar=False, gkp=True,
     # return mphi_list, alphaNP_list, sig_alphaNP_list
     return alphaNPs, sigalphaNPs
 
-
-def get_minpos_maxneg_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
+def get_all_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
     """
-    Find smallest positive, as well as
+    Determine all bounds on alphaNP at the desired confidence level.
+
     """
     alphaNPs = np.array(alphaNPs)  # [x][perm]
     sigalphaNPs = np.array(sigalphaNPs)  # [x][perm]
 
     # minimal positive alphaNP
     ###############################
-    # index
-    minpos_ind_d = np.argmin(np.where((alphaNPs + nsigmas * sigalphaNPs) > 0,
-        alphaNPs, np.inf), axis=1)  # [x]
-    # val
-    a = alphaNPs[np.arange(alphaNPs.shape[0]), minpos_ind_d]
-    minpos_alphaNPs = np.where(a > 0, a, np.nan)
+    # Note: For NP we only want an exclusion bound, hence we do not consider the
+    # case of both upper and lower limits being positive / negative.
 
-    # sigval
-    sa = sigalphaNPs[np.arange(alphaNPs.shape[0]), minpos_ind_d]
-    minpos_sigalphaNPs = np.where(a > 0, sa, np.nan)
+    alphaNP_UB = alphaNPs + nsigmas * sigalphaNPs
+    alphaNP_LB = alphaNPs - nsigmas * sigalphaNPs
 
-    # maximal negative alphaNP
-    ###############################
-    # index
-    maxneg_ind = np.argmax(np.where((alphaNPs - nsigmas * sigalphaNPs) < 0,
-        alphaNPs, -np.inf), axis=1)
+    positive_alphaNP_bounds = np.where(alphaNP_UB > 0, alphaNP_UB, np.nan)
+    negative_alphaNP_bounds = np.where(alphaNP_LB < 0, alphaNP_LB, np.nan)
 
-    # val
-    b = alphaNPs[np.arange(alphaNPs.shape[0]), maxneg_ind]
-    maxneg_alphaNPs_d = np.where(b < 0, b, np.nan)
+    return positive_alphaNP_bounds, negative_alphaNP_bounds
 
-    # sigval
-    sb = sigalphaNPs[np.arange(alphaNPs.shape[0]), maxneg_ind]
-    maxneg_sigalphaNPs = np.where(b < 0, sb, np.nan)
+def get_minpos_maxneg_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
+    """
+    Determine smallest positive and largest negative values for the bound on
+    alphaNP at the desired confidence level.
 
-    return (minpos_alphaNPs, minpos_sigalphaNPs,
-        maxneg_alphaNPs_d, maxneg_sigalphaNPs)
+    """
+    alphaNP_UBs, alphaNP_LBs = get_all_alphaNP_bounds(alphaNPs, sigalphaNPs,
+        nsigmas=nsigmas)
 
+    minpos = np.nanmin(alphaNP_UBs, axis=1)
+    maxneg = np.nanmax(alphaNP_LBs, axis=1)
+
+    # for x in range(len(positive_alphaNP_bounds)):
+    #     for p in range(len(positive_alphaNP_bounds[0])):
+    #         if maxneg[x] < negative_alphaNP_bounds[x][p]:
+    #             print("(x,p), (mn[x], elem[x,p]",
+    #                 ((x,p), (maxneg[x], negative_alphaNP_bounds[x,p])))
+
+    return minpos, maxneg
 #
 #
 # def sample_GKP_alphaNP(elem, dim, nsamples, mphivar=False):
