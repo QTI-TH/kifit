@@ -183,6 +183,8 @@ def generate_alphaNP_sample(
         alphaNP_samples = np.linspace(
             init_alphaNP - delta, init_alphaNP + delta, nsamples
         )
+    print(f"New search interval: [{init_alphaNP - delta}, {init_alphaNP + delta}]")
+
     return alphaNP_samples
 
 
@@ -241,7 +243,7 @@ def compute_sample_ll(
     return fit_params_samples[:, -1], get_llist(np.array(allabsdsamples), nsamples)
 
 
-def calculate_grid_delta(alphaNP_list, ll_list, data_ratio: float = 0.5):
+def calculate_grid_delta(alphaNP_list, ll_list, delta_alpha_ratio: float = 0.5):
     """
     Take the minimum LL value in ``ll_list``, check the asymmetry of the sample
     and define the next delta as ``data_ratio`` interval of the shortest wing.
@@ -254,9 +256,8 @@ def calculate_grid_delta(alphaNP_list, ll_list, data_ratio: float = 0.5):
     else:
         critical_alphas_interval = alphaNP_list[:best_ll_index]
 
-    new_extreme = int(len(critical_alphas_interval) * data_ratio)
+    new_extreme = int(len(critical_alphas_interval) * delta_alpha_ratio)
     delta = np.abs(alphaNP_list[best_ll_index] - critical_alphas_interval[new_extreme])
-
     return delta
 
 
@@ -264,7 +265,7 @@ def iterative_mc_search(
     elem,
     element_samples,
     mphivar: bool = False,
-    decay_rate: float = 0.1,
+    delta_alpha_ratio: float = 0.1,
     niter: int = 3,
     return_history: bool = True,
 ):
@@ -275,6 +276,7 @@ def iterative_mc_search(
     best_alphas, best_ll = [], []
 
     for i in tqdm(range(niter)):
+        print(f"Search for new interval with center in: {elem.alphaNP}")
         if i == 0:
             alphas, ll = compute_sample_ll(
                 elem,
@@ -298,12 +300,14 @@ def iterative_mc_search(
 
         if i == 0:
             delta = elem.sig_alphaNP_init
+            parfit = False
         else:
-            delta = calculate_grid_delta(alphas, ll)
+            delta = calculate_grid_delta(alphas, ll, delta_alpha_ratio)
+            parfit = False
 
-        print(f"delta: {delta}")
-
-        draw_mc_output(elem, alphas, get_delchisq(ll), plotname=f"{i}")
+        draw_mc_output(
+            elem, alphas, get_delchisq(ll), plotname=f"{i}", parabolic_fit=parfit
+        )
 
     # best of bests
     winner_index = np.argmin(best_ll)

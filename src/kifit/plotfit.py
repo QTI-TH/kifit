@@ -125,7 +125,7 @@ def draw_mc_output(
     if confints:
         for ns in nsigmas:
             delchisqcrit, parampos = get_confints(
-                paramlist, delchisqlist, ns, dof, verbose=False
+                paramlist, delchisqlist, ns, dof, verbose=True
             )
             ax.axvspan(np.min(parampos), np.max(parampos), alpha=0.5, color="red")
             if ns == 1:
