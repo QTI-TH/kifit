@@ -83,7 +83,7 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1):
     xmax = 1.05 * max(xvals)
     xfit = np.linspace(xmin, xmax, 1000)
 
-    plt.figure()
+    fig = plt.figure()
     ax1 = plt.subplot2grid((4, 1), (0, 0), rowspan=2)
     ax2 = plt.subplot2grid((4, 1), (2, 0))
     ax3 = plt.subplot2grid((4, 1), (3, 0))
@@ -114,22 +114,23 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1):
 
         ax1.errorbar(xvals, yvals[i],
             xerr=sigxvals,
-            yerr=sigyvals[i], linestyle='none', marker='o', ms=4)
+            yerr=sigyvals[i], linestyle='none', color=default_colour[i],
+            marker='o', ms=4)
 
         ax2.errorbar(xvals, magnifac * residuals_odr_i,
             xerr=sigresiduals_odr_i,
-            yerr=resmagnifac * magnifac * sigresiduals_odr_i,
-            linestyle='none', marker='o', ms=4, capsize=2)
+            yerr=resmagnifac * magnifac * sigresiduals_odr_i, linestyle='none',
+            color=default_colour[i], marker='o', ms=4, capsize=2)
 
         ax3.errorbar(xvals, magnifac * residuals_odr_i,
             xerr=sigresiduals_odr_i,
-            yerr=resmagnifac * magnifac * sigresiduals_odr_i,
-            linestyle='none', marker='o', ms=4, capsize=2)
+            yerr=resmagnifac * magnifac * sigresiduals_odr_i, linestyle='none',
+            color=default_colour[i], marker='o', ms=4, capsize=2)
 
     ax1.set_xlim(xmin, xmax)
     ax1.set_xlabel(r"$\tilde{\nu}_1~$[Hz]")
     ax1.set_ylabel(r"$\tilde{\nu}_i~$[Hz]")
-    ax1.legend()
+    ax1.legend(fontsize="6")
     ax2.set_xlim(xmin, xmax)
     ax2.set_ylabel(r"ODR Resid.")
     ax3.set_xlim(xmin, xmax)
@@ -138,9 +139,12 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1):
     plt.tight_layout()
     plt.savefig(_plot_path + "/linfit_" + elem.id + ".pdf")
 
+    return fig, ax1, ax2, ax3
+
 
 def plot_alphaNP_ll(elem, alphalist, llist, x=0,
         confints=True, nsigmas=[1, 2], dof=1, gkpdims=[], nmgkpdims=[],
+        plotname="",
         xlabel=r'$\alpha_{\mathrm{NP}}$', ylabel=r"$\Delta \chi^2$",
         xlims=[None, None], ylims=[None, None], show=False):
     """
@@ -187,10 +191,15 @@ def plot_alphaNP_ll(elem, alphalist, llist, x=0,
     ax.set_ylabel(ylabel)
     ax.set_xlim(xlims[0], xlims[1])
     ax.set_ylim(ylims[0], ylims[1])
-    plt.savefig(_plot_path + "/alphaNP_ll_" + elem.id + "_x" + str(x) + ".pdf")
-    if show:
-        plt.show()
-    return 0
+
+    if plotname == "":
+        prettyplotname = ""
+    else:
+        prettyplotname = plotname + "_"
+
+    plt.savefig(_plot_path + "/alphaNP_ll_" + elem.id + "_" + prettyplotname
+        + "x" + str(x) + "_" + str(len(alphalist[0])) + "_fit_samples.pdf")
+    return fig, ax
 
 
 def plot_mphi_alphaNP_det_bound(ax1, ax2, elem, dimindex, dim, nsamples, nsigmas,
@@ -408,6 +417,7 @@ def set_axes(ax1, ax2, xlims, ylims, linthreshold, elem,
 def plot_mphi_alphaNP(elem, alphalist, llist, gkpdims, nmgkpdims, ndetsamples,
         nsigmas=2, plotabs=True,
         xlims=[None, None], ylims=[None, None], linthreshold=None,
+        plotname="",
         showallowedfitpts=False,
         showbestdetbounds=False, showalldetbounds=False):
 
@@ -496,13 +506,18 @@ def plot_mphi_alphaNP(elem, alphalist, llist, gkpdims, nmgkpdims, ndetsamples,
             color=fit_colour, alpha=.3,
             label='fit ' + str(nsigmas) + r'$\sigma$-excluded')
 
-    ax1.legend()
-    ax2.legend()
+    ax1.legend(loc="upper left", fontsize="9")
+    ax2.legend(loc="upper left", fontsize="9")
+
+    if plotname == "":
+        prettyplotname = ""
+    else:
+        prettyplotname = plotname + "_"
 
     fig1.savefig(_plot_path + "/mphi_abs_alphaNP_" + elem.id + "_"
-        + str(len(alphalist[0])) + "_fit_samples.pdf")
+        + prettyplotname + str(len(alphalist[0])) + "_fit_samples.pdf")
 
     fig2.savefig(_plot_path + "/mphi_alphaNP_" + elem.id + "_"
-        + str(len(alphalist[0])) + "_fit_samples.pdf")
+        + prettyplotname + str(len(alphalist[0])) + "_fit_samples.pdf")
 
-    return 0
+    return fig1, ax1, fig2, ax2
