@@ -165,7 +165,7 @@ def choLL(absd, covmat, lam=0):
 
 def get_llist(absdsamples, nsamples):
     """
-    Get ll for list of absd-samples.
+    Get ll for list of absd-samples of length nsamples.
 
     """
     if (len(absdsamples) != nsamples):
@@ -178,21 +178,6 @@ def get_llist(absdsamples, nsamples):
         llist.append(choLL(absdsamples[s], cov_absd))
 
     return np.array(llist)
-
-    # if (len(absdsamples[0]) != nsamples):
-    #     raise ValueError("""Mismatch between nsamples and length of absdsamples.""")
-    #
-    # allist = []
-    # for x in range(len(absdsamples)):
-    #     cov_absd = np.cov(np.array(absdsamples[x]), rowvar=False)
-    #
-    #     llist = []
-    #     for s in range(nsamples):
-    #         llist.append(choLL(absdsamples[x, s], cov_absd))
-    #     allist.append(llist)
-    #
-    # return np.array(allist)
-    #
 
 
 def sample_alphaNP_fit_fixed_elemparams(elem, nsamples, mphivar=False):
@@ -248,6 +233,16 @@ def sample_alphaNP_fit_fixed_elemparams(elem, nsamples, mphivar=False):
     # return np.array([alphaNPsamples] * Nx), get_llist(np.array(allabsdsamples), nsamples)
 
 
+def generate_element_sample(elem, nsamples: int):   # NEW
+    """
+    Generate ``nsamples`` of ``elem`` varying the input parameters according
+    to the provided standard deviations.
+    """
+    parameters_samples = get_paramsamples(elem.means_input_params,
+        elem.stdevs_input_params, nsamples)
+    return parameters_samples
+
+
 def sample_alphaNP_fit(elem, nsamples, mphivar=False):
     """
     Get a set of nsamples samples of elem by varying the masses and isotope
@@ -264,8 +259,9 @@ def sample_alphaNP_fit(elem, nsamples, mphivar=False):
     for elem.
 
     """
-    elemparamsamples = get_paramsamples(elem.means_input_params,
-            elem.stdevs_input_params, nsamples)
+    # elemparamsamples = get_paramsamples(elem.means_input_params,
+    #         elem.stdevs_input_params, nsamples)
+    elemparamsamples = generate_element_sample(elem, nsamples)
     fitparams = elem.means_fit_params
     fitparamsamples = np.tensordot(np.ones(nsamples), fitparams, axes=0)
 
