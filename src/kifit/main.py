@@ -27,13 +27,18 @@ nmgkp_dims = [3]
 #
 # # Varying elem data and alphaNP
 # # ca.set_alphaNP_init(min(ca.alphaNP_GKP(3), key=abs), 1e-5)
-alphalist, llist = sample_alphaNP_fit_fixed_elemparams(
-    ca, num_samples, mphivar=True)
-# alphalist, llist, elemvars = sample_alphaNP_fit(ca, num_samples, mphivar=True)
+# alphalist, llist = sample_alphaNP_fit_fixed_elemparams(
+#     ca, num_samples, mphivar=True)
+#
+# plot_alphaNP_ll(ca, alphalist, llist, plotname="fixed_elemparams")
+#
+# plot_mphi_alphaNP(ca, alphalist, llist, gkp_dims, nmgkp_dims, num_samples,
+#     plotname="fixed_elemparams",
+#     showalldetbounds=True, showallowedfitpts=True)
 
+alphalist, llist, elemvars = sample_alphaNP_fit(ca, num_samples, mphivar=True)
 
-plot_alphaNP_ll(ca, alphalist, llist, plotname="fixed_elemparams")
+plot_alphaNP_ll(ca, alphalist, llist)
 
 plot_mphi_alphaNP(ca, alphalist, llist, gkp_dims, nmgkp_dims, num_samples,
-    plotname="fixed_elemparams",
     showalldetbounds=True, showallowedfitpts=True)
