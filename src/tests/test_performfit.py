@@ -88,8 +88,6 @@ def test_sample_alphaNP_fit():
         mean_alpha_elemvar - mean_alpha_elemfixed) < sig_alpha_elemvar
 
 
-
-
 if __name__ == "__main__":
     test_linfit()
     test_sample_alphaNP_det()

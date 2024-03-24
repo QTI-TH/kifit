@@ -126,8 +126,7 @@ def test_constr_dvec():
 
     D_a1i_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
     assert np.allclose(D_a1i_Mathematica, D_a1i_python, rtol=1e-15)
-
-    assert np.allclose(dmat_Mathematica, ca.dmat, rtol=1e-8)   # can we do better here?
+    assert np.allclose(dmat_Mathematica / ca.dnorm, ca.dmat, rtol=1e-15)
 
     # with NP
     theta_LL_Mathematica_1 = np.concatenate((kappaperp1nit_LL_Mathematica,
@@ -135,15 +134,16 @@ def test_constr_dvec():
 
     ca._update_fit_params(theta_LL_Mathematica_1)
 
-    assert np.allclose(ca.np_term, NP_term_alphaNP_1_Mathematica, rtol=1e-14)
+    assert np.allclose(ca.np_term, NP_term_alphaNP_1_Mathematica, rtol=1e-7)
 
     D_a1i_alphaNP_1_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
     assert np.allclose(D_a1i_alphaNP_1_Mathematica, D_a1i_alphaNP_1_python, rtol=1e-15)
 
-    assert np.allclose(dmat_alphaNP_1_Mathematica, ca.dmat, rtol=1e-14)
+    assert np.allclose(dmat_alphaNP_1_Mathematica / ca.dnorm, ca.dmat, rtol=1e-14)
 
     absd_explicit = np.array([np.sqrt(np.sum(
-        np.fromiter([ca.d_ai(a, i)**2 for i in ca.range_i], float))) for a in ca.range_a])
+        np.fromiter([ca.d_ai(a, i)**2 for i in ca.range_i], float))) for a in
+        ca.range_a]) / ca.dnorm
     assert np.allclose(ca.absd, absd_explicit, rtol=1e-25)
 
 

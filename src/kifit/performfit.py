@@ -229,7 +229,10 @@ def sample_alphaNP_fit_fixed_elemparams(elem, nsamples, mphivar=False):
             absdsamples.append(elem.absd)
         llist.append(get_llist(np.array(absdsamples), nsamples))
 
-    return np.array(alphalist), np.array(llist)
+    alphalist = elem.dnorm * np.array(alphalist)
+    llist = elem.dnorm * np.array(llist)
+
+    return alphalist, llist
     # return np.array([alphaNPsamples] * Nx), get_llist(np.array(allabsdsamples), nsamples)
 
 
@@ -265,13 +268,13 @@ def sample_alphaNP_fit(elem, nsamples, mphivar=False):
     fitparams = elem.means_fit_params
     fitparamsamples = np.tensordot(np.ones(nsamples), fitparams, axes=0)
 
-    alphalist = []
-    llist = []
-
     if mphivar:
         Nx = len(elem.Xcoeff_data)
     else:
         Nx = 1
+
+    alphalist = []
+    llist = []
 
     for x in range(Nx):
         elem._update_Xcoeffs(x)
@@ -285,9 +288,6 @@ def sample_alphaNP_fit(elem, nsamples, mphivar=False):
         absdsamples = []
 
         for s in range(nsamples):
-            if not mphivar:
-                print_progress(s, nsamples)
-
             elem._update_elem_params(elemparamsamples[s])
             elem._update_fit_params(fitparamsamples[s])
             absdsamples.append(elem.absd)
@@ -295,9 +295,6 @@ def sample_alphaNP_fit(elem, nsamples, mphivar=False):
 
     alphalist = elem.dnorm * np.array(alphalist)
     llist = elem.dnorm * np.array(llist)
-
-    alphalist = np.array(alphalist)
-    llist = np.array(llist)
 
     return alphalist, llist, np.array(elemparamsamples)
     # return (np.array(alphalist), np.array(llist), np.array(elemparamsamples))

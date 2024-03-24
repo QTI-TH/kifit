@@ -103,18 +103,18 @@ class Elem:
             #     raise ImportError(f"Path {file_path} does not exist.")
             self.__load(self.elem_init_atr[i], file_type, file_path)
 
-        setattr(self, 'nu', self.nu_in)
-        setattr(self, 'sig_nu', self.sig_nu_in)
+        self.nu = self.nu_in
+        self.sig_nu = self.sig_nu_in
 
-        setattr(self, 'm_a_in', self.isotope_data[1])
-        setattr(self, 'm_a', self.m_a_in)
-        setattr(self, 'sig_m_a_in', self.isotope_data[2])
+        self.m_a_in = self.isotope_data[1]
+        self.m_a = self.m_a_in
+        self.sig_m_a_in = self.isotope_data[2]
 
-        setattr(self, 'm_ap_in', self.isotope_data[4])
-        setattr(self, 'm_ap', self.m_ap_in)
-        setattr(self, 'sig_m_ap_in', self.isotope_data[5])
+        self.m_ap_in = self.isotope_data[4]
+        self.m_ap = self.m_ap_in
+        self.sig_m_ap_in = self.isotope_data[5]
 
-        setattr(self, 'dnorm', np.mean(self.nu_in / self.sig_nu_in))
+        self.dnorm = np.mean(self.nu_in / self.sig_nu_in)
 
     def _init_Xcoeffs(self):
         """
@@ -572,12 +572,12 @@ class Elem:
             return (- 1 / self.F1sq * np.sum(np.array([self.F1[j]
                 * (self.D_a1i(a, j) / self.muvec[a]
                     - self.secph1[j] * self.Kperp1[j])
-                for j in self.range_j]))) / self.dnorm
+                for j in self.range_j])))
 
         elif ((i in self.range_j) & (a in self.range_a)):
             return (self.D_a1i(a, i) / self.muvec[a]
                     - self.secph1[i] * self.Kperp1[i]
-                    + self.F1[i] * self.d_ai(a, 0)) / self.dnorm
+                    + self.F1[i] * self.d_ai(a, 0))
         else:
             raise IndexError('Index passed to d_ai is out of range.')
 
@@ -587,7 +587,9 @@ class Elem:
         Return full distances matrix.
 
         """
-        return np.array([[self.d_ai(a, i) for i in self.range_i] for a in self.range_a])
+        return (np.array([[
+            self.d_ai(a, i) for i in self.range_i] for a in self.range_a])
+            / self.dnorm)
 
     @cached_fct_property
     def absd(self):
