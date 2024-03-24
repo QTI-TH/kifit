@@ -37,6 +37,9 @@ def test_load_individual():
 
     assert (len(ca.Xcoeff_data) > 0), len(ca.Xcoeff_data)
     assert (len(ca.sig_Xcoeff_data) > 0), len(ca.sig_Xcoeff_data)
+
+    assert np.all(ca.Xcoeff_data == ca.sig_Xcoeff_data)  # adjust in future
+
     assert len(ca.Xvec) == ca.ntransitions, len(ca.Xvec)
     assert len(ca.sig_Xvec) == ca.ntransitions, len(ca.sig_Xvec)
 
