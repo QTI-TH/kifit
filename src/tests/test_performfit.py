@@ -1,7 +1,8 @@
 import numpy as np
 
 from kifit.loadelems import Elem
-from kifit.performfit import perform_odr, perform_linreg, linfit
+from kifit.performfit import (perform_odr, perform_linreg,
+    sample_alphaNP_fit_fixed_elemparams, sample_alphaNP_fit, sample_alphaNP_det)
 
 # import matplotlib.pyplot as plt
 
@@ -38,38 +39,56 @@ def test_linfit():
     assert betas_dat.shape == (ca.ntransitions -1, 2)
     assert np.all(np.isclose(betas_dat, betas_odr, rtol=1e-2))
 
-# def test_mc():
-#
-#
-# absd_init = ca.absd
-# absd_list = []
-# for i in range(num_samples):
-#     if i % (num_samples // 100) == 0:
-#         prog = np.round(i / num_samples * 100, 1)
-#         print("Progress", prog, "%")
-#     ca._update_elem_params(ca_elem_params[i])
-#     ca._update_fit_params(ca_fit_params[i])
-#     absd_list.append(ca.absd)
-#
-# absd_list = np.array(absd_list)
-# cov_absd_np = np.cov(absd_list, rowvar=False)
-# cov_absd = num_samples / (num_samples - 1) * np.array([[np.average([
-#     (absd_list[s, a] - np.average(absd_list[:, a]))
-#     * (absd_list[s, b] - np.average(absd_list[:, b]))
-#     for s in range(num_samples)])
-#     for a in range(ca.nisotopepairs)] for b in range(ca.nisotopepairs)])
-#
-# print("diff", cov_absd_np / cov_absd)
-#
-# print("cov")
-# print(cov_absd)
-#
-# print("means", np.average(absd_list, axis=0))
-# print("init", absd_init)
-#
-# print("absd list", absd_list)
-#
-#
+
+def test_sample_alphaNP_det():
+
+    ca = Elem.get('Ca_testdata')
+
+    alphas_GKP_x0, sigalphas_GKP_x0 = sample_alphaNP_det(ca, 3, 100)
+    alphas_NMGKP_x0, sigalphas_NMGKP_x0 = sample_alphaNP_det(ca, 3, 100, gkp=False)
+
+    assert np.isclose(alphas_GKP_x0[0, 0], ca.alphaNP_GKP(), rtol=1e-50)
+    assert np.isclose(alphas_NMGKP_x0[0, 0], ca.alphaNP_NMGKP(), rtol=1e-50)
+
+    ca._update_Xcoeffs(1)
+
+    alphas_GKP_x1, sigalphas_GKP_x1 = sample_alphaNP_det(ca, 3, 100)
+    alphas_NMGKP_x1, sigalphas_NMGKP_x1 = sample_alphaNP_det(ca, 3, 100, gkp=False)
+
+    assert np.isclose(alphas_GKP_x1[0, 0], ca.alphaNP_GKP(), rtol=1e-50)
+    assert np.isclose(alphas_NMGKP_x1[0, 0], ca.alphaNP_NMGKP(), rtol=1e-50)
+
+    alphas_GKP_mphivar, sigalphas_GKP_mphivar = sample_alphaNP_det(ca, 3, 100,
+        mphivar=True)
+    alphas_NMGKP_mphivar, sigalphas_NMGKP_mphivar = sample_alphaNP_det(ca, 3, 100,
+        mphivar=True, gkp=False)
+
+    assert np.isclose(alphas_GKP_x0[0, 0], alphas_GKP_mphivar[0, 0], rtol=1e-50)
+    assert np.isclose(alphas_GKP_x0[0, 0], alphas_GKP_mphivar[0, 0], rtol=1e-50)
+
+    assert np.isclose(alphas_GKP_x1[0, 0], alphas_GKP_mphivar[1, 0], rtol=1e-50)
+    assert np.isclose(alphas_GKP_x1[0, 0], alphas_GKP_mphivar[1, 0], rtol=1e-50)
+
+
+def test_sample_alphaNP_fit():
+
+    ca = Elem.get('Ca_testdata')
+
+    alpha_elemfixed, ll_elemfixed = sample_alphaNP_fit_fixed_elemparams(ca, 100)
+    mean_alpha_elemfixed = np.average(alpha_elemfixed)
+    sig_alpha_elemfixed = np.std(alpha_elemfixed)
+
+    alpha_elemvar, ll_elemvar, elemparams = sample_alphaNP_fit(ca, 100)
+    mean_alpha_elemvar = np.average(alpha_elemvar)
+    sig_alpha_elemvar = np.std(alpha_elemvar)
+
+    assert np.abs(
+        mean_alpha_elemvar - mean_alpha_elemfixed) < sig_alpha_elemfixed
+    assert np.abs(
+        mean_alpha_elemvar - mean_alpha_elemfixed) < sig_alpha_elemvar
+
 
 if __name__ == "__main__":
     test_linfit()
+    test_sample_alphaNP_det()
+    test_sample_alphaNP_fit()

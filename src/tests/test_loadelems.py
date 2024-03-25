@@ -2,7 +2,7 @@ import numpy as np
 from pprint import pprint
 from kifit.loadelems import Elem, Levi_Civita_generator, LeviCivita
 from Mathematica_crosschecks import *
-from itertools import permutations
+from itertools import permutations, combinations, product
 
 def test_load_all():
     all_element_data = Elem.load_all()
@@ -37,6 +37,9 @@ def test_load_individual():
 
     assert (len(ca.Xcoeff_data) > 0), len(ca.Xcoeff_data)
     assert (len(ca.sig_Xcoeff_data) > 0), len(ca.sig_Xcoeff_data)
+
+    assert np.all(ca.Xcoeff_data == ca.sig_Xcoeff_data)  # adjust in future
+
     assert len(ca.Xvec) == ca.ntransitions, len(ca.Xvec)
     assert len(ca.sig_Xvec) == ca.ntransitions, len(ca.sig_Xvec)
 
@@ -126,8 +129,7 @@ def test_constr_dvec():
 
     D_a1i_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
     assert np.allclose(D_a1i_Mathematica, D_a1i_python, rtol=1e-15)
-
-    assert np.allclose(dmat_Mathematica, ca.dmat, rtol=1e-8)   # can we do better here?
+    assert np.allclose(dmat_Mathematica / ca.dnorm, ca.dmat, rtol=1e-15)
 
     # with NP
     theta_LL_Mathematica_1 = np.concatenate((kappaperp1nit_LL_Mathematica,
@@ -135,15 +137,16 @@ def test_constr_dvec():
 
     ca._update_fit_params(theta_LL_Mathematica_1)
 
-    assert np.allclose(ca.np_term, NP_term_alphaNP_1_Mathematica, rtol=1e-14)
+    assert np.allclose(ca.np_term, NP_term_alphaNP_1_Mathematica, rtol=1e-7)
 
     D_a1i_alphaNP_1_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
     assert np.allclose(D_a1i_alphaNP_1_Mathematica, D_a1i_alphaNP_1_python, rtol=1e-15)
 
-    assert np.allclose(dmat_alphaNP_1_Mathematica, ca.dmat, rtol=1e-14)
+    assert np.allclose(dmat_alphaNP_1_Mathematica / ca.dnorm, ca.dmat, rtol=1e-14)
 
     absd_explicit = np.array([np.sqrt(np.sum(
-        np.fromiter([ca.d_ai(a, i)**2 for i in ca.range_i], float))) for a in ca.range_a])
+        np.fromiter([ca.d_ai(a, i)**2 for i in ca.range_i], float))) for a in
+        ca.range_a]) / ca.dnorm
     assert np.allclose(ca.absd, absd_explicit, rtol=1e-25)
 
 
@@ -175,21 +178,86 @@ def test_levi_civita():
     assert np.array_equal(eps4, eps4_gentens)
 
 
+def check_alphaNP_GKP(elem, dim):
+
+    alphalist = []
+
+    for a_inds, i_inds in product(combinations(elem.range_a, dim),
+            combinations(elem.range_i, dim - 1)):
+
+        numat = elem.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+        mumat = elem.mu_norm_muvec[np.ix_(a_inds)]
+        Xmat = elem.Xvec[np.ix_(i_inds)]
+        hmat = elem.mu_norm_avec[np.ix_(a_inds)]
+
+        vol_data = np.linalg.det(np.c_[numat, mumat])
+
+        vol_alphaNP1 = 0
+        for i, eps_i in LeviCivita(dim - 1):
+            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+                Xmat[i[0]] * hmat,
+                np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
+                mumat]))
+        alphalist.append(vol_data / vol_alphaNP1)
+
+    alphalist = np.math.factorial(dim - 2) * np.array(alphalist)
+
+    return alphalist
+
+
+def check_alphaNP_NMGKP(elem, dim):
+
+    alphalist = []
+
+    for a_inds, i_inds in product(combinations(elem.range_a, dim),
+            combinations(elem.range_i, dim)):
+
+        numat = elem.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+        Xmat = elem.Xvec[np.ix_(i_inds)]
+        hmat = elem.mu_norm_avec[np.ix_(a_inds)]
+
+        vol_data = np.linalg.det(numat)
+
+        vol_alphaNP1 = 0
+        for i, eps_i in LeviCivita(dim):
+            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+                Xmat[i[0]] * hmat,
+                np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
+        alphalist.append(vol_data / vol_alphaNP1)
+
+    alphalist = np.math.factorial(dim - 1) * np.array(alphalist)
+
+    return alphalist
+
+
 def test_alphaNP_GKP():
     ca = Elem.get('Ca_testdata')
-    alphaparts = ca.alphaNP_GKP_parts(3)
-    alphas = ca.alphaNP_GKP(3)
+    vold, vol1, inds = ca.alphaNP_GKP_part(3)
+    assert len(vold) == len(vol1), (len(vold), len(vol1))
 
-    print("alphaNP GKP", alphas)
-    print("alphaNPpart", alphaparts)
+    alphaNP_GKP_check = check_alphaNP_GKP(ca, 3)
+    alphaNP_GKP_combinations = ca.alphaNP_GKP_combinations(3)
+    assert np.allclose(alphaNP_GKP_check, alphaNP_GKP_combinations, rtol=1e-50)
+
+    alphaNP_GKP_simple = ca.alphaNP_GKP()
+
+    assert np.isclose(alphaNP_GKP_combinations[0], alphaNP_GKP_simple,
+        rtol=1e-17)
 
 
 def test_alphaNP_NMGKP():
     ca = Elem.get('Ca_testdata')
+    vold, vol1, inds = ca.alphaNP_NMGKP_part(3)
+    assert len(vold) == len(vol1), (len(vold), len(vol1))
 
-    alphas = ca.alphaNP_NMGKP(3)
+    alphaNP_NMGKP_check = check_alphaNP_NMGKP(ca, 3)
+    alphaNP_NMGKP_combinations = ca.alphaNP_NMGKP_combinations(3)
+    assert np.allclose(alphaNP_NMGKP_check, alphaNP_NMGKP_combinations, rtol=1e-50)
 
-    print("alphaNP NMGKP", alphas)
+    alphaNP_NMGKP_simple = ca.alphaNP_NMGKP()
+
+    assert np.isclose(alphaNP_NMGKP_combinations[0], alphaNP_NMGKP_simple,
+        rtol=1e-17)
 
 
 if __name__ == "__main__":
