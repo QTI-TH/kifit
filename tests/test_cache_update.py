@@ -1,9 +1,7 @@
-from kifit.cache_update import update_fct
-from kifit.cache_update import cached_fct
-from kifit.cache_update import cached_fct_property
-
+from kifit.cache_update import cached_fct, cached_fct_property, update_fct
 
 # class to test custom cache and update calls
+
 
 class ClassName:
 
@@ -12,7 +10,7 @@ class ClassName:
 
     @cached_fct_property
     def get_n_cache_calls(self):
-        if hasattr(self, 'n_cache_calls'):
+        if hasattr(self, "n_cache_calls"):
             return self.n_cache_calls
 
     @update_fct
@@ -44,19 +42,27 @@ def test_cache_update():
         assert cn.h == 12, cn.h
         assert cn.f(17) == 204, cn.f(17)
 
-    assert (cn.get_n_cache_calls[('h', ())] == nloopcalls), cn.get_n_cache_calls[('h', ())]
-    assert (cn.get_n_cache_calls[('f', (17,))] == (nloopcalls - 1)), cn.get_n_cache_calls[('f', (17,))]
+    assert cn.get_n_cache_calls[("h", ())] == nloopcalls, cn.get_n_cache_calls[
+        ("h", ())
+    ]
+    assert cn.get_n_cache_calls[("f", (17,))] == (nloopcalls - 1), cn.get_n_cache_calls[
+        ("f", (17,))
+    ]
 
     cn2.update(4)
 
     nloopcalls2 = 6
 
     for i in range(nloopcalls2):
-        assert (cn2.h == 16), cn2.h
-        assert (cn2.f(37) == 592), cn2.f(37)
+        assert cn2.h == 16, cn2.h
+        assert cn2.f(37) == 592, cn2.f(37)
 
-    assert (cn2.get_n_cache_calls[('h', ())] == (nloopcalls2 - 1)), cn2.get_n_cache_calls[('h', ())]
-    assert (cn2.get_n_cache_calls[('f', (37,))] == (nloopcalls2 - 1)), cn2.get_n_cache_calls[('f', (37,))]
+    assert cn2.get_n_cache_calls[("h", ())] == (nloopcalls2 - 1), cn2.get_n_cache_calls[
+        ("h", ())
+    ]
+    assert cn2.get_n_cache_calls[("f", (37,))] == (
+        nloopcalls2 - 1
+    ), cn2.get_n_cache_calls[("f", (37,))]
 
     cn.update(6)
     cn2.update(10)
@@ -69,8 +75,10 @@ def test_cache_update():
 
     assert cn.f(17) == 408, cn.f(17)
 
-    assert (cn.get_n_cache_calls[('f', (17,))] == 0), cn.get_n_cache_calls[('f', (17,))]
-    assert (cn2.get_n_cache_calls[('h', ())] == (nloopcalls3 - 1)), cn2.get_n_cache_calls[('h', ())]
+    assert cn.get_n_cache_calls[("f", (17,))] == 0, cn.get_n_cache_calls[("f", (17,))]
+    assert cn2.get_n_cache_calls[("h", ())] == (nloopcalls3 - 1), cn2.get_n_cache_calls[
+        ("h", ())
+    ]
 
 
 if __name__ == "__main__":
