@@ -1,11 +1,14 @@
 import os
 
 import numpy as np
+
 from scipy.interpolate import interp1d
 from scipy.linalg import cholesky
 from scipy.odr import ODR, Model, RealData
 from scipy.special import binom
 from scipy.stats import chi2, linregress, multivariate_normal
+from scipy.optimize import curve_fit
+
 from tqdm import tqdm
 
 _output_data_path = os.path.abspath(
@@ -26,6 +29,8 @@ def linfit(p, x):
 def linfit_x(p, y):
     return (y - p[1]) / p[0]
 
+def parabola(x, a, b, c):
+    return a*x**2 + b*x + c
 
 def get_odr_residuals(p, x, y, sx, sy):
 
@@ -154,14 +159,6 @@ def choLL(absd, covmat, lam=0):
     A = np.linalg.solve(chol_covmat, absd)
     At = np.linalg.solve(chol_covmat.T, absd)
 
-    # print("ll1", np.dot(A, A) / 2 + np.dot(At, At) / 2)
-    # print("ll2", np.sum(np.log(np.diag(chol_covmat))) * 1e16)
-    # print("ll3", len(absd) / 2 * np.log(2 * np.pi))
-    #
-    # ll = (np.dot(A, A) / 2 + np.dot(At, At) / 2
-    #     + np.sum(np.log(np.diag(chol_covmat))) * 1e16
-    #     + len(absd) / 2 * np.log(2 * np.pi))
-    #
     ll = np.dot(A, A) / 2 + np.dot(At, At) / 2 + np.sum(np.log(np.diag(chol_covmat)))
 
     return ll
@@ -172,9 +169,6 @@ def get_llist(absdsamples, nsamples):
     Get ll for list of absd-samples of length nsamples.
 
     """
-    if len(absdsamples) != nsamples:
-        raise ValueError("""Mismatch between nsamples and length of absdsamples.""")
-
     cov_absd = np.cov(np.array(absdsamples), rowvar=False)
 
     llist = []
@@ -205,10 +199,7 @@ def sample_alphaNP_fit_fixed_elemparams(elem, nsamples, mphivar=False):
     )
 
     fitparams = elem.means_fit_params
-    # sigalphaNP = elem.sig_alphaNP_init
     fitparamsamples = np.tensordot(np.ones(nsamples), fitparams, axes=0)
-    # alphaNPsamples = np.random.normal(fitparams[-1], sigalphaNP, nsamples)
-    # fitparamsamples[:, -1] = alphaNPsamples
 
     if mphivar:
         Nx = len(elem.Xcoeff_data)
@@ -218,19 +209,15 @@ def sample_alphaNP_fit_fixed_elemparams(elem, nsamples, mphivar=False):
     alphalist = []
     llist = []
 
-    for x in range(Nx):
+    for x in tqdm(range(Nx)):
         elem._update_Xcoeffs(x)
         sigalphaNP = elem.sig_alphaNP_init
         alphaNPsamples = np.random.normal(fitparams[-1], sigalphaNP, nsamples)
         alphalist.append(alphaNPsamples)
         fitparamsamples[:, -1] = alphaNPsamples
 
-        if mphivar:
-            print_progress(x * nsamples, Nx * nsamples)
         absdsamples = []
         for s in range(nsamples):
-            if not mphivar:
-                print_progress(s, nsamples)
             elem._update_fit_params(fitparamsamples[s])
             absdsamples.append(elem.absd)
         llist.append(get_llist(np.array(absdsamples), nsamples))
@@ -239,7 +226,6 @@ def sample_alphaNP_fit_fixed_elemparams(elem, nsamples, mphivar=False):
     llist = elem.dnorm * np.array(llist)
 
     return alphalist, llist
-    # return np.array([alphaNPsamples] * Nx), get_llist(np.array(allabsdsamples), nsamples)
 
 
 def generate_element_sample(elem, nsamples: int):
@@ -268,7 +254,7 @@ def generate_alphaNP_sample(
         alphaNP_samples = np.linspace(
             init_alphaNP - delta, init_alphaNP + delta, nsamples
         )
-    print(f"New search interval: [{init_alphaNP - delta}, {init_alphaNP + delta}]")
+        print(f"New search interval: [{init_alphaNP - delta}, {init_alphaNP + delta}]")
 
     return alphaNP_samples
 
@@ -279,7 +265,8 @@ def compute_sample_ll(
     mphivar: bool = False,
     save_sample: bool = False,
     search_mode: str = "random",
-    delta: float = 0.5,
+    delta: float = 0.3,
+    parabolic_fit: bool = False,
 ):
     """
     Generate alphaNP list for element ``elem`` according to ``parameters_samples``.
@@ -310,13 +297,6 @@ def compute_sample_ll(
 
     for x in range(Nx):
         elem._update_Xcoeffs(x)
-        sigalphaNP = elem.sig_alphaNP_init
-        alphaNPsamples = np.random.normal(fitparams[-1], sigalphaNP, nsamples)
-        alphalist.append(alphaNPsamples)
-        fitparamsamples[:, -1] = alphaNPsamples
-
-        if mphivar:
-            elem._update_Xcoeffs(x)
 
         absdsamples = []
 
@@ -331,7 +311,32 @@ def compute_sample_ll(
         np.save(arr=element_samples, file="parameters_samples")
         np.save(arr=fit_params_samples, file="fit_params_samples")
 
-    return fit_params_samples[:, -1], get_llist(np.array(allabsdsamples), nsamples)
+    generated_alphaNP_list = fit_params_samples[:, -1]
+    generated_ll_list = get_llist(np.array(allabsdsamples).squeeze(), nsamples)
+
+    np.save(arr=generated_alphaNP_list, file="generated_alphas")
+    np.save(arr=generated_ll_list, file="generated_ll")
+    
+    if parabolic_fit:
+        from kifit.plotfit import plot_parabolic_fit
+        delchisq_list = get_delchisq(generated_ll_list)
+
+        max_delchisq = max(delchisq_list)
+
+        popt, _ = curve_fit(
+            parabola, 
+            delchisq_list, 
+            generated_alphaNP_list,
+            p0 = [1./max_delchisq, 0., 0.]
+        )
+        # perform parabolic fit
+        plot_parabolic_fit(
+            delchisq_list,
+            generated_alphaNP_list, 
+            parabola(delchisq_list, *popt)
+        )
+
+    return generated_alphaNP_list, generated_ll_list 
 
 
 def calculate_grid_delta(alphaNP_list, ll_list, delta_alpha_ratio: float = 0.5):
@@ -354,9 +359,10 @@ def calculate_grid_delta(alphaNP_list, ll_list, delta_alpha_ratio: float = 0.5):
 
 def iterative_mc_search(
     elem,
-    element_samples,
+    n_sampled_elems: int = 1000,
+    nblocks = 10,
     mphivar: bool = False,
-    delta_alpha_ratio: float = 0.1,
+    delta_alpha_ratio: float = 0.8,
     niter: int = 3,
     return_history: bool = True,
 ):
@@ -366,8 +372,16 @@ def iterative_mc_search(
 
     best_alphas, best_ll = [], []
 
+
     for i in tqdm(range(niter)):
-        print(f"Search for new interval with center in: {elem.alphaNP}")
+
+        if (i == niter-1):
+            # sample nblocks number of elements
+            block_size = n_sampled_elems
+            n_sampled_elems *= nblocks
+
+        element_samples = generate_element_sample(elem, n_sampled_elems)
+
         if i == 0:
             alphas, ll = compute_sample_ll(
                 elem,
@@ -376,28 +390,45 @@ def iterative_mc_search(
                 search_mode="random",
             )
         else:
-            alphas, ll = compute_sample_ll(
-                elem,
-                element_samples=element_samples,
-                mphivar=mphivar,
-                search_mode="grid",
-                delta=delta,
-            )
+            if (i == niter-1):
+                for block in range(nblocks):
+                    alphas, ll = compute_sample_ll(
+                        elem,
+                        element_samples=element_samples[block*block_size: (block+1)*block_size],
+                        mphivar=mphivar,
+                        search_mode="grid",
+                        delta=delta,
+                    ) 
+            else:
+                alphas, ll = compute_sample_ll(
+                    elem,
+                    element_samples=element_samples,
+                    mphivar=mphivar,
+                    search_mode="grid",
+                    delta=delta,
+                    parabolic_fit=True,
+                )
+
+
 
         best_index = np.argmin(ll)
         elem.alphaNP = alphas[best_index]
         best_alphas.append(alphas[best_index])
-        best_ll.append(ll[0][best_index])
+
+        best_ll.append(ll[best_index])
 
         if i == 0:
             delta = elem.sig_alphaNP_init
-            parfit = False
+            print(elem.sig_alphaNP_init)
+            parabolic_fit = False
         else:
             delta = calculate_grid_delta(alphas, ll, delta_alpha_ratio)
-            parfit = False
+            parabolic_fit = False
+        
+        print(delta)
 
         draw_mc_output(
-            elem, alphas, get_delchisq(ll), plotname=f"{i}", parabolic_fit=parfit
+            elem, alphas, get_delchisq(ll), plotname=f"{i}", parabolic_fit=parabolic_fit
         )
 
     # best of bests
@@ -429,8 +460,7 @@ def get_confints(paramlist, delchisqlist, delchisqcrit):
     """
     Get nsigmas-confidence intervals.
 
-    dof: degrees of freedom used in computation of confidence intervals
-    npts: number of points used for interpolation
+    # TODO: fix these docstrings
 
     Returns:
     delchisq_crit: Delta chi^2 value associated to nsigmas.
@@ -445,12 +475,6 @@ def get_confints(paramlist, delchisqlist, delchisqcrit):
         )
 
     pos = np.argwhere(delchisqlist < delchisqcrit).flatten()
-    # print("delchisq_crit", delchisq_crit)
-    # print("delchisqlist ", delchisqlist)
-
-    # print("""For %s sigma I found following limits for your confidence
-    #         intervals:""" % nsigmas)
-    # print(np.sort(paramlist[pos]))
 
     return paramlist[pos]
 
@@ -458,15 +482,6 @@ def get_confints(paramlist, delchisqlist, delchisqcrit):
 def interpolate_mphi_alphaNP_fit(mphis, alphas, kind="next"):
     pass
 
-
-#     """
-#
-#     """
-#     f = pd.DataFrame({'x': mphis, 'y': alphas})
-#     f.groupby('x').min
-#     # f = interp1d(mphis, alphas, kind=kind)
-#
-#     return f(mphis)
 
 
 def sample_alphaNP_det(
@@ -611,9 +626,7 @@ def sample_alphaNP_det(
         sigalphaNPs = np.math.factorial(dim - 2) * np.array(sigalphaNPs)
 
         np.savetxt(file_path, np.c_[alphaNPs, sigalphaNPs], delimiter=",")
-        #  [x][2*perm]
 
-    # return mphi_list, alphaNP_list, sig_alphaNP_list
     return alphaNPs, sigalphaNPs
 
 
@@ -652,99 +665,55 @@ def get_minpos_maxneg_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
     minpos = np.nanmin(alphaNP_UBs, axis=1)
     maxneg = np.nanmax(alphaNP_LBs, axis=1)
 
-    # for x in range(len(positive_alphaNP_bounds)):
-    #     for p in range(len(positive_alphaNP_bounds[0])):
-    #         if maxneg[x] < negative_alphaNP_bounds[x][p]:
-    #             print("(x,p), (mn[x], elem[x,p]",
-    #                 ((x,p), (maxneg[x], negative_alphaNP_bounds[x,p])))
-
     return minpos, maxneg
 
 
-#
-#
-# def sample_GKP_alphaNP(elem, dim, nsamples, mphivar=False):
-#     """
-#     Get a set of nsamples samples of alphaNP by varying the masses and isotope
-#     shifts according to the means and standard deviations given in the input
-#     files, as well as alphaNP.
-#
-#        m  ~ N(<m>,  sig[m])
-#        m' ~ N(<m'>, sig[m'])
-#        v  ~ N(<v>,  sig[v])
-#
-#     For each of these samples and for all possible combinations of the data,
-#     compute alphaNP using the Generalised King Plot formula with
-#
-#         (nisotopepairs, ntransitions) = (dim, dim-1).
-#
-#     """
-#     print("""Using the %s - dimensional Generalised King Plot to compute
-#     alphaNP for %s samples. mphi is %s varied.""" % (dim, nsamples, ("" if
-#         mphivar else "not")))
-#
-#     elemparamsamples = get_paramsamples(elem.means_input_params,
-#         elem.stdevs_input_params, nsamples)
-#
-#     if mphivar:
-#         Nx = len(elem.Xcoeff_data)
-#     else:
-#         Nx = 1
-#
-#     allalphaNPsamples = []
-#     for x in range(Nx):
-#         if mphivar:
-#             elem._update_Xcoeffs(x)
-#             print_progress(x * nsamples, Nx * nsamples)
-#         alphaNPsamples = []
-#         for s in range(nsamples):
-#             if not mphivar:
-#                 print_progress(s, nsamples)
-#             elem._update_elem_params(elemparamsamples[s])
-#             alphaNPsamples.append(elem.alphaNP_GKP(dim))
-#         allalphaNPsamples.append(alphaNPsamples)
-#
-#     return np.array(allalphaNPsamples), elemparamsamples
-#
-#
-# def sample_NMGKP_alphaNP(elem, dim, nsamples, mphivar=False):
-#     """
-#     Get a set of nsamples samples of alphaNP by varying the masses and isotope
-#     shifts according to the means and standard deviations given in the input
-#     files, as well as alphaNP.
-#
-#        m  ~ N(<m>,  sig[m])
-#        m' ~ N(<m'>, sig[m'])
-#        v  ~ N(<v>,  sig[v])
-#
-#     For each of these samples and for all possible combinations of the data,
-#     compute alphaNP using the no-mass Generalised King Plot formula with
-#
-#         (nisotopepairs, ntransitions) = (dim, dim)
-#
-#     """
-#     print("""Using the %s - dimensional no-mass Generalised King Plot to compute
-#     alphaNP for %s samples. mphi is %s varied.""" % (dim, nsamples, ("" if
-#         mphivar else "not")))
-#     elemparamsamples = get_paramsamples(elem.means_input_params,
-#         elem.stdevs_input_params, nsamples)
-#
-#     if mphivar:
-#         Nx = len(elem.Xcoeff_data)
-#     else:
-#         Nx = 1
-#
-#     allalphaNPsamples = []
-#     for x in range(Nx):
-#         if mphivar:
-#             elem._update_Xcoeffs(x)
-#             print_progress(x * nsamples, Nx * nsamples)
-#         alphaNPsamples = []
-#         for s in range(nsamples):
-#             if not mphivar:
-#                 print_progress(s, nsamples)
-#             elem._update_elem_params(elemparamsamples[s])
-#             alphaNPsamples.append(elem.alphaNP_NMGKP(dim))
-#         allalphaNPsamples.append(alphaNPsamples)
-#
-#     return np.array(allalphaNPsamples), elemparamsamples
+def sample_alphaNP_fit(elem, nsamples, mphivar=False):
+    """
+    Get a set of nsamples samples of elem by varying the masses and isotope
+    shifts according to the means and standard deviations given in the input
+    files, as well as alphaNP.
+
+       m  ~ N(<m>,  sig[m])
+       m' ~ N(<m'>, sig[m'])
+       v  ~ N(<v>,  sig[v])
+
+       alphaNP ~ N(0, sig[alphaNP_init]).
+
+    If mphivar=True, this procedure is repeated for all X-coefficients provided
+    for elem.
+
+    """
+    # elemparamsamples = get_paramsamples(elem.means_input_params,
+    #         elem.stdevs_input_params, nsamples)
+    elemparamsamples = generate_element_sample(elem, nsamples)
+    fitparams = elem.means_fit_params
+    fitparamsamples = np.tensordot(np.ones(nsamples), fitparams, axes=0)
+
+    if mphivar:
+        Nx = len(elem.Xcoeff_data)
+    else:
+        Nx = 1
+
+    alphalist = []
+    llist = []
+
+    for x in tqdm(range(Nx)):
+        elem._update_Xcoeffs(x)
+        sigalphaNP = elem.sig_alphaNP_init
+        alphaNPsamples = np.random.normal(fitparams[-1], sigalphaNP, nsamples)
+        alphalist.append(alphaNPsamples)
+        fitparamsamples[:, -1] = alphaNPsamples
+
+        absdsamples = []
+
+        for s in range(nsamples):
+            elem._update_elem_params(elemparamsamples[s])
+            elem._update_fit_params(fitparamsamples[s])
+            absdsamples.append(elem.absd)
+        llist.append(get_llist(np.array(absdsamples), nsamples))
+
+    alphalist = elem.dnorm * np.array(alphalist)
+    llist = elem.dnorm * np.array(llist)
+
+    return alphalist, llist, np.array(elemparamsamples)
