@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import BSpline, interp1d, splrep
 
@@ -758,3 +759,92 @@ def plot_mphi_alphaNP(
     )
 
     return fig1, ax1, fig2, ax2
+
+def draw_mc_output(
+    elem,
+    paramlist,
+    llist,
+    x=0,
+    confints=True,
+    nsigmas=[1, 2],
+    dof=1,
+    showGKP=False,
+    showNMGKP=False,
+    xlabel="x",
+    ylabel=r"$\Delta \chi^2$",
+    plotname="testplot",
+    xlims=[None, None],
+    ylims=[None, None],
+    show=False,
+    parabolic_fit=True,
+):
+    """
+    Draw 2-dimensional scatter plot showing the likelihood associated with the
+    parameter values given in paramlist. If the lists were computed for multiple
+    X-coefficients, the argument x can be used to access a given set of samples.
+    The resulting plot is saved in plots directory under plotname.
+    """
+    delchisqlist = get_delchisq(llist)
+
+    fig, ax = plt.subplots()
+    ax.scatter(paramlist, delchisqlist, s=1)
+
+    if parabolic_fit:
+
+        def parabola(x, a, b, c):
+            return a * x**2 + b * x + c
+
+        scipy_p, _ = curve_fit(
+            f=parabola,
+            xdata=paramlist,
+            ydata=delchisqlist,
+            p0=[1.0 / elem.alphaNP, 0.0, 0.0],
+        )
+        fit_predictions = parabola(paramlist, *scipy_p)
+        fit_minimum_index = np.argmin(fit_predictions)
+        ax.plot(
+            paramlist,
+            fit_predictions,
+            color="black",
+            ls="--",
+            lw=1,
+            label=rf"$\alpha$ fit min: {paramlist[fit_minimum_index]:.4e}",
+        )
+
+    ax.scatter(paramlist, delchisqlist, s=1, alpha=0.5, color="royalblue")
+
+    if confints:
+        for ns in nsigmas:
+            delchisqcrit = get_delchisq_crit(nsigmas=ns, dof=dof)
+            parampos = get_confints(
+                paramlist, delchisqlist, delchisqcrit,
+            )
+            ax.axvspan(np.min(parampos), np.max(parampos), alpha=0.5, color="darkgreen")
+            ax.axvspan(np.min(parampos), np.max(parampos), alpha=0.5, color="red")
+            if ns == 1:
+                hlinels = "--"
+            else:
+                hlinels = "-"
+            ax.axhline(y=delchisqcrit, color="orange", linewidth=1, linestyle=hlinels)
+    if showGKP:
+        for aNP in elem.alphaNP_GKP:
+            ax.axhline  # continue here
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_xlim(xlims[0], xlims[1])
+    ax.set_ylim(ylims[0], ylims[1])
+    #plt.savefig(_plot_path + "/" + plotname + ".pdf")
+    plt.legend()
+    plt.savefig(_plot_path + "/" + plotname + ".png")
+    if show:
+        plt.show()
+    return 0
+
+
+def plot_parabolic_fit(alphas, ll, predictions):
+    """Plot generated data and parabolic fit."""
+
+    plt.figure(figsize=(10, 10*6/8))
+    plt.scatter(ll, alphas, color="orange")
+    plt.plot(ll, predictions, color="black", lw=1.5)
+    plt.savefig("parabola.png")
