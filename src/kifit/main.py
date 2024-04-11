@@ -5,7 +5,7 @@ from kifit.performfit import (
 from kifit.plotfit import plot_linfit, plot_alphaNP_ll, plot_mphi_alphaNP
 
 ca = Elem.get('Ca')
-ca.sig_alphaNP_init = 1e-5
+ca.sig_alphaNP_init = 1e-9
 
 print(ca.get_dimensions)
 

@@ -321,19 +321,36 @@ def compute_sample_ll(
         from kifit.plotfit import plot_parabolic_fit
         delchisq_list = get_delchisq(generated_ll_list)
 
-        max_delchisq = max(delchisq_list)
+        # normalizing alphas
+        scale_factor = max(generated_alphaNP_list) - min(generated_alphaNP_list)
+        normed_alpha_list = (generated_alphaNP_list - min(generated_alphaNP_list)) / scale_factor
 
+        # parabolic fit with normed alphas
         popt, _ = curve_fit(
             parabola, 
-            delchisq_list, 
-            generated_alphaNP_list,
-            p0 = [1./max_delchisq, 0., 0.]
+            normed_alpha_list, 
+            delchisq_list,
+            p0 = [1., 0., 0.]
         )
+
+        # generate a lot of new normed alphas in (0, 1)
+        validation_x_data = np.linspace(0, 1, 1000000)
+        # evaluate parabola
+        validation_y_data = parabola(validation_x_data, *popt)
+
+        # save index of the minimum of the parabola
+        minimum_index = np.argmin(validation_y_data)
+
+        # reconstruct the best alphaNP applying the inverse of the normalization
+        best_alphaNP = validation_x_data[minimum_index] * scale_factor + min(generated_alphaNP_list)
+
+        print(f"x_min: {best_alphaNP}") 
+
         # perform parabolic fit
         plot_parabolic_fit(
-            delchisq_list,
-            generated_alphaNP_list, 
-            parabola(delchisq_list, *popt)
+            normed_alpha_list,
+            delchisq_list, 
+            parabola(normed_alpha_list, *popt)
         )
 
     return generated_alphaNP_list, generated_ll_list 
@@ -408,7 +425,7 @@ def iterative_mc_search(
                     delta=delta,
                     parabolic_fit=True,
                 )
-
+            exit()
 
 
         best_index = np.argmin(ll)

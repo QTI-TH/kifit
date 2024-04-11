@@ -845,6 +845,6 @@ def plot_parabolic_fit(alphas, ll, predictions):
     """Plot generated data and parabolic fit."""
 
     plt.figure(figsize=(10, 10*6/8))
-    plt.scatter(ll, alphas, color="orange")
-    plt.plot(ll, predictions, color="black", lw=1.5)
+    plt.scatter(alphas, ll, color="orange")
+    plt.plot(alphas, predictions, color="black", lw=1.5)
     plt.savefig("parabola.png")
