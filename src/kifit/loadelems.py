@@ -208,9 +208,11 @@ class Elem:
         else:
             self.sig_Xvec = self.sig_Xcoeff_data[x, 1:]
 
-        self.sig_alphaNP_init = np.min([np.absolute(
-            np.average(self.absd / np.min(
-                np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))), 1])
+        # TODO: what's the best way to compute sig_alphaNP with the new X coeff?
+
+        # self.sig_alphaNP_init = np.min([np.absolute(
+        #     np.average(self.absd / np.min(
+        #         np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))), 1])
 
         # self.sig_alphaNP_init = np.min([np.absolute(np.max(self.absd) / np.min(
         #     np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0))), 1])

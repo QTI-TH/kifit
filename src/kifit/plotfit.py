@@ -1,19 +1,30 @@
 import os
+
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import interp1d
-from scipy.interpolate import splrep, BSpline
+from scipy.interpolate import BSpline, interp1d, splrep
+
+from kifit.performfit import (
+    get_all_alphaNP_bounds,
+    get_confints,
+    get_delchisq,
+    get_delchisq_crit,
+    get_minpos_maxneg_alphaNP_bounds,
+    get_odr_residuals,
+    interpolate_mphi_alphaNP_fit,
+    linfit,
+    linfit_x,
+    perform_linreg,
+    perform_odr,
+    sample_alphaNP_det,
+)
+
 # import pandas as pd
 
-from kifit.performfit import (linfit, linfit_x, get_odr_residuals,
-    perform_linreg, perform_odr,
-    get_delchisq, get_delchisq_crit, get_confints, interpolate_mphi_alphaNP_fit,
-    sample_alphaNP_det, get_all_alphaNP_bounds, get_minpos_maxneg_alphaNP_bounds)
 
-_plot_path = os.path.abspath(os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    'plots'
-))
+_plot_path = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "plots")
+)
 
 if not os.path.exists(_plot_path):
     os.makedirs(_plot_path)
@@ -21,16 +32,23 @@ if not os.path.exists(_plot_path):
 ###############################################################################
 
 default_colour = [
-    '#ff7f0e', '#d62728',
-    '#9467bd', '#8c564b',
-    '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+    "#ff7f0e",
+    "#d62728",
+    "#9467bd",
+    "#8c564b",
+    "#e377c2",
+    "#7f7f7f",
+    "#bcbd22",
+    "#17becf",
+]
 
-det_colour = '#1f77b4'
-fit_colour = '#2ca02c'
+det_colour = "#1f77b4"
+fit_colour = "#2ca02c"
 
 
 # lighten & darken colours
 ##############################################################################
+
 
 def lighten_color(color, amount=0.5):
     """
@@ -42,8 +60,10 @@ def lighten_color(color, amount=0.5):
     >> lighten_color('#F034A3', 0.6)
     >> lighten_color((.3,.55,.1), 0.5)
     """
-    import matplotlib.colors as mc
     import colorsys
+
+    import matplotlib.colors as mc
+
     try:
         c = mc.cnames[color]
     except:
@@ -53,6 +73,7 @@ def lighten_color(color, amount=0.5):
 
 
 ###############################################################################
+
 
 def plot_linfit(elem, magnifac=1, resmagnifac=1):
     """
@@ -65,12 +86,19 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1):
     """
 
     betas_odr, sig_betas_odr, kperp1s, ph1s, sig_kperp1s, sig_ph1s = perform_odr(
-        elem.mu_norm_isotope_shifts_in, elem.sig_mu_norm_isotope_shifts_in,
-        reftrans_index=0)
+        elem.mu_norm_isotope_shifts_in,
+        elem.sig_mu_norm_isotope_shifts_in,
+        reftrans_index=0,
+    )
 
-    (betas_linreg, sig_betas_linreg, kperp1s_linreg, ph1s_linreg,
-        sig_kperp1s_linreg, sig_ph1s_linreg) = perform_linreg(
-        elem.mu_norm_isotope_shifts_in, reftrans_index=0)
+    (
+        betas_linreg,
+        sig_betas_linreg,
+        kperp1s_linreg,
+        ph1s_linreg,
+        sig_kperp1s_linreg,
+        sig_ph1s_linreg,
+    ) = perform_linreg(elem.mu_norm_isotope_shifts_in, reftrans_index=0)
 
     xvals = elem.mu_norm_isotope_shifts_in.T[0]
     sigxvals = elem.sig_mu_norm_isotope_shifts_in.T[0]
@@ -89,43 +117,67 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1):
     ax3 = plt.subplot2grid((4, 1), (3, 0))
     ax1.set_title("King Plot")
 
-    ax2.axhline(y=0, c='k')
-    ax3.axhline(y=0, c='k')
+    ax2.axhline(y=0, c="k")
+    ax3.axhline(y=0, c="k")
 
     for i in range(yvals.shape[0]):
 
         yfit_linreg = linfit(betas_linreg[i], xfit)
         residuals_linreg_i, sigresiduals_linreg_i = get_odr_residuals(
-            betas_linreg[i], xvals, yvals[i], sigxvals, sigyvals[i])
+            betas_linreg[i], xvals, yvals[i], sigxvals, sigyvals[i]
+        )
 
         yfit_odr_i = linfit(betas_odr[i], xfit)
 
-        residuals_odr_i, sigresiduals_odr_i = get_odr_residuals(betas_odr[i],
-            xvals, yvals[i], sigxvals, sigyvals[i])
+        residuals_odr_i, sigresiduals_odr_i = get_odr_residuals(
+            betas_odr[i], xvals, yvals[i], sigxvals, sigyvals[i]
+        )
 
         ax1.plot(xfit, yfit_odr_i, color=default_colour[i], label="i=" + str(i + 2))
 
-        ax1.plot(xfit, yfit_linreg, color=default_colour[i], linestyle='--')
+        ax1.plot(xfit, yfit_linreg, color=default_colour[i], linestyle="--")
 
         for a in range(yvals.shape[1]):
             ax1.annotate(
                 "(" + str(int(AAp[a, 0])) + "," + str(int(AAp[a, 1])) + ")",
-                (xvals[a], yvals[i, a]), fontsize=8)
+                (xvals[a], yvals[i, a]),
+                fontsize=8,
+            )
 
-        ax1.errorbar(xvals, yvals[i],
+        ax1.errorbar(
+            xvals,
+            yvals[i],
             xerr=sigxvals,
-            yerr=sigyvals[i], linestyle='none', color=default_colour[i],
-            marker='o', ms=4)
+            yerr=sigyvals[i],
+            linestyle="none",
+            color=default_colour[i],
+            marker="o",
+            ms=4,
+        )
 
-        ax2.errorbar(xvals, magnifac * residuals_odr_i,
+        ax2.errorbar(
+            xvals,
+            magnifac * residuals_odr_i,
             xerr=sigresiduals_odr_i,
-            yerr=resmagnifac * magnifac * sigresiduals_odr_i, linestyle='none',
-            color=default_colour[i], marker='o', ms=4, capsize=2)
+            yerr=resmagnifac * magnifac * sigresiduals_odr_i,
+            linestyle="none",
+            color=default_colour[i],
+            marker="o",
+            ms=4,
+            capsize=2,
+        )
 
-        ax3.errorbar(xvals, magnifac * residuals_odr_i,
+        ax3.errorbar(
+            xvals,
+            magnifac * residuals_odr_i,
             xerr=sigresiduals_odr_i,
-            yerr=resmagnifac * magnifac * sigresiduals_odr_i, linestyle='none',
-            color=default_colour[i], marker='o', ms=4, capsize=2)
+            yerr=resmagnifac * magnifac * sigresiduals_odr_i,
+            linestyle="none",
+            color=default_colour[i],
+            marker="o",
+            ms=4,
+            capsize=2,
+        )
 
     ax1.set_xlim(xmin, xmax)
     ax1.set_xlabel(r"$\tilde{\nu}_1~$[Hz]")
@@ -142,11 +194,23 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1):
     return fig, ax1, ax2, ax3
 
 
-def plot_alphaNP_ll(elem, alphalist, llist, x=0,
-        confints=True, nsigmas=[1, 2], dof=1, gkpdims=[], nmgkpdims=[],
-        plotname="",
-        xlabel=r'$\alpha_{\mathrm{NP}}$', ylabel=r"$\Delta \chi^2$",
-        xlims=[None, None], ylims=[None, None], show=False):
+def plot_alphaNP_ll(
+    elem,
+    alphalist,
+    llist,
+    x=0,
+    confints=True,
+    nsigmas=[1, 2],
+    dof=1,
+    gkpdims=[],
+    nmgkpdims=[],
+    plotname="",
+    xlabel=r"$\alpha_{\mathrm{NP}}$",
+    ylabel=r"$\Delta \chi^2$",
+    xlims=[None, None],
+    ylims=[None, None],
+    show=False,
+):
     """
     Plot 2-dimensional scatter plot showing the likelihood associated with the
     parameter values given in alphalist. If the lists were computed for multiple
@@ -158,23 +222,22 @@ def plot_alphaNP_ll(elem, alphalist, llist, x=0,
     delchisqlist_x = get_delchisq(llist[x])
 
     fig, ax = plt.subplots()
-    ax.scatter(alphalist[x], delchisqlist_x, s=1, c='b')
+    ax.scatter(alphalist[x], delchisqlist_x, s=1, c="b")
 
     if confints:
         for ns in nsigmas:
             delchisqcrit_x = get_delchisq_crit(nsigmas=ns, dof=dof)
-            parampos_x = get_confints(
-                alphalist[x], delchisqlist_x, delchisqcrit_x)
-            ax.axvspan(np.min(parampos_x), np.max(parampos_x), alpha=.5,
-            color=fit_colour)
+            parampos_x = get_confints(alphalist[x], delchisqlist_x, delchisqcrit_x)
+            ax.axvspan(
+                np.min(parampos_x), np.max(parampos_x), alpha=0.5, color=fit_colour
+            )
             print("delchisqcrit", delchisqcrit_x)
             print("parampos", np.min(parampos_x))
-            if ns==1:
-                hlinels = '--'
+            if ns == 1:
+                hlinels = "--"
             else:
-                hlinels = '-'
-            ax.axhline(y=delchisqcrit_x, color='orange', linewidth=1,
-                linestyle=hlinels)
+                hlinels = "-"
+            ax.axhline(y=delchisqcrit_x, color="orange", linewidth=1, linestyle=hlinels)
 
     # for dim in gkpdims:
     #     mphis, alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples,
@@ -197,15 +260,35 @@ def plot_alphaNP_ll(elem, alphalist, llist, x=0,
     else:
         prettyplotname = plotname + "_"
 
-    plt.savefig(_plot_path + "/alphaNP_ll_" + elem.id + "_" + prettyplotname
-        + "x" + str(x) + "_" + str(len(alphalist[0])) + "_fit_samples.pdf")
+    plt.savefig(
+        _plot_path
+        + "/alphaNP_ll_"
+        + elem.id
+        + "_"
+        + prettyplotname
+        + "x"
+        + str(x)
+        + "_"
+        + str(len(alphalist[0]))
+        + "_fit_samples.pdf"
+    )
     return fig, ax
 
 
-def plot_mphi_alphaNP_det_bound(ax1, ax2, elem, dimindex, dim, nsamples, nsigmas,
-        minpos, maxneg,
-        gkp=True,
-        showbestdetbounds=False, showalldetbounds=False):
+def plot_mphi_alphaNP_det_bound(
+    ax1,
+    ax2,
+    elem,
+    dimindex,
+    dim,
+    nsamples,
+    nsigmas,
+    minpos,
+    maxneg,
+    gkp=True,
+    showbestdetbounds=False,
+    showalldetbounds=False,
+):
     """
     Plot GKP/NMGKP bounds for one dimension dim.
 
@@ -216,43 +299,71 @@ def plot_mphi_alphaNP_det_bound(ax1, ax2, elem, dimindex, dim, nsamples, nsigmas
     else:
         method_tag = "NMGKP"
 
-    alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples, mphivar=True,
-        gkp=gkp)
+    alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples, mphivar=True, gkp=gkp)
 
     if showalldetbounds:
-        alphaNP_UBs, alphaNP_LBs = get_all_alphaNP_bounds(alphas, sigalphas,
-            nsigmas=nsigmas)
+        alphaNP_UBs, alphaNP_LBs = get_all_alphaNP_bounds(
+            alphas, sigalphas, nsigmas=nsigmas
+        )
 
         for p in range(alphas.shape[1]):
             if p == 0:
-                scatterlabel = (elem.id + ", dim " + str(dim) + " " + method_tag)
+                scatterlabel = elem.id + ", dim " + str(dim) + " " + method_tag
             else:
                 scatterlabel = None
 
-            ax1.scatter(elem.mphis, (alphaNP_UBs.T)[p],
-                s=.5, color=default_colour[dimindex], alpha=.3,
-                label=scatterlabel)
-            ax2.scatter(elem.mphis, (alphaNP_UBs.T)[p],
-                s=.5, color=default_colour[dimindex], alpha=.3,
-                label=scatterlabel)
+            ax1.scatter(
+                elem.mphis,
+                (alphaNP_UBs.T)[p],
+                s=0.5,
+                color=default_colour[dimindex],
+                alpha=0.3,
+                label=scatterlabel,
+            )
+            ax2.scatter(
+                elem.mphis,
+                (alphaNP_UBs.T)[p],
+                s=0.5,
+                color=default_colour[dimindex],
+                alpha=0.3,
+                label=scatterlabel,
+            )
 
-            ax1.scatter(elem.mphis, np.abs((alphaNP_LBs.T)[p]),
-                s=.5, color=default_colour[dimindex], alpha=.3)
-            ax2.scatter(elem.mphis, (alphaNP_LBs.T)[p],
-                s=.5, color=default_colour[dimindex], alpha=.3)
+            ax1.scatter(
+                elem.mphis,
+                np.abs((alphaNP_LBs.T)[p]),
+                s=0.5,
+                color=default_colour[dimindex],
+                alpha=0.3,
+            )
+            ax2.scatter(
+                elem.mphis,
+                (alphaNP_LBs.T)[p],
+                s=0.5,
+                color=default_colour[dimindex],
+                alpha=0.3,
+            )
 
     minpos_alphas, maxneg_alphas = get_minpos_maxneg_alphaNP_bounds(
-        alphas, sigalphas, nsigmas)
+        alphas, sigalphas, nsigmas
+    )
 
     if showbestdetbounds:
-        ax1.scatter(elem.mphis, np.nanmax(minpos_alphas, -maxneg_alphas, axis=1),
-            s=6, color=default_colour[dimindex],
-            label=elem.id + ", dim " + str(dim) + " " + method_tag + "_best")
-        ax2.scatter(elem.mphis, minpos_alphas,
-            s=6, color=default_colour[dimindex],
-            label=elem.id + ", dim " + str(dim) + " " + method_tag + "_best")
-        ax2.scatter(elem.mphis, maxneg_alphas,
-            s=6, color=default_colour[dimindex])
+        ax1.scatter(
+            elem.mphis,
+            np.nanmax(minpos_alphas, -maxneg_alphas, axis=1),
+            s=6,
+            color=default_colour[dimindex],
+            label=elem.id + ", dim " + str(dim) + " " + method_tag + "_best",
+        )
+        ax2.scatter(
+            elem.mphis,
+            minpos_alphas,
+            s=6,
+            color=default_colour[dimindex],
+            label=elem.id + ", dim " + str(dim) + " " + method_tag + "_best",
+        )
+        ax2.scatter(elem.mphis, maxneg_alphas, s=6, color=default_colour[dimindex])
 
     if dimindex == 0:
         minpos = minpos_alphas
@@ -265,9 +376,9 @@ def plot_mphi_alphaNP_det_bound(ax1, ax2, elem, dimindex, dim, nsamples, nsigmas
     return ax1, ax2, minpos, maxneg
 
 
-def plot_mphi_alphaNP_fit_bound(ax1, ax2, elem, alphalist, llist,
-        nsigmas=2, plotabs=True,
-        showallowedfitpts=False):
+def plot_mphi_alphaNP_fit_bound(
+    ax1, ax2, elem, alphalist, llist, nsigmas=2, plotabs=True, showallowedfitpts=False
+):
 
     alphamin = []
     alphamax = []
@@ -277,8 +388,7 @@ def plot_mphi_alphaNP_fit_bound(ax1, ax2, elem, alphalist, llist,
     for x in range(alphalist.shape[0]):
 
         delchisqlist_x = get_delchisq(llist[x])
-        alphacrit_x = get_confints(alphalist[x], delchisqlist_x,
-            delchisqcrit)
+        alphacrit_x = get_confints(alphalist[x], delchisqlist_x, delchisqcrit)
 
         # get least stringent bounds on alphaNP
         alphamin_x = np.min(alphacrit_x)
@@ -288,12 +398,21 @@ def plot_mphi_alphaNP_fit_bound(ax1, ax2, elem, alphalist, llist,
         alphamax.append(alphamax_x)
 
         if showallowedfitpts:
-            allowed_alphas_x = np.array([
-                a for a in alphalist[x] if alphamin_x < a < alphamax_x])  # * elem.dnorm
-            ax1.scatter(elem.mphis[x] * np.ones(len(allowed_alphas_x)),
-                np.abs(allowed_alphas_x), color=fit_colour, s=1)
-            ax2.scatter(elem.mphis[x] * np.ones(len(allowed_alphas_x)),
-                allowed_alphas_x, color=fit_colour, s=1)
+            allowed_alphas_x = np.array(
+                [a for a in alphalist[x] if alphamin_x < a < alphamax_x]
+            )  # * elem.dnorm
+            ax1.scatter(
+                elem.mphis[x] * np.ones(len(allowed_alphas_x)),
+                np.abs(allowed_alphas_x),
+                color=fit_colour,
+                s=1,
+            )
+            ax2.scatter(
+                elem.mphis[x] * np.ones(len(allowed_alphas_x)),
+                allowed_alphas_x,
+                color=fit_colour,
+                s=1,
+            )
 
     # THIS IS PRETTY AD-HOC. MAYBE IMPLEMENT FAMILY OF FITS.
     nsteps = int(np.floor(len(elem.mphis) / 10))
@@ -326,30 +445,46 @@ def plot_mphi_alphaNP_fit_bound(ax1, ax2, elem, alphalist, llist,
         ax2_binmin_alphas.append((maxabsalphas[inds])[ax2_binmin_ind])
 
     ax1.plot(ax1_bin_mphis, ax1_bin_alphas, color=fit_colour)  # , label=fit_label)
-    f1 = interp1d(ax1_bin_mphis, ax1_bin_alphas,
-        kind='slinear', fill_value="extrapolate")
+    f1 = interp1d(
+        ax1_bin_mphis, ax1_bin_alphas, kind="slinear", fill_value="extrapolate"
+    )
     ax1_fitinterpolpts = f1(elem.mphis)
-    ax1.plot(elem.mphis, ax1_fitinterpolpts, color='darkgreen', linestyle='--')
+    ax1.plot(elem.mphis, ax1_fitinterpolpts, color="darkgreen", linestyle="--")
 
-    ax2.plot(ax2_binmax_mphis, ax2_binmax_alphas, color=fit_colour)  # , label=fit_label)
-    f2max = interp1d(ax2_binmax_mphis, ax2_binmax_alphas,
-        kind='slinear', fill_value="extrapolate")
+    ax2.plot(
+        ax2_binmax_mphis, ax2_binmax_alphas, color=fit_colour
+    )  # , label=fit_label)
+    f2max = interp1d(
+        ax2_binmax_mphis, ax2_binmax_alphas, kind="slinear", fill_value="extrapolate"
+    )
     ax2max_fitinterpolpts = f2max(elem.mphis)
-    ax2.plot(elem.mphis, ax2max_fitinterpolpts, color='darkgreen', linestyle='--')
+    ax2.plot(elem.mphis, ax2max_fitinterpolpts, color="darkgreen", linestyle="--")
 
-    ax2.plot(ax2_binmin_mphis, ax2_binmin_alphas, color=fit_colour)  # , label=fit_label)
-    f2min = interp1d(ax2_binmin_mphis, ax2_binmin_alphas,
-        kind='slinear', fill_value="extrapolate")
+    ax2.plot(
+        ax2_binmin_mphis, ax2_binmin_alphas, color=fit_colour
+    )  # , label=fit_label)
+    f2min = interp1d(
+        ax2_binmin_mphis, ax2_binmin_alphas, kind="slinear", fill_value="extrapolate"
+    )
     ax2min_fitinterpolpts = f2min(elem.mphis)
-    ax2.plot(elem.mphis, ax2min_fitinterpolpts, color='darkgreen', linestyle='--')
+    ax2.plot(elem.mphis, ax2min_fitinterpolpts, color="darkgreen", linestyle="--")
 
-    return (ax1, ax2,
-        ax1_fitinterpolpts, ax2max_fitinterpolpts, ax2min_fitinterpolpts)
+    return (ax1, ax2, ax1_fitinterpolpts, ax2max_fitinterpolpts, ax2min_fitinterpolpts)
 
 
-def set_axes(ax1, ax2, xlims, ylims, linthreshold, elem,
-        minpos, maxneg,
-        ax1_fitinterpolpts, ax2max_fitinterpolpts, ax2min_fitinterpolpts):
+def set_axes(
+    ax1,
+    ax2,
+    xlims,
+    ylims,
+    linthreshold,
+    elem,
+    minpos,
+    maxneg,
+    ax1_fitinterpolpts,
+    ax2max_fitinterpolpts,
+    ax2min_fitinterpolpts,
+):
 
     if xlims[0] is not None:
         ax1.set_xlim(left=xlims[0])
@@ -371,8 +506,9 @@ def set_axes(ax1, ax2, xlims, ylims, linthreshold, elem,
         ymin_ax1 = ylims[0]
         ymin_ax2 = ylims[0]
     else:
-        ymin_ax1 = np.nanmin([
-            np.abs(maxneg), np.abs(minpos), np.abs(ax1_fitinterpolpts)]) / 10
+        ymin_ax1 = (
+            np.nanmin([np.abs(maxneg), np.abs(minpos), np.abs(ax1_fitinterpolpts)]) / 10
+        )
         ymin_ax2 = np.nanmin([np.nanmin(maxneg), np.nanmin(ax2min_fitinterpolpts)])
 
     ax1.set_ylim(bottom=ymin_ax1)
@@ -390,37 +526,56 @@ def set_axes(ax1, ax2, xlims, ylims, linthreshold, elem,
     ax1.set_ylabel(r"$|\alpha_{\mathrm{NP}}/\alpha_{\mathrm{EM}}|$")
     ax2.set_ylabel(r"$\alpha_{\mathrm{NP}}/\alpha_{\mathrm{EM}}$")
 
-    ax2.axhline(y=0, c='k')
+    ax2.axhline(y=0, c="k")
 
     # x-axis
-    ax1.set_xscale('log')
-    ax2.set_xscale('log')
+    ax1.set_xscale("log")
+    ax2.set_xscale("log")
 
     # y-axis
-    ax1.set_yscale('log')
+    ax1.set_yscale("log")
 
     if linthreshold is None:
-        linlim = 10 ** (np.floor(np.log10(
-            np.nanmin([
-                np.nanmin(np.abs(minpos)),
-                np.nanmin(np.abs(maxneg)),
-                np.nanmin(np.abs(ax2max_fitinterpolpts)),
-                np.nanmin(np.abs(ax2min_fitinterpolpts))])) - 1))
+        linlim = 10 ** (
+            np.floor(
+                np.log10(
+                    np.nanmin(
+                        [
+                            np.nanmin(np.abs(minpos)),
+                            np.nanmin(np.abs(maxneg)),
+                            np.nanmin(np.abs(ax2max_fitinterpolpts)),
+                            np.nanmin(np.abs(ax2min_fitinterpolpts)),
+                        ]
+                    )
+                )
+                - 1
+            )
+        )
         print("linthreshold", linlim)
     else:
         linlim = linthreshold
-    ax2.set_yscale('symlog', linthresh=linlim)
+    ax2.set_yscale("symlog", linthresh=linlim)
 
     return ax1, ax2, ymin_ax2, ymax
 
 
-def plot_mphi_alphaNP(elem, alphalist, llist, gkpdims, nmgkpdims, ndetsamples,
-        nsigmas=2, plotabs=True,
-        xlims=[None, None], ylims=[None, None], linthreshold=None,
-        plotname="",
-        showallowedfitpts=False,
-        showbestdetbounds=False, showalldetbounds=False):
-
+def plot_mphi_alphaNP(
+    elem,
+    alphalist,
+    llist,
+    gkpdims,
+    nmgkpdims,
+    ndetsamples,
+    nsigmas=2,
+    plotabs=True,
+    xlims=[None, None],
+    ylims=[None, None],
+    linthreshold=None,
+    plotname="",
+    showallowedfitpts=False,
+    showbestdetbounds=False,
+    showalldetbounds=False,
+):
     """
     Plot the most stringent nsigmas-bounds on both positive and negative
     alphaNP, derived using the Generalised King-plot formula of dimensions d
@@ -435,10 +590,17 @@ def plot_mphi_alphaNP(elem, alphalist, llist, gkpdims, nmgkpdims, ndetsamples,
     # fit
     ###########################################################################
     if len(alphalist) > 0:
-        (ax1, ax2, ax1_fitinterpolpts, ax2max_fitinterpolpts,
-            ax2min_fitinterpolpts) = plot_mphi_alphaNP_fit_bound(
-            ax1, ax2, elem, alphalist, llist,
-            nsigmas=nsigmas, showallowedfitpts=showallowedfitpts)
+        (ax1, ax2, ax1_fitinterpolpts, ax2max_fitinterpolpts, ax2min_fitinterpolpts) = (
+            plot_mphi_alphaNP_fit_bound(
+                ax1,
+                ax2,
+                elem,
+                alphalist,
+                llist,
+                nsigmas=nsigmas,
+                showallowedfitpts=showallowedfitpts,
+            )
+        )
     else:
         ax1_fitinterpolpts = np.array([np.nan] * len(elem.mphis))
         ax2max_fitinterpolpts = np.array([np.nan] * len(elem.mphis))
@@ -452,59 +614,121 @@ def plot_mphi_alphaNP(elem, alphalist, llist, gkpdims, nmgkpdims, ndetsamples,
 
     for d, dim in enumerate(gkpdims):
         ax1, ax2, minpos, maxneg = plot_mphi_alphaNP_det_bound(
-            ax1, ax2, elem, d, dim, ndetsamples, nsigmas,
-            minpos, maxneg, gkp=True,
+            ax1,
+            ax2,
+            elem,
+            d,
+            dim,
+            ndetsamples,
+            nsigmas,
+            minpos,
+            maxneg,
+            gkp=True,
             showbestdetbounds=showbestdetbounds,
-            showalldetbounds=showalldetbounds)
+            showalldetbounds=showalldetbounds,
+        )
 
     for d, dim in enumerate(nmgkpdims):
         ax1, ax2, minpos, maxneg = plot_mphi_alphaNP_det_bound(
-            ax1, ax2, elem, d + len(gkpdims), dim,
-            ndetsamples, nsigmas, minpos, maxneg,
+            ax1,
+            ax2,
+            elem,
+            d + len(gkpdims),
+            dim,
+            ndetsamples,
+            nsigmas,
+            minpos,
+            maxneg,
             gkp=False,
             showbestdetbounds=showbestdetbounds,
-            showalldetbounds=showalldetbounds)
+            showalldetbounds=showalldetbounds,
+        )
 
     # formatting + plotting combined det bound
     ###########################################################################
-    gkp_label = (('(' + ', '.join(str(gd) for gd in gkpdims) + ')-dim GKP') if
-        len(gkpdims) > 0 else '')
-    nmgkp_label = (('(' + ', '.join(str(nmd) for nmd in nmgkpdims)
-        + ')-dim NMGKP') if len(nmgkpdims) > 0 else '')
-    label_coupling = ' + ' if (gkp_label != '' and nmgkp_label != '') else ''
+    gkp_label = (
+        ("(" + ", ".join(str(gd) for gd in gkpdims) + ")-dim GKP")
+        if len(gkpdims) > 0
+        else ""
+    )
+    nmgkp_label = (
+        ("(" + ", ".join(str(nmd) for nmd in nmgkpdims) + ")-dim NMGKP")
+        if len(nmgkpdims) > 0
+        else ""
+    )
+    label_coupling = " + " if (gkp_label != "" and nmgkp_label != "") else ""
 
     det_label = gkp_label + label_coupling + nmgkp_label
 
-    ax1, ax2, ymin_ax2, ymax = set_axes(ax1, ax2, xlims, ylims, linthreshold,
-        elem, minpos, maxneg,
-        ax1_fitinterpolpts, ax2max_fitinterpolpts, ax2min_fitinterpolpts)
+    ax1, ax2, ymin_ax2, ymax = set_axes(
+        ax1,
+        ax2,
+        xlims,
+        ylims,
+        linthreshold,
+        elem,
+        minpos,
+        maxneg,
+        ax1_fitinterpolpts,
+        ax2max_fitinterpolpts,
+        ax2min_fitinterpolpts,
+    )
 
-    ax1.plot(elem.mphis, np.nanmin([np.abs(minpos), np.abs(maxneg)], axis=0),
-        color=det_colour)
+    ax1.plot(
+        elem.mphis,
+        np.nanmin([np.abs(minpos), np.abs(maxneg)], axis=0),
+        color=det_colour,
+    )
 
-    ax1.fill_between(elem.mphis,
-        np.nanmin([np.abs(minpos), np.abs(maxneg)], axis=0), ymax,
-        label=det_label + ' ' + str(nsigmas) + r'$\sigma$-excluded',
-        color=det_colour, alpha=.3)
+    ax1.fill_between(
+        elem.mphis,
+        np.nanmin([np.abs(minpos), np.abs(maxneg)], axis=0),
+        ymax,
+        label=det_label + " " + str(nsigmas) + r"$\sigma$-excluded",
+        color=det_colour,
+        alpha=0.3,
+    )
 
     ax2.plot(elem.mphis, minpos, color=det_colour)  # , label=det_label)
     ax2.plot(elem.mphis, maxneg, color=det_colour)
     ax2.scatter(elem.mphis, minpos, color=det_colour, s=1)
     ax2.scatter(elem.mphis, maxneg, color=det_colour, s=1)
 
-    ax2.fill_between(elem.mphis, minpos, ymax, color=det_colour, alpha=.3,
-        label=det_label + ' ' + str(nsigmas) + r'$\sigma$-excluded')
-    ax2.fill_between(elem.mphis, ymin_ax2, maxneg, color=det_colour, alpha=.3)
+    ax2.fill_between(
+        elem.mphis,
+        minpos,
+        ymax,
+        color=det_colour,
+        alpha=0.3,
+        label=det_label + " " + str(nsigmas) + r"$\sigma$-excluded",
+    )
+    ax2.fill_between(elem.mphis, ymin_ax2, maxneg, color=det_colour, alpha=0.3)
 
     if len(alphalist) > 0:
-        ax1.fill_between(elem.mphis, ax1_fitinterpolpts, ymax, color=fit_colour,
-            alpha=.3, label='fit ' + str(nsigmas) + r'$\sigma$-excluded')
-        ax2.fill_between(elem.mphis, ax2max_fitinterpolpts, ymax,
-            color=fit_colour, alpha=.3,
-            label='fit ' + str(nsigmas) + r'$\sigma$-excluded')
-        ax2.fill_between(elem.mphis, ymin_ax2, ax2min_fitinterpolpts,
-            color=fit_colour, alpha=.3,
-            label='fit ' + str(nsigmas) + r'$\sigma$-excluded')
+        ax1.fill_between(
+            elem.mphis,
+            ax1_fitinterpolpts,
+            ymax,
+            color=fit_colour,
+            alpha=0.3,
+            label="fit " + str(nsigmas) + r"$\sigma$-excluded",
+        )
+        ax2.fill_between(
+            elem.mphis,
+            ax2max_fitinterpolpts,
+            ymax,
+            color=fit_colour,
+            alpha=0.3,
+            label="fit " + str(nsigmas) + r"$\sigma$-excluded",
+        )
+        ax2.fill_between(
+            elem.mphis,
+            ymin_ax2,
+            ax2min_fitinterpolpts,
+            color=fit_colour,
+            alpha=0.3,
+            label="fit " + str(nsigmas) + r"$\sigma$-excluded",
+        )
 
     ax1.legend(loc="upper left", fontsize="9")
     ax2.legend(loc="upper left", fontsize="9")
@@ -514,10 +738,113 @@ def plot_mphi_alphaNP(elem, alphalist, llist, gkpdims, nmgkpdims, ndetsamples,
     else:
         prettyplotname = plotname + "_"
 
-    fig1.savefig(_plot_path + "/mphi_abs_alphaNP_" + elem.id + "_"
-        + prettyplotname + str(len(alphalist[0])) + "_fit_samples.pdf")
+    fig1.savefig(
+        _plot_path
+        + "/mphi_abs_alphaNP_"
+        + elem.id
+        + "_"
+        + prettyplotname
+        + str(len(alphalist[0]))
+        + "_fit_samples.pdf"
+    )
 
-    fig2.savefig(_plot_path + "/mphi_alphaNP_" + elem.id + "_"
-        + prettyplotname + str(len(alphalist[0])) + "_fit_samples.pdf")
+    fig2.savefig(
+        _plot_path
+        + "/mphi_alphaNP_"
+        + elem.id
+        + "_"
+        + prettyplotname
+        + str(len(alphalist[0]))
+        + "_fit_samples.pdf"
+    )
 
     return fig1, ax1, fig2, ax2
+
+def draw_mc_output(
+    elem,
+    paramlist,
+    llist,
+    x=0,
+    confints=True,
+    nsigmas=[1, 2],
+    dof=1,
+    showGKP=False,
+    showNMGKP=False,
+    xlabel="x",
+    ylabel=r"$\Delta \chi^2$",
+    plotname="testplot",
+    xlims=[None, None],
+    ylims=[None, None],
+    show=False,
+    parabolic_fit=True,
+):
+    """
+    Draw 2-dimensional scatter plot showing the likelihood associated with the
+    parameter values given in paramlist. If the lists were computed for multiple
+    X-coefficients, the argument x can be used to access a given set of samples.
+    The resulting plot is saved in plots directory under plotname.
+    """
+    delchisqlist = get_delchisq(llist)
+
+    fig, ax = plt.subplots()
+    ax.scatter(paramlist, delchisqlist, s=1)
+
+    if parabolic_fit:
+
+        def parabola(x, a, b, c):
+            return a * x**2 + b * x + c
+
+        scipy_p, _ = curve_fit(
+            f=parabola,
+            xdata=paramlist,
+            ydata=delchisqlist,
+            p0=[1.0 / elem.alphaNP, 0.0, 0.0],
+        )
+        fit_predictions = parabola(paramlist, *scipy_p)
+        fit_minimum_index = np.argmin(fit_predictions)
+        ax.plot(
+            paramlist,
+            fit_predictions,
+            color="black",
+            ls="--",
+            lw=1,
+            label=rf"$\alpha$ fit min: {paramlist[fit_minimum_index]:.4e}",
+        )
+
+    ax.scatter(paramlist, delchisqlist, s=1, alpha=0.5, color="royalblue")
+
+    if confints:
+        for ns in nsigmas:
+            delchisqcrit = get_delchisq_crit(nsigmas=ns, dof=dof)
+            parampos = get_confints(
+                paramlist, delchisqlist, delchisqcrit,
+            )
+            ax.axvspan(np.min(parampos), np.max(parampos), alpha=0.5, color="darkgreen")
+            ax.axvspan(np.min(parampos), np.max(parampos), alpha=0.5, color="red")
+            if ns == 1:
+                hlinels = "--"
+            else:
+                hlinels = "-"
+            ax.axhline(y=delchisqcrit, color="orange", linewidth=1, linestyle=hlinels)
+    if showGKP:
+        for aNP in elem.alphaNP_GKP:
+            ax.axhline  # continue here
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_xlim(xlims[0], xlims[1])
+    ax.set_ylim(ylims[0], ylims[1])
+    #plt.savefig(_plot_path + "/" + plotname + ".pdf")
+    plt.legend()
+    plt.savefig(_plot_path + "/" + plotname + ".png")
+    if show:
+        plt.show()
+    return 0
+
+
+def plot_parabolic_fit(alphas, ll, predictions):
+    """Plot generated data and parabolic fit."""
+
+    plt.figure(figsize=(10, 10*6/8))
+    plt.scatter(ll, alphas, color="orange")
+    plt.plot(ll, predictions, color="black", lw=1.5)
+    plt.savefig("parabola.png")
