@@ -775,8 +775,7 @@ def draw_mc_output(
     plotname="testplot",
     xlims=[None, None],
     ylims=[None, None],
-    show=False,
-    parabolic_fit=True,
+    show=False
 ):
     """
     Draw 2-dimensional scatter plot showing the likelihood associated with the
@@ -788,28 +787,6 @@ def draw_mc_output(
 
     fig, ax = plt.subplots()
     ax.scatter(paramlist, delchisqlist, s=1)
-
-    if parabolic_fit:
-
-        def parabola(x, a, b, c):
-            return a * x**2 + b * x + c
-
-        scipy_p, _ = curve_fit(
-            f=parabola,
-            xdata=paramlist,
-            ydata=delchisqlist,
-            p0=[1.0 / elem.alphaNP, 0.0, 0.0],
-        )
-        fit_predictions = parabola(paramlist, *scipy_p)
-        fit_minimum_index = np.argmin(fit_predictions)
-        ax.plot(
-            paramlist,
-            fit_predictions,
-            color="black",
-            ls="--",
-            lw=1,
-            label=rf"$\alpha$ fit min: {paramlist[fit_minimum_index]:.4e}",
-        )
 
     ax.scatter(paramlist, delchisqlist, s=1, alpha=0.5, color="royalblue")
 
@@ -841,10 +818,11 @@ def draw_mc_output(
     return 0
 
 
-def plot_parabolic_fit(alphas, ll, predictions):
+def plot_parabolic_fit(alphas, ll, predictions, parabola_a=None):
     """Plot generated data and parabolic fit."""
 
     plt.figure(figsize=(10, 10*6/8))
     plt.scatter(alphas, ll, color="orange")
     plt.plot(alphas, predictions, color="black", lw=1.5)
-    plt.savefig("parabola.png")
+    plt.title(parabola_a)
+    plt.savefig(f"parabola_{parabola_a}.png")

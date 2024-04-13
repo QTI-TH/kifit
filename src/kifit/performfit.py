@@ -1,4 +1,5 @@
 import os
+from copy import deepcopy
 
 import numpy as np
 
@@ -262,10 +263,9 @@ def generate_alphaNP_sample(
 def compute_sample_ll(
     elem,
     element_samples,
-    mphivar: bool = False,
     save_sample: bool = False,
     search_mode: str = "random",
-    delta: float = 0.3,
+    delta: float = 0.5,
     parabolic_fit: bool = False,
 ):
     """
@@ -274,9 +274,6 @@ def compute_sample_ll(
     Args:
         elem (Elem): target element.
         nsamples (int): number of samples.
-        mphivar (bool): if ``True``, this procedure is repeated for all
-            X-coefficients provided for elem.
-        save_sample (bool): if ``True``, the parameters and alphaNP samples are saved.
 
     Return:
         List[float], List[float]: alphaNP samples and list of associated log likelihood.
@@ -288,31 +285,19 @@ def compute_sample_ll(
         elem=elem, nsamples=nsamples, search_mode=search_mode, delta=delta
     )
 
-    allabsdsamples = []
+    absdsamples = []
 
-    if mphivar:
-        Nx = len(elem.Xcoeff_data)
-    else:
-        Nx = 1
-
-    for x in range(Nx):
-        elem._update_Xcoeffs(x)
-
-        absdsamples = []
-
-        for s in range(nsamples):
-            elem._update_elem_params(element_samples[s])
-            elem._update_fit_params(fit_params_samples[s])
-            absdsamples.append(elem.absd)
-
-    allabsdsamples.append(absdsamples)
+    for s in range(nsamples):
+        elem._update_elem_params(element_samples[s])
+        elem._update_fit_params(fit_params_samples[s])
+        absdsamples.append(elem.absd)
 
     if save_sample:
         np.save(arr=element_samples, file="parameters_samples")
         np.save(arr=fit_params_samples, file="fit_params_samples")
 
     generated_alphaNP_list = fit_params_samples[:, -1]
-    generated_ll_list = get_llist(np.array(allabsdsamples).squeeze(), nsamples)
+    generated_ll_list = get_llist(absdsamples, nsamples)
 
     np.save(arr=generated_alphaNP_list, file="generated_alphas")
     np.save(arr=generated_ll_list, file="generated_ll")
@@ -344,14 +329,16 @@ def compute_sample_ll(
         # reconstruct the best alphaNP applying the inverse of the normalization
         best_alphaNP = validation_x_data[minimum_index] * scale_factor + min(generated_alphaNP_list)
 
-        print(f"x_min: {best_alphaNP}") 
-
         # perform parabolic fit
         plot_parabolic_fit(
             normed_alpha_list,
             delchisq_list, 
-            parabola(normed_alpha_list, *popt)
+            parabola(normed_alpha_list, *popt),
+            parabola_a=popt[0]
         )
+
+    if parabolic_fit:
+        return generated_alphaNP_list, generated_ll_list, best_alphaNP, popt[0]
 
     return generated_alphaNP_list, generated_ll_list 
 
@@ -363,6 +350,8 @@ def calculate_grid_delta(alphaNP_list, ll_list, delta_alpha_ratio: float = 0.5):
     """
     best_ll_index = np.argmin(ll_list)
     nsamples = len(alphaNP_list)
+
+    print(best_ll_index, nsamples)
 
     if best_ll_index >= int(nsamples / 2):
         critical_alphas_interval = alphaNP_list[best_ll_index:]
@@ -377,85 +366,81 @@ def calculate_grid_delta(alphaNP_list, ll_list, delta_alpha_ratio: float = 0.5):
 def iterative_mc_search(
     elem,
     n_sampled_elems: int = 1000,
-    nblocks = 10,
     mphivar: bool = False,
     delta_alpha_ratio: float = 0.8,
     niter: int = 3,
-    return_history: bool = True,
+    nx: int = 0,
+    # big_n = 10000,
 ):
     """Perform iterative search."""
 
-    from kifit.plotfit import draw_mc_output
+    # set the mass index
+    elem._update_Xcoeffs(nx)
 
-    best_alphas, best_ll = [], []
+    elem_history = []
 
+    # initializing iterative MC parameters
+    delta = elem.sig_alphaNP_init
+    new_parabola_param_a = 1e8
+    parabola_param_a = 1e8
 
-    for i in tqdm(range(niter)):
-
-        if (i == niter-1):
-            # sample nblocks number of elements
-            block_size = n_sampled_elems
-            n_sampled_elems *= nblocks
-
+    while (new_parabola_param_a > 150):
+        # generate element sample
         element_samples = generate_element_sample(elem, n_sampled_elems)
 
-        if i == 0:
-            alphas, ll = compute_sample_ll(
-                elem,
-                element_samples=element_samples,
-                mphivar=mphivar,
-                search_mode="random",
-            )
-        else:
-            if (i == niter-1):
-                for block in range(nblocks):
-                    alphas, ll = compute_sample_ll(
-                        elem,
-                        element_samples=element_samples[block*block_size: (block+1)*block_size],
-                        mphivar=mphivar,
-                        search_mode="grid",
-                        delta=delta,
-                    ) 
-            else:
-                alphas, ll = compute_sample_ll(
-                    elem,
-                    element_samples=element_samples,
-                    mphivar=mphivar,
-                    search_mode="grid",
-                    delta=delta,
-                    parabolic_fit=True,
-                )
-            exit()
+        # generate sample and fit with a parabola and updated delta
+        alphas, ll, new_best_alpha, new_parabola_param_a = compute_sample_ll(
+            elem,
+            element_samples=element_samples,
+            search_mode="grid",
+            delta=delta,
+            parabolic_fit=True,
+        )      
 
-
-        best_index = np.argmin(ll)
-        elem.alphaNP = alphas[best_index]
-        best_alphas.append(alphas[best_index])
-
-        best_ll.append(ll[best_index])
-
-        if i == 0:
-            delta = elem.sig_alphaNP_init
-            print(elem.sig_alphaNP_init)
-            parabolic_fit = False
-        else:
+        # if we still in search
+        if new_parabola_param_a > 150:
             delta = calculate_grid_delta(alphas, ll, delta_alpha_ratio)
-            parabolic_fit = False
-        
-        print(delta)
+            parabola_param_a = new_parabola_param_a
+            elem.alphaNP = new_best_alpha
 
-        draw_mc_output(
-            elem, alphas, get_delchisq(ll), plotname=f"{i}", parabolic_fit=parabolic_fit
-        )
+            elem_history.append(deepcopy(elem))
 
-    # best of bests
-    winner_index = np.argmin(best_ll)
-    winner_alpha = best_alphas[winner_index]
+            import matplotlib.pyplot as plt
+            plt.figure()
+            plt.scatter(alphas, ll)
+            plt.savefig(f"test_{parabola_param_a}.png")
 
-    if return_history:
-        return alphas, ll, best_alphas, best_ll, winner_alpha
-    else:
-        return alphas, ll
+            print(f"alphaNP: {elem.alphaNP}, delta: {delta}")
+
+
+        else:
+            elem = elem_history[-1]
+            print(f"Breaking loop. Keeping alphaNP with param {parabola_param_a} and alpha: {elem.alphaNP}")
+
+    
+    print(f"Check value parameter: {parabola_param_a}")
+    print(f"alphaNP: {elem.alphaNP}, delta: {delta}")
+
+    best_alphas = []
+
+    for i in tqdm(range(niter)):
+        element_samples = generate_element_sample(elem, n_sampled_elems)
+        alphas, ll, best_alpha, _ = compute_sample_ll(
+            elem,
+            element_samples=element_samples,
+            search_mode="grid",
+            delta=delta,
+            parabolic_fit=True,
+        ) 
+
+        exit()
+
+        best_alphas.append(best_alpha)
+    
+    alpha_mean = np.mean(best_alphas)
+    alpha_std = np.std(best_alphas)
+
+    return alpha_mean, alpha_std
 
 
 def get_delchisq(llist):
