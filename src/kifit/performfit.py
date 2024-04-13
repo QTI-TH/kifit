@@ -366,25 +366,25 @@ def calculate_grid_delta(alphaNP_list, ll_list, delta_alpha_ratio: float = 0.5):
 def iterative_mc_search(
     elem,
     n_sampled_elems: int = 1000,
-    mphivar: bool = False,
     delta_alpha_ratio: float = 0.8,
     niter: int = 3,
     nx: int = 0,
-    # big_n = 10000,
+    big_n = 10000,
 ):
     """Perform iterative search."""
 
     # set the mass index
     elem._update_Xcoeffs(nx)
 
-    elem_history = []
+    delta_history = []
 
     # initializing iterative MC parameters
     delta = elem.sig_alphaNP_init
     new_parabola_param_a = 1e8
     parabola_param_a = 1e8
+    threshold_a = 150
 
-    while (new_parabola_param_a > 150):
+    while (new_parabola_param_a > threshold_a):
         # generate element sample
         element_samples = generate_element_sample(elem, n_sampled_elems)
 
@@ -398,28 +398,21 @@ def iterative_mc_search(
         )      
 
         # if we still in search
-        if new_parabola_param_a > 150:
+        if new_parabola_param_a > threshold_a:
+            delta_history.append(delta)
             delta = calculate_grid_delta(alphas, ll, delta_alpha_ratio)
             parabola_param_a = new_parabola_param_a
             elem.alphaNP = new_best_alpha
-
-            elem_history.append(deepcopy(elem))
 
             import matplotlib.pyplot as plt
             plt.figure()
             plt.scatter(alphas, ll)
             plt.savefig(f"test_{parabola_param_a}.png")
 
-            print(f"alphaNP: {elem.alphaNP}, delta: {delta}")
-
 
         else:
-            elem = elem_history[-1]
-            print(f"Breaking loop. Keeping alphaNP with param {parabola_param_a} and alpha: {elem.alphaNP}")
+            delta =[-1]
 
-    
-    print(f"Check value parameter: {parabola_param_a}")
-    print(f"alphaNP: {elem.alphaNP}, delta: {delta}")
 
     best_alphas = []
 
@@ -432,8 +425,6 @@ def iterative_mc_search(
             delta=delta,
             parabolic_fit=True,
         ) 
-
-        exit()
 
         best_alphas.append(best_alpha)
     

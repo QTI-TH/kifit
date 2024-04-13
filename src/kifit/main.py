@@ -12,7 +12,8 @@ ca._update_Xcoeffs(10)
 result = iterative_mc_search(
     elem=ca,
     n_sampled_elems=5000,
-    mphivar=False,
     niter=10,
     delta_alpha_ratio=0.99
 )
+
+print(f"Final estimation: {result[0]} +- {result[1]}")
