@@ -255,7 +255,6 @@ def generate_alphaNP_sample(
         alphaNP_samples = np.linspace(
             init_alphaNP - delta, init_alphaNP + delta, nsamples
         )
-        print(f"New search interval: [{init_alphaNP - delta}, {init_alphaNP + delta}]")
 
     return alphaNP_samples
 
@@ -267,6 +266,7 @@ def compute_sample_ll(
     search_mode: str = "random",
     delta: float = 0.5,
     parabolic_fit: bool = False,
+    plot_parabola: bool = False,
 ):
     """
     Generate alphaNP list for element ``elem`` according to ``parameters_samples``.
@@ -329,13 +329,14 @@ def compute_sample_ll(
         # reconstruct the best alphaNP applying the inverse of the normalization
         best_alphaNP = validation_x_data[minimum_index] * scale_factor + min(generated_alphaNP_list)
 
-        # perform parabolic fit
-        plot_parabolic_fit(
-            normed_alpha_list,
-            delchisq_list, 
-            parabola(normed_alpha_list, *popt),
-            parabola_a=popt[0]
-        )
+        # plot parabola
+        if plot_parabola:
+            plot_parabolic_fit(
+                normed_alpha_list,
+                delchisq_list, 
+                parabola(normed_alpha_list, *popt),
+                parabola_a=popt[0]
+            )
 
     if parabolic_fit:
         return generated_alphaNP_list, generated_ll_list, best_alphaNP, popt[0]
@@ -351,8 +352,6 @@ def calculate_grid_delta(alphaNP_list, ll_list, delta_alpha_ratio: float = 0.5):
     best_ll_index = np.argmin(ll_list)
     nsamples = len(alphaNP_list)
 
-    print(best_ll_index, nsamples)
-
     if best_ll_index >= int(nsamples / 2):
         critical_alphas_interval = alphaNP_list[best_ll_index:]
     else:
@@ -366,7 +365,7 @@ def calculate_grid_delta(alphaNP_list, ll_list, delta_alpha_ratio: float = 0.5):
 def iterative_mc_search(
     elem,
     n_sampled_elems: int = 1000,
-    delta_alpha_ratio: float = 0.8,
+    delta_alpha_ratio: float = 0.9,
     niter: int = 3,
     nx: int = 0,
     big_n = 10000,
@@ -376,7 +375,7 @@ def iterative_mc_search(
     # set the mass index
     elem._update_Xcoeffs(nx)
 
-    delta_history = []
+    delta_history, alphas_history = [], []
 
     # initializing iterative MC parameters
     delta = elem.sig_alphaNP_init
@@ -397,34 +396,43 @@ def iterative_mc_search(
             parabolic_fit=True,
         )      
 
+        print(f"Executed parabolic fit with parameter a: {new_parabola_param_a}")
+
         # if we still in search
         if new_parabola_param_a > threshold_a:
+            # tracking search history
             delta_history.append(delta)
+            alphas_history.append(new_best_alpha)
+
             delta = calculate_grid_delta(alphas, ll, delta_alpha_ratio)
             parabola_param_a = new_parabola_param_a
             elem.alphaNP = new_best_alpha
 
-            import matplotlib.pyplot as plt
-            plt.figure()
-            plt.scatter(alphas, ll)
-            plt.savefig(f"test_{parabola_param_a}.png")
+            # import matplotlib.pyplot as plt
+            # plt.figure()
+            # plt.scatter(alphas, ll)
+            # plt.savefig(f"test_{parabola_param_a}.png")
 
 
         else:
-            delta =[-1]
+            delta = delta_history[-1]
+            elem.alphaNP = alphas_history[-1]
 
+    print(alphas_history)
 
     best_alphas = []
 
     for i in tqdm(range(niter)):
+        elem.alphaNP = alphas_history[-1]
+
         element_samples = generate_element_sample(elem, n_sampled_elems)
-        alphas, ll, best_alpha, _ = compute_sample_ll(
+        alphas, ll, best_alpha, new_parabola_param_a = compute_sample_ll(
             elem,
             element_samples=element_samples,
             search_mode="grid",
             delta=delta,
             parabolic_fit=True,
-        ) 
+        )      
 
         best_alphas.append(best_alpha)
     
