@@ -16,6 +16,14 @@ _data_path = os.path.abspath(os.path.join(
 ))
 
 
+# Unit conversions
+eV_to_u = 1 / 931494102.42  # conversion of electronvolt to atomic units
+
+# Constants
+m_e = 548.579909065e-6  # electron mass in atomic units (u), TIESINGA 2021 (CODATA 2018)
+sig_m_e = 1.6e-14  # uncertainty on electron mass in atomic units (u), TIESINGA 2021 (CODATA 2018)
+
+
 def sec(x: float):
     """
     Compute secant.
@@ -59,9 +67,12 @@ class Elem:
     # Load raw data from data folder
     # VALID_ELEM = ['Ca']
     VALID_ELEM = user_elems
-    INPUT_FILES = ['nu', 'signu', 'isotopes', 'Xcoeffs', 'sigXcoeffs']
-    elem_init_atr = ['nu_in', 'sig_nu_in', 'isotope_data', 'Xcoeff_data',
-        'sig_Xcoeff_data']
+    INPUT_FILES = [
+        'nu', 'sig_nu', 'isotopes', 'binding_energies',
+        'Xcoeffs', 'sig_Xcoeffs']
+    elem_init_atr = [
+        'nu_in', 'sig_nu_in', 'isotope_data', 'Eb_data',
+        'Xcoeff_data', 'sig_Xcoeff_data']
 
     def __init__(self, element: str):
         """
@@ -75,8 +86,10 @@ class Elem:
 
         print("Loading raw data")
         self.id = element
-        self._init_elem()
+        self._init_elemdata()
+        self._init_masses()
         self._init_Xcoeffs()
+        self._init_MC()
         self._init_fit_params()
 
     def __load(self, atr: str, file_type: str, file_path: str):
@@ -90,31 +103,57 @@ class Elem:
 
         setattr(self, atr, val)
 
-    def _init_elem(self):
+    def _init_elemdata(self):
+        # load data from elem folder
         for (i, file_type) in enumerate(self.INPUT_FILES):
             if len(self.INPUT_FILES) != len(self.elem_init_atr):
                 raise NameError("""Number of INPUT_FILES does not match number
                 of elem_init_atr.""")
 
-            file_name = file_type + self.id + '.dat'
+            file_name = file_type + '_' + self.id + '.dat'
             file_path = os.path.join(_data_path, self.id, file_name)
 
             # if not os.path.exists(file_path):
             #     raise ImportError(f"Path {file_path} does not exist.")
             self.__load(self.elem_init_atr[i], file_type, file_path)
 
-        self.nu = self.nu_in
-        self.sig_nu = self.sig_nu_in
+    def _init_masses(self):
+        """
+        Compute nuclear masses from masses of neutral atoms, the electron mass
+        and the binding energies, initialise masses.
 
-        self.m_a_in = self.isotope_data[1]
-        self.m_a = self.m_a_in
-        self.sig_m_a_in = self.isotope_data[2]
+        """
+        if self.id == "Ca_testdata":  # for comparison with Mathematica results
+            self.m_a_in = self.isotope_data[1]
+            self.sig_m_a_in = self.isotope_data[2]
+            self.m_ap_in = self.isotope_data[4]
+            self.sig_m_ap_in = self.isotope_data[5]
 
-        self.m_ap_in = self.isotope_data[4]
-        self.m_ap = self.m_ap_in
-        self.sig_m_ap_in = self.isotope_data[5]
+        else:
+            # masses & uncertainties of neutral atoms
+            m_a_0 = self.isotope_data[1]
+            sig_m_a_0 = self.isotope_data[2]
 
-        self.dnorm = np.mean(self.nu_in / self.sig_nu_in)
+            m_ap_0 = self.isotope_data[4]
+            sig_m_ap_0 = self.isotope_data[5]
+
+            # ionisation energies in eV
+            Eb = self.Eb_data.T[0] * (-1) * eV_to_u
+            sig_Eb = self.Eb_data.T[1] * (-1) * eV_to_u
+            n_electrons = len(Eb)
+
+            # nuclear masses
+            self.m_a_in = m_a_0 - n_electrons * m_e + np.sum(Eb)
+            self.sig_m_a_in = np.sqrt(
+                sig_m_a_0**2
+                + (n_electrons * sig_m_e)**2
+                + sig_Eb @ sig_Eb)
+
+            self.m_ap_in = m_ap_0 - n_electrons * m_e + np.sum(Eb)
+            self.sig_m_ap_in = np.sqrt(
+                sig_m_ap_0**2
+                + (n_electrons * sig_m_e)**2
+                + sig_Eb @ sig_Eb)
 
     def _init_Xcoeffs(self):
         """
@@ -131,6 +170,19 @@ class Elem:
             X-coefficients and their uncertainties.""")
         else:
             self.sig_Xvec = self.sig_Xcoeff_data[0, 1:]
+
+    def _init_MC(self):
+        """
+        Initialise attributes used in Monte Carlo.
+
+        """
+        self.nu = self.nu_in
+        self.sig_nu = self.sig_nu_in
+        self.m_a = self.m_a_in
+        self.m_ap = self.m_ap_in
+
+        # initialise dvec rescaling factor
+        self.dnorm = 1.  # np.mean(self.nu_in / self.sig_nu_in)
 
     def _init_fit_params(self):
         """
@@ -155,12 +207,14 @@ class Elem:
         self.ph1 = self.ph1_init
         self.alphaNP = self.alphaNP_init
 
-        self.sig_alphaNP_init = np.absolute(np.max(self.absd) / np.min(
-            np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))
+        self.sig_alphaNP_init = 1
+
+        # self.sig_alphaNP_init = np.absolute(np.max(self.absd) / np.min(
+        #     np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))
         print("sig_alphaNP_init", self.sig_alphaNP_init)
 
     @update_fct
-    def set_alphaNP_init(self, alpha, sigalpha=None):
+    def set_alphaNP_init(self, alpha, sigalpha):
         """
         Set alphaNP_init to alpha and sig_alphaNP_init to sigalpha. Useful if
 
@@ -171,9 +225,11 @@ class Elem:
         """
         if hasattr(alpha, "__len__"):
             raise ValueError("""alphaNP is a scalar.""")
+        if hasattr(sigalpha, "__len__"):
+            raise ValueError("""sig_alphaNP is a scalar.""")
+
         self.alphaNP_init = alpha
-        if sigalpha is not None:
-            self.sig_alphaNP_init = sigalpha
+        self.sig_alphaNP_init = sigalpha
 
     def __repr__(self):
         return self.id + '[' + ','.join(list(self.__dict__.keys())) + ']'
@@ -207,6 +263,11 @@ class Elem:
                     X-coefficients and their uncertainties.""")
         else:
             self.sig_Xvec = self.sig_Xcoeff_data[x, 1:]
+
+        # self.sig_alphaNP_init = np.min([np.absolute(
+        #     np.average(self.absd / np.min(
+        #         np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))), 1])
+
 
         # TODO: what's the best way to compute sig_alphaNP with the new X coeff?
 
@@ -396,7 +457,7 @@ class Elem:
 
             mu = 1 / m_a - 1 / m_a'
 
-        where a, a` are isotope pairs and m_a, m_a' are the masses given by the
+        where a, a' are isotope pairs and m_a, m_a' are the masses given by the
         input files. muvec is an (nisotopepairs)-vector.
 
         """
@@ -415,7 +476,11 @@ class Elem:
         This is a (nisotopepairs x ntransitions)-matrix.
 
         """
+        print("nu-in shape", (self.nu_in).shape)
+        print("mu-in shape", (self.muvec_in).shape)
+        # return np.divide(self.nu_in.T, self.muvec_in).T
         return np.divide(self.nu_in.T, self.muvec_in).T
+
 
     @cached_fct_property
     def mu_norm_isotope_shifts(self):

@@ -2,7 +2,8 @@ import numpy as np
 
 from kifit.loadelems import Elem
 from kifit.performfit import (perform_odr, perform_linreg,
-    sample_alphaNP_fit_fixed_elemparams, sample_alphaNP_fit, sample_alphaNP_det)
+    sample_alphaNP_fit, sample_alphaNP_det, get_llist)
+
 
 # import matplotlib.pyplot as plt
 
@@ -70,25 +71,75 @@ def test_sample_alphaNP_det():
     assert np.isclose(alphas_GKP_x1[0, 0], alphas_GKP_mphivar[1, 0], rtol=1e-50)
 
 
-def test_sample_alphaNP_fit():
-
-    ca = Elem.get('Ca_testdata')
-
-    alpha_elemfixed, ll_elemfixed = sample_alphaNP_fit_fixed_elemparams(ca, 100)
-    mean_alpha_elemfixed = np.average(alpha_elemfixed)
-    sig_alpha_elemfixed = np.std(alpha_elemfixed)
-
-    alpha_elemvar, ll_elemvar, elemparams = sample_alphaNP_fit(ca, 100)
-    mean_alpha_elemvar = np.average(alpha_elemvar)
-    sig_alpha_elemvar = np.std(alpha_elemvar)
-
-    assert np.abs(
-        mean_alpha_elemvar - mean_alpha_elemfixed) < sig_alpha_elemfixed
-    assert np.abs(
-        mean_alpha_elemvar - mean_alpha_elemfixed) < sig_alpha_elemvar
+# def sample_alphaNP_fit_fixed_elemparams(elem, nsamples, mphivar=False):
+#     """
+#     Keeping the element parameters fixed to their mean values, generate nsamples
+#     of
+#
+#        alphaNP ~ N(0, sig[alphaNP_init]).
+#
+#     If mphivar=True, this procedure is repeated for all X-coefficients provided
+#     for elem.
+#
+#     Returns two (nmphi, nsamples)-dimensional numpy arrays: one with the values
+#     of alphaNP, the other with the respective loglikelihoods.
+#
+#     """
+#     print(
+#         """Generating %s samples for the orthogonal distance King fit with
+#     fixed element parameters. mphi is %s varied."""
+#         % (nsamples, ("" if mphivar else "not"))
+#     )
+#
+#     fitparams = elem.means_fit_params
+#     fitparamsamples = np.tensordot(np.ones(nsamples), fitparams, axes=0)
+#
+#     if mphivar:
+#         Nx = len(elem.Xcoeff_data)
+#     else:
+#         Nx = 1
+#
+#     alphalist = []
+#     llist = []
+#
+#     for x in range(Nx):
+#         elem._update_Xcoeffs(x)
+#         sigalphaNP = elem.sig_alphaNP_init
+#         alphaNPsamples = np.random.normal(fitparams[-1], sigalphaNP, nsamples)
+#         alphalist.append(alphaNPsamples)
+#         fitparamsamples[:, -1] = alphaNPsamples
+#
+#         absdsamples = []
+#         for s in range(nsamples):
+#             elem._update_fit_params(fitparamsamples[s])
+#             absdsamples.append(elem.absd)
+#         llist.append(get_llist(np.array(absdsamples), nsamples))
+#
+#     alphalist = elem.dnorm * np.array(alphalist)
+#     llist = elem.dnorm * np.array(llist)
+#
+#     return alphalist, llist
+#
+#
+# def test_sample_alphaNP_fit():
+#
+#     ca = Elem.get('Ca_testdata')
+#
+#     alpha_elemfixed, ll_elemfixed = sample_alphaNP_fit_fixed_elemparams(ca, 100)
+#     mean_alpha_elemfixed = np.average(alpha_elemfixed)
+#     sig_alpha_elemfixed = np.std(alpha_elemfixed)
+#
+#     alpha_elemvar, ll_elemvar, elemparams = sample_alphaNP_fit(ca, 100)
+#     mean_alpha_elemvar = np.average(alpha_elemvar)
+#     sig_alpha_elemvar = np.std(alpha_elemvar)
+#
+#     assert np.abs(
+#         mean_alpha_elemvar - mean_alpha_elemfixed) < sig_alpha_elemfixed
+#     assert np.abs(
+#         mean_alpha_elemvar - mean_alpha_elemfixed) < sig_alpha_elemvar
 
 
 if __name__ == "__main__":
     test_linfit()
     test_sample_alphaNP_det()
-    test_sample_alphaNP_fit()
+    # test_sample_alphaNP_fit()

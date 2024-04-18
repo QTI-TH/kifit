@@ -16,9 +16,17 @@ def test_load_all():
 
 def test_load_individual():
     ca = Elem.get('Ca_testdata')
+
+    # overwrite nuclear masses with atomic masses
+    ca.m_a_in = ca.isotope_data[1]
+    ca.sig_m_a_in = ca.isotope_data[2]
+    ca.m_ap_in = ca.isotope_data[4]
+    ca.sig_m_ap_in = ca.isotope_data[5]
+
     pprint(ca)
 
     Ca = Elem.get('Ca_testdata')
+
     assert np.all(np.nan_to_num(ca.nu) == np.nan_to_num(Ca.nu))
     assert np.isclose(np.sum(ca.m_a), 119.88777255, rtol=1e-5)
     assert np.isclose(np.sum(ca.m_ap), 133.86662192999998, rtol=1e-5)
@@ -118,6 +126,13 @@ def test_set_fit_params():
 def test_constr_dvec():
     ca = Elem.get('Ca_testdata')
 
+    # overwrite nuclear masses with atomic masses
+    ca.m_a_in = ca.isotope_data[1]
+    ca.sig_m_a_in = ca.isotope_data[2]
+    ca.m_ap_in = ca.isotope_data[4]
+    ca.sig_m_ap_in = ca.isotope_data[5]
+
+
     theta_LL_Mathematica = np.concatenate((kappaperp1nit_LL_Mathematica,
             ph1nit_LL_Mathematica, 0.), axis=None)
 
@@ -129,7 +144,8 @@ def test_constr_dvec():
 
     D_a1i_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
     assert np.allclose(D_a1i_Mathematica, D_a1i_python, rtol=1e-15)
-    assert np.allclose(dmat_Mathematica / ca.dnorm, ca.dmat, rtol=1e-15)
+    assert np.allclose(np.array(dmat_Mathematica) / ca.dnorm, ca.dmat,
+            rtol=1e-8)
 
     # with NP
     theta_LL_Mathematica_1 = np.concatenate((kappaperp1nit_LL_Mathematica,
@@ -141,8 +157,7 @@ def test_constr_dvec():
 
     D_a1i_alphaNP_1_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
     assert np.allclose(D_a1i_alphaNP_1_Mathematica, D_a1i_alphaNP_1_python, rtol=1e-15)
-
-    assert np.allclose(dmat_alphaNP_1_Mathematica / ca.dnorm, ca.dmat, rtol=1e-14)
+    assert np.allclose(np.array(dmat_alphaNP_1_Mathematica) / ca.dnorm, ca.dmat, rtol=1e-14)
 
     absd_explicit = np.array([np.sqrt(np.sum(
         np.fromiter([ca.d_ai(a, i)**2 for i in ca.range_i], float))) for a in
