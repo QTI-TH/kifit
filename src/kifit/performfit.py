@@ -220,18 +220,21 @@ def generate_alphaNP_sample(elem, nsamples: int, search_mode: str = "random"):
     return np.sort(alphaNP_samples)
 
 
-def update_alphaNP_for_next_iteration(elem, alphalist, llist,
-        scalefactor: float = .3):
+def update_alphaNP_for_next_iteration(
+        elem, 
+        alphalist, 
+        llist,
+        scalefactor: float = .3,
+        small_alphas_fraction = .1,
+    ):
     """
     Compute sig_alphaNP for next iteration.
 
     """
-    print("scalefactor", scalefactor)
-
     nsamples = len(alphalist)
     smalll = np.argsort(llist)
 
-    small_alphas = np.array([alphalist[ll] for ll in smalll[: int(nsamples / 10)]])
+    small_alphas = np.array([alphalist[ll] for ll in smalll[: int(nsamples * small_alphas_fraction)]])
 
     new_alpha = np.mean(small_alphas)
 
@@ -350,8 +353,6 @@ def parabolic_fit(elem, alphalist, llist, plotfit=False, plotname=None):
         from kifit.plotfit import plot_parabolic_fit
 
         plot_parabolic_fit(alphalist, llist, popt, plotname=plotname)
-        print("parameters used in parabolic fit")
-        print(popt)
 
     return popt
 
@@ -408,16 +409,24 @@ def get_confint(alphas, delchisqs, delchisqcrit):
         return np.array([0, 0])
 
 
-def iterative_mc_search(elem, nsamples,
-    nsigmas: int = 2, nblocks: int = 10, sigalphainit=1e-7,
-        scalefactor: float = 3e-1, maxiter: int = 3,
-        a_crit: int = 150, draw_output: bool = False, xind=0):
+def iterative_mc_search(
+        elem, 
+        search_n: int = 200,
+        experiment_n: int = 10000,
+        nsigmas: int = 2, 
+        nblocks: int = 10, 
+        sigalphainit=1e-7,
+        scalefactor: float = 3e-1, 
+        maxiter: int = 3,
+        a_crit: int = 150, 
+        draw_output: bool = False, 
+        xind=0):
     """
     Perform iterative search for best alphaNP value and the standard deviation.
 
     Args:
         elem (Elem): target element.
-        nsamples (int): number of samples.
+        search_n (int): number of samples.
         nsigmas (int): confidence level in standard deviations for which the
             upper and lower bounds are computed.
         nblocks (int): number of blocks used for the determination of the mean
@@ -446,19 +455,13 @@ def iterative_mc_search(elem, nsamples,
     lls_blocks = []
     bestalphas_blocks = []
 
-    for i in tqdm(range(maxiter)):
-        print()
-        print("i0", i)
-        print()
-
+    for i in range(maxiter):
+        print(f"Iterative searching step {i+1}")
         if i == 0:
-            print()
-            print("stage 0: i", i)
-            print()
             # 0: start with random search
             elem.set_alphaNP_init(0., sigalphainit)
 
-            alphasamples = generate_alphaNP_sample(elem, nsamples,
+            alphasamples = generate_alphaNP_sample(elem, search_n,
                 search_mode="random")
             alphas, lls = compute_ll(elem, alphasamples)
 
@@ -476,11 +479,9 @@ def iterative_mc_search(elem, nsamples,
 
         else:
             if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha / 5):
-                print()
-                print("stage1: i", i)
-                print()
+
                 # 1-> -1: switch to grid search
-                alphasamples = generate_alphaNP_sample(elem, nsamples,
+                alphasamples = generate_alphaNP_sample(elem, search_n,
                     search_mode="grid")
                 alphas, lls = compute_ll(elem, alphasamples)
 
@@ -498,17 +499,13 @@ def iterative_mc_search(elem, nsamples,
             else:
                 # -1: final round: perform parabolic fits and use blocking method to
                 # determine best alphaNP and confidence intervals
-                print()
-                print("final round")
-                print(i)
-                print()
-                allalphasamples = generate_alphaNP_sample(elem, nsamples * nblocks,
+                allalphasamples = generate_alphaNP_sample(elem, search_n * nblocks,
                     search_mode="grid")
                 np.random.shuffle(allalphasamples)
 
                 for block in range(nblocks):
                     alphasamples = allalphasamples[
-                        block * nsamples: (block + 1) * nsamples]
+                        block * search_n: (block + 1) * search_n]
                     alphas, lls = compute_ll(elem, alphasamples)
 
                     alphas_blocks.append(alphas)
@@ -556,21 +553,28 @@ def iterative_mc_search(elem, nsamples,
             sigbestalphaparabola=sig_alpha_parabola,
             bestalphapt=best_alpha_pts, sigbestalphapt=sig_alpha_pts,
             lb=LB, siglb=sig_LB, ub=UB, sigub=sig_UB, nsigmas=nsigmas,
-            plotname=str(nsamples) + "_" + elem.id + "_x" + str(xind) + ".pdf",
+            plotname=str(search_n) + "_" + elem.id + "_x" + str(xind) + ".pdf",
             plotitle=(
-                elem.id + ", " + str(nsamples) + " samples, x=" + str(xind)))
+                elem.id + ", " + str(search_n) + " samples, x=" + str(xind)))
 
     return np.array([
         best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB])  # * elem.dnorm
 
 
-def sample_alphaNP_fit(elem, nsamples, nsigmas: int = 2,
-    nblocks: int = 10, scalefactor: float = 3e-1, maxiter: int = 3,
-    a_crit: int = 150,
-        draw_output: bool = False, mphivar: bool = False, x0: int = 0):
+def sample_alphaNP_fit(
+        elem, 
+        search_n, 
+        nsigmas: int = 2,
+        nblocks: int = 10, 
+        scalefactor: float = 3e-1, 
+        maxiter: int = 3,
+        a_crit: int = 150,
+        draw_output: bool = False, 
+        mphivar: bool = False, 
+        x0: int = 0):
     """
-    Get a set of nsamples samples of elem by varying the masses and isotope
+    Get a set of search_n samples of elem by varying the masses and isotope
     shifts according to the means and standard deviations given in the input
     files, as well as alphaNP.
 
@@ -594,7 +598,7 @@ def sample_alphaNP_fit(elem, nsamples, nsigmas: int = 2,
     for x in tqdm(x_range):
         elem._update_Xcoeffs(x)
 
-        res = iterative_mc_search(elem=elem, nsamples=nsamples, nsigmas=nsigmas,
+        res = iterative_mc_search(elem=elem, search_n=search_n, nsigmas=nsigmas,
             nblocks=nblocks, scalefactor=scalefactor, a_crit=a_crit,
             maxiter=maxiter, draw_output=draw_output, xind=x)
 
