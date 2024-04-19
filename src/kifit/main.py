@@ -40,11 +40,17 @@ nmgkp_dims = [3]
 (best_alpha_parabola_list, sig_best_alpha_parabola_list,
     best_alpha_pt_list, sig_best_alpha_pt_list,
     lb_list, sig_lb_list, ub_list, sig_ub_list) = sample_alphaNP_fit(
-        ca, nsamples=num_samples, nblocks=n_blocks, maxiter=max_iter,
-        mphivar=False, draw_output=True)
+        ca, 
+        nsamples_search=num_samples, 
+        nexps=100,
+        nsamples_exp=100,
+        nblocks=n_blocks, 
+        maxiter=max_iter,
+        mphivar=False, 
+        draw_output=False)
 
-print("best_alpha_parabola_list", best_alpha_parabola_list)
-print("sig_best_alpha_parabola_list", sig_best_alpha_parabola_list)
+# print("best_alpha_parabola_list", best_alpha_parabola_list)
+# print("sig_best_alpha_parabola_list", sig_best_alpha_parabola_list)
 
 # bring back
 # plot_alphaNP_ll(ca, alphalist, llist)
