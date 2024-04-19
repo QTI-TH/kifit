@@ -41,9 +41,9 @@ nmgkp_dims = [3]
     best_alpha_pt_list, sig_best_alpha_pt_list,
     lb_list, sig_lb_list, ub_list, sig_ub_list) = sample_alphaNP_fit(
         ca, 
-        search_n=num_samples, 
-        experiment_n=100,
-        ndata_per_experiment=100,
+        nsamples_search=num_samples, 
+        nexps=100,
+        nsamples_exp=100,
         nblocks=n_blocks, 
         maxiter=max_iter,
         mphivar=False, 

@@ -225,7 +225,7 @@ def update_alphaNP_for_next_iteration(
         alphalist, 
         llist,
         scalefactor: float = .3,
-        small_alphas_fraction = .1,
+        small_alpha_fraction = .1,
     ):
     """
     Compute sig_alphaNP for next iteration.
@@ -234,7 +234,7 @@ def update_alphaNP_for_next_iteration(
     nsamples = len(alphalist)
     smalll = np.argsort(llist)
 
-    small_alphas = np.array([alphalist[ll] for ll in smalll[: int(nsamples * small_alphas_fraction)]])
+    small_alphas = np.array([alphalist[ll] for ll in smalll[: int(nsamples * small_alpha_fraction)]])
 
     new_alpha = np.mean(small_alphas)
 
@@ -413,9 +413,9 @@ def get_confint(alphas, delchisqs, delchisqcrit):
 
 def iterative_mc_search(
         elem, 
-        search_n: int = 200,
-        experiment_n: int = 1000,
-        ndata_per_experiment: int = 1000,
+        nsamples_search: int = 200,
+        nexps: int = 1000,
+        nsamples_exp: int = 1000,
         nsigmas: int = 2, 
         nblocks: int = 10, 
         sigalphainit=1e-7,
@@ -429,7 +429,7 @@ def iterative_mc_search(
 
     Args:
         elem (Elem): target element.
-        search_n (int): number of samples.
+        nsamples_search (int): number of samples.
         nsigmas (int): confidence level in standard deviations for which the
             upper and lower bounds are computed.
         nblocks (int): number of blocks used for the determination of the mean
@@ -465,7 +465,7 @@ def iterative_mc_search(
             # 0: start with random search
             elem.set_alphaNP_init(0., sigalphainit)
 
-            alphasamples = generate_alphaNP_sample(elem, search_n,
+            alphasamples = generate_alphaNP_sample(elem, nsamples_search,
                 search_mode="random")
             alphas, lls = compute_ll(elem, alphasamples)
 
@@ -484,7 +484,7 @@ def iterative_mc_search(
             if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha / 5):
 
                 # 1-> -1: switch to grid search
-                alphasamples = generate_alphaNP_sample(elem, search_n,
+                alphasamples = generate_alphaNP_sample(elem, nsamples_search,
                     search_mode="grid")
                 alphas, lls = compute_ll(elem, alphasamples)
 
@@ -504,18 +504,18 @@ def iterative_mc_search(
                 # determine best alphaNP and confidence intervals
 
                 # generating a big number of data
-                # we will perform experiment_n experiments, each of them 
-                # considering ndata_per_experiment data
-                allalphasamples = generate_alphaNP_sample(elem, experiment_n * ndata_per_experiment,
+                # we will perform nexps experiments, each of them 
+                # considering nsamples_exp data
+                allalphasamples = generate_alphaNP_sample(elem, nexps * nsamples_exp,
                     search_mode="grid")
                 
                 # shuffling the sample 
                 np.random.shuffle(allalphasamples)
 
-                for exp in tqdm(range(experiment_n)):
+                for exp in tqdm(range(nexps)):
                     # collect data for a single experiment
                     alphasamples = allalphasamples[
-                        exp * ndata_per_experiment: (exp + 1) * ndata_per_experiment]
+                        exp * nsamples_exp: (exp + 1) * nsamples_exp]
                     
                     # compute alphas and LLs for this experiment
                     alphas, lls = compute_ll(elem, alphasamples)
@@ -546,7 +546,7 @@ def iterative_mc_search(
     delchisqs_exps = []
     delchisq_optparams_exps = []
 
-    for s in range(experiment_n):
+    for s in range(nexps):
         delchisqs, params = get_delchisq(lls_exps[s], minll,
             popt=optparams_exps[s])
         delchisqs_exps.append(delchisqs)
@@ -555,7 +555,7 @@ def iterative_mc_search(
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas, dof=1)
 
     confints_exps = np.array([get_confint(alphas_exps[s], delchisqs_exps[s],
-        delchisqcrit) for s in range(experiment_n)])
+        delchisqcrit) for s in range(nexps)])
 
     (best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB) = \
@@ -571,9 +571,9 @@ def iterative_mc_search(
             sigbestalphaparabola=sig_alpha_parabola,
             bestalphapt=best_alpha_pts, sigbestalphapt=sig_alpha_pts,
             lb=LB, siglb=sig_LB, ub=UB, sigub=sig_UB, nsigmas=nsigmas,
-            plotname=str(search_n) + "_" + elem.id + "_x" + str(xind) + ".pdf",
+            plotname=str(nsamples_search) + "_" + elem.id + "_x" + str(xind) + ".pdf",
             plotitle=(
-                elem.id + ", " + str(search_n) + " samples, x=" + str(xind)))
+                elem.id + ", " + str(nsamples_search) + " samples, x=" + str(xind)))
 
     return np.array([
         best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
@@ -582,9 +582,9 @@ def iterative_mc_search(
 
 def sample_alphaNP_fit(
         elem, 
-        search_n, 
-        experiment_n: int = 1000,
-        ndata_per_experiment: int = 1000,
+        nsamples_search, 
+        nexps: int = 1000,
+        nsamples_exp: int = 1000,
         nsigmas: int = 2,
         nblocks: int = 10, 
         scalefactor: float = 3e-1, 
@@ -594,7 +594,7 @@ def sample_alphaNP_fit(
         mphivar: bool = False, 
         x0: int = 0):
     """
-    Get a set of search_n samples of elem by varying the masses and isotope
+    Get a set of nsamples_search samples of elem by varying the masses and isotope
     shifts according to the means and standard deviations given in the input
     files, as well as alphaNP.
 
@@ -620,9 +620,9 @@ def sample_alphaNP_fit(
 
         res = iterative_mc_search(
             elem=elem, 
-            search_n=search_n, 
-            experiment_n=experiment_n,
-            ndata_per_experiment=ndata_per_experiment,
+            nsamples_search=nsamples_search, 
+            nexps=nexps,
+            nsamples_exp=nsamples_exp,
             nsigmas=nsigmas,
             nblocks=nblocks, 
             scalefactor=scalefactor, 
