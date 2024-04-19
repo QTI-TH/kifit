@@ -503,7 +503,7 @@ def iterative_mc_search(
                     search_mode="grid")
                 np.random.shuffle(allalphasamples)
 
-                for block in range(nblocks):
+                for block in tqdm(range(nblocks)):
                     alphasamples = allalphasamples[
                         block * search_n: (block + 1) * search_n]
                     alphas, lls = compute_ll(elem, alphasamples)
@@ -595,7 +595,7 @@ def sample_alphaNP_fit(
 
     res_list = []
 
-    for x in tqdm(x_range):
+    for x in x_range:
         elem._update_Xcoeffs(x)
 
         res = iterative_mc_search(elem=elem, search_n=search_n, nsigmas=nsigmas,
