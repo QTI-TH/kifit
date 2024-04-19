@@ -735,8 +735,18 @@ def draw_final_mc_output(alphas, delchisqs, parabolaparams, delchisqcrit,
 
 def plot_parabolic_fit(alphas, ll, params, plotname):
     """Plot generated data and parabolic fit ."""
-
     plt.figure(figsize=(10, 10 * 6 / 8))
     plt.scatter(alphas, ll, color="orange")
     plt.plot(alphas, parabola(alphas, *params), color="k", lw=1.5)
     plt.savefig(_plot_path + "/parabola_" + plotname + ".pdf")
+
+
+def blocking_plot(nblocks, estimations, errors, label="", filename="blocking"):
+    """Plot the blocking iterative estimation of the given list of variables."""
+    plt.figure(figsize=(6, 6*6/8))
+    plt.errorbar(np.arange(1, nblocks+1, 1), estimations, yerr=errors, label=label, color="blue", alpha=0.6)
+    plt.legend()
+    plt.grid(True)
+    plt.xlabel("Blocks")
+    plt.ylabel("Estimation")
+    plt.savefig(f"plots/{filename}.png")
