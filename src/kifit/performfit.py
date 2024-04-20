@@ -279,6 +279,7 @@ def update_alphaNP_for_next_iteration(
 
 
 def get_bestalphaNP_and_bounds(
+        elem,
         bestalphaNPlist, 
         optparams, 
         confints,
@@ -298,11 +299,14 @@ def get_bestalphaNP_and_bounds(
     best_alpha_parabola = np.mean(reconstruced_alphas)
     sig_alpha_parabola = np.std(reconstruced_alphas)
 
-    best_alpha_pts = np.mean(bestalphaNPlist)
-    sig_alpha_pts = np.std(bestalphaNPlist)
+    bestalphaNPlist = np.array(bestalphaNPlist)
+    bestalphaNPlist *= elem.dnorm
 
-    lowbounds_list = confints.T[0]
-    upbounds_list = confints.T[1]
+    best_alpha_pts = np.mean(bestalphaNPlist) 
+    sig_alpha_pts = np.std(bestalphaNPlist) 
+
+    lowbounds_list = np.array(confints.T[0]) * elem.dnorm
+    upbounds_list = np.array(confints.T[1]) * elem.dnorm
 
     iterative_lb, iterative_lb_err = blocking(lowbounds_list, nblocks=nblocks)
     iterative_ub, iterative_ub_err = blocking(upbounds_list, nblocks=nblocks)
@@ -611,7 +615,7 @@ def iterative_mc_search(
 
     (best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB) = \
-        get_bestalphaNP_and_bounds(bestalphas_exps, optparams_exps,
+        get_bestalphaNP_and_bounds(elem, bestalphas_exps, optparams_exps,
             confints_exps, nblocks=nblocks)
 
     elem.set_alphaNP_init(best_alpha_parabola, sig_alpha_parabola)
