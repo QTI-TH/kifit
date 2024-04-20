@@ -9,7 +9,7 @@ plot_linfit(ca, resmagnifac=1)
 
 num_samples = 500
 max_iter = 10
-n_blocks = 10
+n_blocks = 100
 
 gkp_dims = [3]
 nmgkp_dims = []

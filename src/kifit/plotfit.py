@@ -301,9 +301,6 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     The resulting plot is saved in plots directory under alphaNP_ll + elem.
 
     """
-    if len(mc_output[0]) < xind + 1:
-        raise IndexError(f"X-coefficient index xind={xind} is out of range of\
-        provided mc_output")
 
     nsigmas = mc_output[1]
 
@@ -323,6 +320,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas)
 
     fig, ax = plt.subplots()
+    ax.scatter(alphalist[x], delchisqlist_x, s=1, c="b")
 
     nblocks = len(alphas)
     nsamples = len(alphas[0])
@@ -558,6 +556,7 @@ def set_axes(
     elem,
     minpos,
     maxneg,
+    ax1_fitinterpolpts,
     ax2max_fitinterpolpts,
     ax2min_fitinterpolpts,
 ):
@@ -641,11 +640,13 @@ def plot_mphi_alphaNP(
     gkpdims,
     nmgkpdims,
     ndetsamples,
+    nsigmas=2,
     plotabs=True,
     plotname="", plotitle="",
     ylabel=r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
     xlims=[None, None], ylims=[None, None],
     linthreshold=None,
+    plotname="",
     showallowedfitpts=False,
     showbestdetbounds=False,
     showalldetbounds=False,
@@ -684,6 +685,7 @@ def plot_mphi_alphaNP(
 
     # determinant methods
     ###########################################################################
+
     minpos = np.array([])
     maxneg = np.array([])
 
@@ -743,7 +745,10 @@ def plot_mphi_alphaNP(
         linthreshold,
         elem,
         minpos,
-        maxneg
+        maxneg,
+        ax1_fitinterpolpts,
+        ax2max_fitinterpolpts,
+        ax2min_fitinterpolpts,
     )
 
     ax1.plot(
@@ -830,5 +835,3 @@ def plot_mphi_alphaNP(
     )
 
     return fig1, ax1, fig2, ax2
-
-

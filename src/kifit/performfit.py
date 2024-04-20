@@ -1,4 +1,5 @@
 import os
+from typing import List
 
 import numpy as np
 
@@ -41,6 +42,30 @@ def parabola_alphaNPmin(popt):
 
 def parabola_llmin(popt):
     return popt[2] - popt[1]**2 / (4 * popt[0])
+
+
+def blocking(experiments: List[float], nblocks: int):
+    """
+    Blocking method to compute the statistical uncertainty of the MC simulation.
+    
+    Args:
+        experiments (List[float]): list of the experiments results.
+    """
+
+    if (len(experiments)%nblocks != 0):
+        raise ValueError(f"Number of experiments has to be a multiple of nblocks. Here {len(experiments)} is not multiple of {nblocks}.")
+
+    block_size = int(len(experiments) / nblocks)
+
+    ave, est, err = [], [], []
+    
+    for b in range(nblocks):
+        block_data = experiments[b*block_size: (b+1)*block_size]
+        ave.append(np.mean(block_data))
+        est.append(np.mean(ave))
+        err.append(np.std(est))
+
+    return est, err
 
 
 def get_odr_residuals(p, x, y, sx, sy):
@@ -220,18 +245,21 @@ def generate_alphaNP_sample(elem, nsamples: int, search_mode: str = "random"):
     return np.sort(alphaNP_samples)
 
 
-def update_alphaNP_for_next_iteration(elem, alphalist, llist,
-        scalefactor: float = .3):
+def update_alphaNP_for_next_iteration(
+        elem, 
+        alphalist, 
+        llist,
+        scalefactor: float = .3,
+        small_alpha_fraction = .1,
+    ):
     """
     Compute sig_alphaNP for next iteration.
 
     """
-    # print("scalefactor", scalefactor)
-
     nsamples = len(alphalist)
     smalll = np.argsort(llist)
 
-    small_alphas = np.array([alphalist[ll] for ll in smalll[: int(nsamples / 10)]])
+    small_alphas = np.array([alphalist[ll] for ll in smalll[: int(nsamples * small_alpha_fraction)]])
 
     new_alpha = np.mean(small_alphas)
 
@@ -250,8 +278,13 @@ def update_alphaNP_for_next_iteration(elem, alphalist, llist,
     return new_alpha, std_new_alpha, sig_new_alpha
 
 
-def get_bestalphaNP_and_bounds(bestalphaNPlist, optparams, confints,
-        nsigmas: int = 2):
+def get_bestalphaNP_and_bounds(
+        bestalphaNPlist, 
+        optparams, 
+        confints,
+        nblocks: int = 100,
+        draw_output: bool = True,
+    ):
     """
     Starting from a list of parabola parameters, apply the blocking method to
     compute the best alphaNP value, its uncertainty, as well as the nsigma -
@@ -268,11 +301,37 @@ def get_bestalphaNP_and_bounds(bestalphaNPlist, optparams, confints,
     best_alpha_pts = np.mean(bestalphaNPlist)
     sig_alpha_pts = np.std(bestalphaNPlist)
 
-    LB = np.min(confints.T[0])
-    UB = np.max(confints.T[1])
+    lowbounds_list = confints.T[0]
+    upbounds_list = confints.T[1]
 
-    sig_LB = np.std(confints.T[0])
-    sig_UB = np.std(confints.T[1])
+    iterative_lb, iterative_lb_err = blocking(lowbounds_list, nblocks=nblocks)
+    iterative_ub, iterative_ub_err = blocking(upbounds_list, nblocks=nblocks)
+
+    LB = iterative_lb[-1]
+    UB = iterative_ub[-1]
+    sig_LB = iterative_lb_err[-1]
+    sig_UB = iterative_ub_err[-1]
+
+    if draw_output:
+        from kifit.plotfit import blocking_plot
+        blocking_plot(
+            nblocks=nblocks, 
+            estimations=iterative_lb, 
+            errors=iterative_lb_err,
+            label="Lower bound",
+            filename="blocking_lb"
+        )
+        blocking_plot(
+            nblocks=nblocks, 
+            estimations=iterative_ub, 
+            errors=iterative_ub_err,
+            label="Upper bound",
+            filename="blocking_ub"
+        )
+
+
+
+    print(f"Final result: {best_alpha_pts} with bounds [{LB}, {UB}].")
 
     return (best_alpha_parabola, sig_alpha_parabola,
         best_alpha_pts, sig_alpha_pts, LB, sig_LB, UB, sig_UB)
@@ -404,16 +463,25 @@ def get_confint(alphas, delchisqs, delchisqcrit):
         return np.array([0, 0])
 
 
-def iterative_mc_search(elem, nsamples,
-    nsigmas: int = 2, nblocks: int = 10, sigalphainit=1e-7,
-        scalefactor: float = 3e-1, maxiter: int = 3,
-        a_crit: int = 150, plot_output: bool = False, xind=0):
+def iterative_mc_search(
+        elem, 
+        nsamples_search: int = 200,
+        nexps: int = 1000,
+        nsamples_exp: int = 1000,
+        nsigmas: int = 2, 
+        nblocks: int = 10, 
+        sigalphainit=1e-7,
+        scalefactor: float = 3e-1, 
+        maxiter: int = 3,
+        a_crit: int = 150, 
+        plot_output: bool = False, 
+        xind=0):
     """
     Perform iterative search for best alphaNP value and the standard deviation.
 
     Args:
         elem (Elem): target element.
-        nsamples (int): number of samples.
+        nsamples_search (int): number of samples.
         nsigmas (int): confidence level in standard deviations for which the
             upper and lower bounds are computed.
         nblocks (int): number of blocks used for the determination of the mean
@@ -443,18 +511,15 @@ def iterative_mc_search(elem, nsamples,
     bestalphas_blocks = []
 
     for i in range(maxiter):
-        # print()
-        # print("i0", i)
-        # print()
-
+        print(f"Iterative search step {i+1}")
         if i == 0:
-            # print()
-            # print("stage 0: i", i)
-            # print()
+            print()
+            print("stage 0: i", i)
+            print()
             # 0: start with random search
             elem.set_alphaNP_init(0., sigalphainit)
 
-            alphasamples = generate_alphaNP_sample(elem, nsamples,
+            alphasamples = generate_alphaNP_sample(elem, nsamples_search,
                 search_mode="random")
             alphas, lls = compute_ll(elem, alphasamples)
 
@@ -472,11 +537,9 @@ def iterative_mc_search(elem, nsamples,
 
         else:
             if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha / 5):
-                # print()
-                # print("stage1: i", i)
-                # print()
+
                 # 1-> -1: switch to grid search
-                alphasamples = generate_alphaNP_sample(elem, nsamples,
+                alphasamples = generate_alphaNP_sample(elem, nsamples_search,
                     search_mode="grid")
                 alphas, lls = compute_ll(elem, alphasamples)
 
@@ -494,23 +557,30 @@ def iterative_mc_search(elem, nsamples,
             else:
                 # -1: final round: perform parabolic fits and use blocking method to
                 # determine best alphaNP and confidence intervals
-                # print()
-                # print("final round")
-                # print(i)
-                # print()
-                allalphasamples = generate_alphaNP_sample(elem, nsamples * nblocks,
+
+                # generating a big number of data
+                # we will perform nexps experiments, each of them 
+                # considering nsamples_exp data
+                allalphasamples = generate_alphaNP_sample(elem, nexps * nsamples_exp,
                     search_mode="grid")
+                
+                # shuffling the sample 
                 np.random.shuffle(allalphasamples)
 
-                for block in range(nblocks):
+                for exp in tqdm(range(nexps)):
+                    # collect data for a single experiment
                     alphasamples = allalphasamples[
-                        block * nsamples: (block + 1) * nsamples]
+                        exp * nsamples_exp: (exp + 1) * nsamples_exp]
+                    
+                    # compute alphas and LLs for this experiment
                     alphas, lls = compute_ll(elem, alphasamples)
 
-                    # print("type alphas", type(alphas))  # numpy array
-                    alphas_blocks.append(alphas)
-                    bestalphas_blocks.append(alphas[np.argmin(lls)])
-                    lls_blocks.append(lls)
+                    # save all alphas, lls and best alpha of the sample 
+                    # TODO: I think this is not necessary. We only need to save 
+                    #       the extremes of the interval
+                    alphas_exps.append(alphas)
+                    bestalphas_exps.append(alphas[np.argmin(lls)])
+                    lls_exps.append(lls)
 
                     popt = parabolic_fit(elem, alphas, lls,
                         plotfit=plot_output, plotname=f"{i}_block_{block}")
@@ -523,32 +593,32 @@ def iterative_mc_search(elem, nsamples,
                             plotname=f"{i}_block_{block}")
                 break
 
-    minll = np.min(lls_blocks)
+    minll = np.min(lls_exps)
 
-    delchisqs_blocks = []
-    delchisq_optparams_blocks = []
+    delchisqs_exps = []
+    delchisq_optparams_exps = []
 
-    for s in range(nblocks):
-        delchisqs, params = get_delchisq(lls_blocks[s], minll,
-            popt=optparams_blocks[s])
-        delchisqs_blocks.append(delchisqs)
-        delchisq_optparams_blocks.append(params)
+    for s in range(nexps):
+        delchisqs, params = get_delchisq(lls_exps[s], minll,
+            popt=optparams_exps[s])
+        delchisqs_exps.append(delchisqs)
+        delchisq_optparams_exps.append(params)
 
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas, dof=1)
 
-    confints_blocks = np.array([get_confint(alphas_blocks[s], delchisqs_blocks[s],
-        delchisqcrit) for s in range(nblocks)])
+    confints_exps = np.array([get_confint(alphas_exps[s], delchisqs_exps[s],
+        delchisqcrit) for s in range(nexps)])
 
     (best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB) = \
-        get_bestalphaNP_and_bounds(bestalphas_blocks, optparams_blocks,
-            confints_blocks, nsigmas=nsigmas)
+        get_bestalphaNP_and_bounds(bestalphas_exps, optparams_exps,
+            confints_exps, nblocks=nblocks)
 
     elem.set_alphaNP_init(best_alpha_parabola, sig_alpha_parabola)
 
     if plot_output:
-        plot_final_mc_output(elem, alphas_blocks, delchisqs_blocks,
-            delchisq_optparams_blocks, delchisqcrit,
+        plot_final_mc_output(elem, alphas_exps, delchisqs_exps,
+            delchisq_optparams_exps, delchisqcrit,
             bestalphaparabola=best_alpha_parabola,
             sigbestalphaparabola=sig_alpha_parabola,
             bestalphapt=best_alpha_pts, sigbestalphapt=sig_alpha_pts,
@@ -564,12 +634,21 @@ def iterative_mc_search(elem, nsamples,
         xind], dtype=object)  # * elem.dnorm
 
 
-def sample_alphaNP_fit(elem, nsamples, nsigmas: int = 2,
-    nblocks: int = 10, scalefactor: float = 3e-1, maxiter: int = 3,
-    a_crit: int = 150,
-        plot_output: bool = False, mphivar: bool = False, x0: int = 0):
+def sample_alphaNP_fit(
+        elem, 
+        nsamples_search, 
+        nexps: int = 1000,
+        nsamples_exp: int = 1000,
+        nsigmas: int = 2,
+        nblocks: int = 10, 
+        scalefactor: float = 3e-1, 
+        maxiter: int = 3,
+        a_crit: int = 150,
+        plot_output: bool = False, 
+        mphivar: bool = False, 
+        x0: int = 0):
     """
-    Get a set of nsamples samples of elem by varying the masses and isotope
+    Get a set of nsamples_search samples of elem by varying the masses and isotope
     shifts according to the means and standard deviations given in the input
     files, as well as alphaNP.
 
@@ -590,12 +669,21 @@ def sample_alphaNP_fit(elem, nsamples, nsigmas: int = 2,
 
     res_list = []
 
-    for x in tqdm(x_range):
+    for x in x_range:
         elem._update_Xcoeffs(x)
 
-        res = iterative_mc_search(elem=elem, nsamples=nsamples, nsigmas=nsigmas,
-            nblocks=nblocks, scalefactor=scalefactor, a_crit=a_crit,
-            maxiter=maxiter, plot_output=plot_output, xind=x)
+        res = iterative_mc_search(
+            elem=elem, 
+            nsamples_search=nsamples_search, 
+            nexps=nexps,
+            nsamples_exp=nsamples_exp,
+            nsigmas=nsigmas,
+            nblocks=nblocks, 
+            scalefactor=scalefactor, 
+            a_crit=a_crit,
+            maxiter=maxiter, 
+            plot_output=draw_output, 
+            xind=x)
 
         res_list.append(res)
 
