@@ -1,4 +1,5 @@
 import os
+from typing import List
 
 import numpy as np
 
@@ -41,6 +42,30 @@ def parabola_alphaNPmin(popt):
 
 def parabola_llmin(popt):
     return popt[2] - popt[1]**2 / (4 * popt[0])
+
+
+def blocking(experiments: List[float], nblocks: int):
+    """
+    Blocking method to compute the statistical uncertainty of the MC simulation.
+    
+    Args:
+        experiments (List[float]): list of the experiments results.
+    """
+
+    if (len(experiments)%nblocks != 0):
+        raise ValueError(f"Number of experiments has to be a multiple of nblocks. Here {len(experiments)} is not multiple of {nblocks}.")
+
+    block_size = int(len(experiments) / nblocks)
+
+    ave, est, err = [], [], []
+    
+    for b in range(nblocks):
+        block_data = experiments[b*block_size: (b+1)*block_size]
+        ave.append(np.mean(block_data))
+        est.append(np.mean(ave))
+        err.append(np.std(est))
+
+    return est, err
 
 
 def get_odr_residuals(p, x, y, sx, sy):
@@ -253,8 +278,13 @@ def update_alphaNP_for_next_iteration(
     return new_alpha, std_new_alpha, sig_new_alpha
 
 
-def get_bestalphaNP_and_bounds(bestalphaNPlist, optparams, confints,
-        nsigmas: int = 2):
+def get_bestalphaNP_and_bounds(
+        bestalphaNPlist, 
+        optparams, 
+        confints,
+        nblocks: int = 100,
+        draw_output: bool = True,
+    ):
     """
     Starting from a list of parabola parameters, apply the blocking method to
     compute the best alphaNP value, its uncertainty, as well as the nsigma -
@@ -268,16 +298,38 @@ def get_bestalphaNP_and_bounds(bestalphaNPlist, optparams, confints,
     best_alpha_parabola = np.mean(reconstruced_alphas)
     sig_alpha_parabola = np.std(reconstruced_alphas)
 
-    # print("bestalphaNPlist", bestalphaNPlist)
-
     best_alpha_pts = np.mean(bestalphaNPlist)
     sig_alpha_pts = np.std(bestalphaNPlist)
 
-    LB = np.min(confints.T[0])
-    UB = np.max(confints.T[1])
+    lowbounds_list = confints.T[0]
+    upbounds_list = confints.T[1]
 
-    sig_LB = np.std(confints.T[0])
-    sig_UB = np.std(confints.T[1])
+    iterative_lb, iterative_lb_err = blocking(lowbounds_list, nblocks=nblocks)
+    iterative_ub, iterative_ub_err = blocking(upbounds_list, nblocks=nblocks)
+
+    LB = iterative_lb[-1]
+    UB = iterative_ub[-1]
+    sig_LB = iterative_lb_err[-1]
+    sig_UB = iterative_ub_err[-1]
+
+    if draw_output:
+        from kifit.plotfit import blocking_plot
+        blocking_plot(
+            nblocks=nblocks, 
+            estimations=iterative_lb, 
+            errors=iterative_lb_err,
+            label="Lower bound",
+            filename="blocking_lb"
+        )
+        blocking_plot(
+            nblocks=nblocks, 
+            estimations=iterative_ub, 
+            errors=iterative_ub_err,
+            label="Upper bound",
+            filename="blocking_ub"
+        )
+
+
 
     print(f"Final result: {best_alpha_pts} with bounds [{LB}, {UB}].")
 
@@ -560,7 +612,7 @@ def iterative_mc_search(
     (best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB) = \
         get_bestalphaNP_and_bounds(bestalphas_exps, optparams_exps,
-            confints_exps, nsigmas=nsigmas)
+            confints_exps, nblocks=nblocks)
 
     elem.set_alphaNP_init(best_alpha_parabola, sig_alpha_parabola)
 

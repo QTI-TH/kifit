@@ -9,7 +9,7 @@ plot_linfit(ca, resmagnifac=1)
 
 num_samples = 500
 max_iter = 10
-n_blocks = 10
+n_blocks = 100
 
 gkp_dims = [3]
 nmgkp_dims = [3]
@@ -42,8 +42,8 @@ nmgkp_dims = [3]
     lb_list, sig_lb_list, ub_list, sig_ub_list) = sample_alphaNP_fit(
         ca, 
         nsamples_search=num_samples, 
-        nexps=100,
-        nsamples_exp=100,
+        nexps=1000,
+        nsamples_exp=200,
         nblocks=n_blocks, 
         maxiter=max_iter,
         mphivar=False, 
