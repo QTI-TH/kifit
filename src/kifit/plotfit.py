@@ -169,12 +169,131 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1):
 
     return fig, ax1, ax2, ax3
 
-# leaving this here for reference could rename draw_final_mc_output ?
-def plot_alphaNP_ll(elem, alphalist, llist, x=0, nsigmas=2, dof=1,
-    gkpdims=[], nmgkpdims=[], parabolaparams=[],
-    plotname="", xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
-    xlims=[None, None], ylims=[None, None], show=False,
-):
+
+def plot_parabolic_fit(alphas, ll, params, plotname):
+    """Plot generated data and parabolic fit ."""
+
+    plt.figure(figsize=(10, 10 * 6 / 8))
+    plt.scatter(alphas, ll, color="orange")
+    plt.plot(alphas, parabola(alphas, *params), color="k", lw=1.5)
+    plt.savefig(_plot_path + "/parabola_" + plotname + ".pdf")
+
+
+def plot_mc_output(alphalist, delchisqlist, parabolaparams,
+        nsigmas=2,
+        xlabel=r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
+        ylabel=r"$\Delta \chi^2$",
+        plotname="mc_output",
+        xlims=[None, None], ylims=[None, None]):
+    """
+    plot 2-dimensional scatter plot showing the likelihood associated with the
+    parameter values given in alphalist, as well as the parabola defined by the
+    parameters `parabolaparams`.
+    The resulting plot is saved in plots directory under plotname.
+
+    """
+    fig, ax = plt.subplots()
+
+    ax.scatter(alphalist, delchisqlist, s=1, alpha=0.5, color="royalblue")
+
+    ll_fit = parabola(alphalist, *parabolaparams)
+    best_alpha = alphalist[np.argmin(ll_fit)]
+
+    ax.plot(alphalist, ll_fit,
+        color="black", ls="--", lw=1,
+        label=rf"$\alpha$ fit min: {best_alpha:.4e}")
+
+    delchisqcrit = get_delchisq_crit(nsigmas=nsigmas)
+    ax.axhline(y=delchisqcrit, color="orange", lw=1, ls="--")
+
+    confint = get_confint(alphalist, delchisqlist, delchisqcrit)
+    lb = confint[0]
+    ub = confint[1]
+    ax.axvspan(lb, ub, alpha=.5, color="darkgreen")
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_xlim(xlims[0], xlims[1])
+    ax.set_ylim(ylims[0], ylims[1])
+    plt.legend()
+    plt.savefig(_plot_path + "/" + plotname + ".pdf")
+
+    return ax
+
+
+def plot_final_mc_output(elem, alphas, delchisqs, parabolaparams, delchisqcrit,
+        bestalphaparabola=None, sigbestalphaparabola=None,
+        bestalphapt=None, sigbestalphapt=None,
+        lb=None, siglb=None, ub=None, sigub=None,
+        nsigmas=2, xind=0,
+        xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
+        plotname="mc_result", plotitle=None,
+        xlims=[None, None], ylims=[None, None], show=False):
+    """
+    Plot 2-dimensional scatter plot showing the likelihood associated with the
+    parameter values given in alphalist. If the lists were computed for multiple
+    X-coefficients, the argument x can be used to access a given set of samples.
+    The resulting plot is saved in plots directory under plotname.
+
+    """
+    fig, ax = plt.subplots()
+
+    nblocks = len(alphas)
+    nsamples = len(alphas[0])
+
+    alphalinspace = np.linspace(np.min(np.array(alphas)),
+        np.max(np.array(alphas)), 100000)
+
+    if lb is not None and ub is not None:
+        ax.axvspan(lb, ub, alpha=.5, color="darkgreen",
+        label=f"{nsigmas}" + r"$\sigma$ confidence interval")
+
+    if siglb is not None and sigub is not None:
+        ax.axvspan(lb - siglb, lb + siglb, alpha=.2, color="darkgreen")
+        ax.axvspan(ub - sigub, ub + sigub, alpha=.2, color="darkgreen")
+
+    ax.axhline(y=delchisqcrit, color="orange", lw=1, ls="--")
+
+    for block in range(nblocks):
+        ax.scatter(alphas[block], delchisqs[block],
+            s=1, alpha=0.5, color="royalblue")
+
+        ll_fit = parabola(alphalinspace, *parabolaparams[block])
+
+        ax.plot(alphalinspace, ll_fit, color='red', lw=1, ls="--")
+
+        ax.scatter(alphas[block][np.argmin(delchisqs[block])],
+            np.min(delchisqs[block]), color='royalblue')
+
+    ax.scatter(bestalphapt, 0, color='red', marker="o",
+            label=("best $\\alpha_{\\mathrm{NP}}$ point: "
+                + f"{bestalphapt:.4e}"))
+    ax.errorbar(bestalphapt, 0, xerr=sigbestalphapt, color="red")
+
+    ax.scatter(bestalphaparabola, 0, color='orange', marker="*",
+            label=("best $\\alpha_{\\mathrm{NP}}$ parabola: "
+                + f"{bestalphaparabola:.4e}"))
+    ax.errorbar(bestalphaparabola, 0, xerr=sigbestalphaparabola, color='orange')
+
+    if plotitle is None:
+        plotitle = elem.id + ", " + str(nsamples) + " samples, x=" + str(xind)
+
+    ax.set_title(plotitle)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_xlim(xlims[0], xlims[1])
+    ax.set_ylim(ylims[0], ylims[1])
+    plt.legend()
+    plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + "_x" + str(xind)
+        + ".pdf")
+
+    return fig, ax
+
+
+def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
+    plotname="alphaNP_ll", plotitle=None,
+    xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
+        xlims=[None, None], ylims=[None, None]):
     """
     Plot 2-dimensional scatter plot showing the likelihood associated with the
     parameter values given in alphalist. If the lists were computed for multiple
@@ -182,46 +301,118 @@ def plot_alphaNP_ll(elem, alphalist, llist, x=0, nsigmas=2, dof=1,
     The resulting plot is saved in plots directory under alphaNP_ll + elem.
 
     """
+    if len(mc_output[0]) < xind + 1:
+        raise IndexError(f"X-coefficient index xind={xind} is out of range of\
+        provided mc_output")
 
-    delchisqlist_x = get_delchisq(llist[x])
+    nsigmas = mc_output[1]
+
+    alphas = mc_output[0][xind][0]
+    delchisqs = mc_output[0][xind][1]
+    parabolaparams = mc_output[0][xind][2]
+    delchisqcrit = mc_output[0][xind][3]
+    bestalphaparabola = mc_output[0][xind][4]
+    sigbestalphaparabola = mc_output[0][xind][5]
+    bestalphapt = mc_output[0][xind][6]
+    sigbestalphapt = mc_output[0][xind][7]
+    lb = mc_output[0][xind][8]
+    siglb = mc_output[0][xind][9]
+    ub = mc_output[0][xind][10]
+    sigub = mc_output[0][xind][11]
+
+    delchisqcrit = get_delchisq_crit(nsigmas=nsigmas)
 
     fig, ax = plt.subplots()
-    ax.scatter(alphalist[x], delchisqlist_x, s=1, c="b")
 
-    if len(parabolaparams) == 3:
-        delchisqcrit_x = get_delchisq_crit(nsigmas=nsigmas)
-        parampos_x = get_confint(min(alphalist[x]), max(alphalist[x]),
-            parabolaparams, nsigmas)
-        ax.axvspan(
-            np.min(parampos_x), np.max(parampos_x), alpha=0.5, color=fit_colour
-        )
-        print("delchisqcrit", delchisqcrit_x)
-        print("parampos", np.min(parampos_x))
-        ax.axhline(y=delchisqcrit_x, color="orange", lw=1, ls="--")
+    nblocks = len(alphas)
+    nsamples = len(alphas[0])
 
+    alphalinspace = np.linspace(np.min(np.array(alphas)),
+        np.max(np.array(alphas)), 100000)
+
+    if lb is not None and ub is not None:
+        ax.axvspan(lb, ub, alpha=.5, color="darkgreen",
+        label=f"{nsigmas}" + r"$\sigma$ confidence interval")
+
+    if siglb is not None and sigub is not None:
+        ax.axvspan(lb - siglb, lb + siglb, alpha=.2, color="darkgreen")
+        ax.axvspan(ub - sigub, ub + sigub, alpha=.2, color="darkgreen")
+
+    ax.axhline(y=delchisqcrit, color="orange", lw=1, ls="--")
+
+    for block in range(nblocks):
+        ax.scatter(alphas[block], delchisqs[block],
+            s=1, alpha=0.5, color="royalblue")
+
+        ll_fit = parabola(alphalinspace, *parabolaparams[block])
+
+        ax.plot(alphalinspace, ll_fit, color='red', lw=1, ls="--")
+
+        ax.scatter(alphas[block][np.argmin(delchisqs[block])],
+            np.min(delchisqs[block]), color='royalblue')
+
+    ax.scatter(bestalphapt, 0, color='red', marker="o",
+            label=("best $\\alpha_{\\mathrm{NP}}$ point: "
+                + f"{bestalphapt:.4e}"))
+    ax.errorbar(bestalphapt, 0, xerr=sigbestalphapt, color="red")
+
+    ax.scatter(bestalphaparabola, 0, color='orange', marker="*",
+            label=("best $\\alpha_{\\mathrm{NP}}$ parabola: "
+                + f"{bestalphaparabola:.4e}"))
+    ax.errorbar(bestalphaparabola, 0, xerr=sigbestalphaparabola, color='orange')
+
+    if plotitle is None:
+        plotitle = elem.id + ", " + str(nsamples) + " samples, x=" + str(xind)
+    ax.set_title(plotitle)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     ax.set_xlim(xlims[0], xlims[1])
     ax.set_ylim(ylims[0], ylims[1])
+    plt.legend()
+    plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + "_x" + str(xind)
+        + ".pdf")
 
-    if plotname == "":
-        prettyplotname = ""
-    else:
-        prettyplotname = plotname + "_"
-
-    plt.savefig(
-        _plot_path
-        + "/alphaNP_ll_"
-        + elem.id
-        + "_"
-        + prettyplotname
-        + "x"
-        + str(x)
-        + "_"
-        + str(len(alphalist[0]))
-        + "_fit_samples.pdf"
-    )
     return fig, ax
+
+
+    #
+    # fig, ax = plt.subplots()
+    # ax.scatter(alphalist[x], delchisqlist_x, s=1, c="b")
+    #
+    # if len(parabolaparams) == 3:
+    #     delchisqcrit_x = get_delchisq_crit(nsigmas=nsigmas)
+    #     parampos_x = get_confint(min(alphalist[x]), max(alphalist[x]),
+    #         parabolaparams, nsigmas)
+    #     ax.axvspan(
+    #         np.min(parampos_x), np.max(parampos_x), alpha=0.5, color=fit_colour
+    #     )
+    #     print("delchisqcrit", delchisqcrit_x)
+    #     print("parampos", np.min(parampos_x))
+    #     ax.axhline(y=delchisqcrit_x, color="orange", lw=1, ls="--")
+    #
+    # ax.set_xlabel(xlabel)
+    # ax.set_ylabel(ylabel)
+    # ax.set_xlim(xlims[0], xlims[1])
+    # ax.set_ylim(ylims[0], ylims[1])
+    #
+    # if plotname == "":
+    #     prettyplotname = ""
+    # else:
+    #     prettyplotname = plotname + "_"
+    #
+    # plt.savefig(
+    #     _plot_path
+    #     + "/alphaNP_ll_"
+    #     + elem.id
+    #     + "_"
+    #     + prettyplotname
+    #     + "x"
+    #     + str(x)
+    #     + "_"
+    #     + str(len(alphalist[0]))
+    #     + "_fit_samples.pdf"
+    # )
+    # return fig, ax
 
 
 def plot_mphi_alphaNP_det_bound(
@@ -325,18 +516,37 @@ def plot_mphi_alphaNP_det_bound(
     return ax1, ax2, minpos, maxneg
 
 
-def plot_mphi_alphaNP_fit_bound(ax1, ax2, elem, bestalphas, sigbestalphas,
-    lowerbounds, siglowerbounds, upperbounds, sigupperbounds,
+def plot_mphi_alphaNP_fit_bound(ax1, ax2, elem,
+    bestalphas_parabola, sigbestalphas_parabola,
+    bestalphas_pts, sigbestalphas_pts,
+    lb, siglb, ub, sigub,
         plotabs=True, showallowedfitpts=False):
 
-    ax1.scatter(elem.mphis, bestalphas, color='k', marker="*")
-    ax1.errorbar(elem.mphis, bestalphas, yerr=sigbestalphas, ecolor='k')
-    ax1.plot(elem.mphis, lowerbounds, color=fit_colour)
-    ax1.errorbar(elem.mphis, lowerbounds, yerr=siglowerbounds, ecolor=fit_colour)
-    ax1.plot(elem.mphis, upperbounds, color=fit_colour)
-    ax1.errorbar(elem.mphis, upperbounds, yerr=sigupperbounds, ecolor=fit_colour)
+    # mphi vs abs(alphaNP)
+    ax1.scatter(elem.mphis, np.abs(bestalphas_parabola), color='k', marker="*")
+    ax1.errorbar(elem.mphis, bestalphas_parabola, yerr=sigbestalphas_parabola,
+        color='k')
+    ax1.scatter(elem.mphis, np.abs(bestalphas_pts), color='k', marker="o", s=2)
+    ax1.errorbar(elem.mphis, bestalphas_pts, yerr=sigbestalphas_pts, ecolor='k')
 
-    return ax1
+    ax1.plot(elem.mphis, np.max(np.array([np.abs(lb), np.abs(ub)]), axis=0),
+        color=fit_colour)
+    ax1.errorbar(elem.mphis, lb, yerr=np.max(np.array([siglb, sigub]), axis=0),
+        ecolor=fit_colour)
+
+    # mphi vs alphaNP
+    ax2.scatter(elem.mphis, bestalphas_parabola, color='k', marker="*")
+    ax2.errorbar(elem.mphis, bestalphas_parabola, yerr=sigbestalphas_parabola,
+        color='k')
+    ax2.scatter(elem.mphis, bestalphas_pts, color='k', marker="o", s=2)
+    ax2.errorbar(elem.mphis, bestalphas_pts, yerr=sigbestalphas_pts, ecolor='k')
+
+    ax2.plot(elem.mphis, lb, color=fit_colour)
+    ax2.errorbar(elem.mphis, lb, yerr=siglb, ecolor=fit_colour)
+    ax2.plot(elem.mphis, ub, color=fit_colour)
+    ax2.errorbar(elem.mphis, ub, yerr=sigub, ecolor=fit_colour)
+
+    return ax1, ax2
 
 
 def set_axes(
@@ -348,7 +558,6 @@ def set_axes(
     elem,
     minpos,
     maxneg,
-    ax1_fitinterpolpts,
     ax2max_fitinterpolpts,
     ax2min_fitinterpolpts,
 ):
@@ -428,17 +637,15 @@ def set_axes(
 
 def plot_mphi_alphaNP(
     elem,
-    alphalist,
-    llist,
+    mc_output,
     gkpdims,
     nmgkpdims,
     ndetsamples,
-    nsigmas=2,
     plotabs=True,
-    xlims=[None, None],
-    ylims=[None, None],
+    plotname="", plotitle="",
+    ylabel=r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
+    xlims=[None, None], ylims=[None, None],
     linthreshold=None,
-    plotname="",
     showallowedfitpts=False,
     showbestdetbounds=False,
     showalldetbounds=False,
@@ -451,31 +658,32 @@ def plot_mphi_alphaNP(
     shown.
 
     """
+    # x-vectors
+    nsigmas = mc_output[1]
+    bestalphas_parabola = mc_output[0].T[4]
+    sigbestalphas_parabola = mc_output[0].T[5]
+    bestalphas_pts = mc_output[0].T[6]
+    sigbestalphas_pts = mc_output[0].T[7]
+    lb = mc_output[0].T[8]
+    siglb = mc_output[0].T[9]
+    ub = mc_output[0].T[10]
+    sigub = mc_output[0].T[11]
+
     fig1, ax1 = plt.subplots()
     fig2, ax2 = plt.subplots()
 
     # fit
     ###########################################################################
-    if len(alphalist) > 0:
-        (ax1, ax2, ax1_fitinterpolpts, ax2max_fitinterpolpts, ax2min_fitinterpolpts) = (
-            plot_mphi_alphaNP_fit_bound(
-                ax1,
-                ax2,
-                elem,
-                alphalist,
-                llist,
-                nsigmas=nsigmas,
-                showallowedfitpts=showallowedfitpts,
-            )
-        )
-    else:
-        ax1_fitinterpolpts = np.array([np.nan] * len(elem.mphis))
-        ax2max_fitinterpolpts = np.array([np.nan] * len(elem.mphis))
-        ax2min_fitinterpolpts = np.array([np.nan] * len(elem.mphis))
+    ax1, ax2 = plot_mphi_alphaNP_fit_bound(
+        ax1, ax2, elem,
+        bestalphas_parabola, sigbestalphas_parabola,
+        bestalphas_pts, sigbestalphas_pts,
+        lb, siglb, ub, sigub,
+        plotabs=plotabs,
+        showallowedfitpts=showallowedfitpts)
 
     # determinant methods
     ###########################################################################
-
     minpos = np.array([])
     maxneg = np.array([])
 
@@ -535,10 +743,7 @@ def plot_mphi_alphaNP(
         linthreshold,
         elem,
         minpos,
-        maxneg,
-        ax1_fitinterpolpts,
-        ax2max_fitinterpolpts,
-        ax2min_fitinterpolpts,
+        maxneg
     )
 
     ax1.plot(
@@ -571,31 +776,30 @@ def plot_mphi_alphaNP(
     )
     ax2.fill_between(elem.mphis, ymin_ax2, maxneg, color=det_colour, alpha=0.3)
 
-    if len(alphalist) > 0:
-        ax1.fill_between(
-            elem.mphis,
-            ax1_fitinterpolpts,
-            ymax,
-            color=fit_colour,
-            alpha=0.3,
-            label="fit " + str(nsigmas) + r"$\sigma$-excluded",
-        )
-        ax2.fill_between(
-            elem.mphis,
-            ax2max_fitinterpolpts,
-            ymax,
-            color=fit_colour,
-            alpha=0.3,
-            label="fit " + str(nsigmas) + r"$\sigma$-excluded",
-        )
-        ax2.fill_between(
-            elem.mphis,
-            ymin_ax2,
-            ax2min_fitinterpolpts,
-            color=fit_colour,
-            alpha=0.3,
-            label="fit " + str(nsigmas) + r"$\sigma$-excluded",
-        )
+    ax1.fill_between(
+        elem.mphis,
+        ax1_fitinterpolpts,
+        ymax,
+        color=fit_colour,
+        alpha=0.3,
+        label="fit " + str(nsigmas) + r"$\sigma$-excluded",
+    )
+    ax2.fill_between(
+        elem.mphis,
+        ax2max_fitinterpolpts,
+        ymax,
+        color=fit_colour,
+        alpha=0.3,
+        label="fit " + str(nsigmas) + r"$\sigma$-excluded",
+    )
+    ax2.fill_between(
+        elem.mphis,
+        ymin_ax2,
+        ax2min_fitinterpolpts,
+        color=fit_colour,
+        alpha=0.3,
+        label="fit " + str(nsigmas) + r"$\sigma$-excluded",
+    )
 
     ax1.legend(loc="upper left", fontsize="9")
     ax2.legend(loc="upper left", fontsize="9")
@@ -628,115 +832,3 @@ def plot_mphi_alphaNP(
     return fig1, ax1, fig2, ax2
 
 
-def draw_mc_output(alphalist, delchisqlist, parabolaparams,
-        nsigmas=2,
-        xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
-        plotname="mc_output",
-        xlims=[None, None], ylims=[None, None]):
-    """
-    Draw 2-dimensional scatter plot showing the likelihood associated with the
-    parameter values given in alphalist, as well as the parabola defined by the
-    parameters `parabolaparams`.
-    The resulting plot is saved in plots directory under plotname.
-
-    """
-    fig, ax = plt.subplots()
-
-    ax.scatter(alphalist, delchisqlist, s=1, alpha=0.5, color="royalblue")
-
-    ll_fit = parabola(alphalist, *parabolaparams)
-    best_alpha = alphalist[np.argmin(ll_fit)]
-
-    ax.plot(alphalist, ll_fit,
-        color="black", ls="--", lw=1,
-        label=rf"$\alpha$ fit min: {best_alpha:.4e}")
-
-    delchisqcrit = get_delchisq_crit(nsigmas=nsigmas)
-    ax.axhline(y=delchisqcrit, color="orange", lw=1, ls="--")
-
-    confint = get_confint(alphalist, delchisqlist, delchisqcrit)
-    lb = confint[0]
-    ub = confint[1]
-    ax.axvspan(lb, ub, alpha=.5, color="darkgreen")
-
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.set_xlim(xlims[0], xlims[1])
-    ax.set_ylim(ylims[0], ylims[1])
-    plt.legend()
-    plt.savefig(_plot_path + "/" + plotname + ".pdf")
-
-    return ax
-
-
-def draw_final_mc_output(alphas, delchisqs, parabolaparams, delchisqcrit,
-        bestalphaparabola=None, sigbestalphaparabola=None,
-        bestalphapt=None, sigbestalphapt=None,
-        lb=None, siglb=None, ub=None, sigub=None,
-        nsigmas=2,
-        xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
-        plotname="mc_result", plotitle=None,
-        xlims=[None, None], ylims=[None, None], show=False):
-    """
-    Draw 2-dimensional scatter plot showing the likelihood associated with the
-    parameter values given in alphalist. If the lists were computed for multiple
-    X-coefficients, the argument x can be used to access a given set of samples.
-    The resulting plot is saved in plots directory under plotname.
-
-    """
-    fig, ax = plt.subplots()
-
-    nblocks = len(alphas)
-
-    alphalinspace = np.linspace(np.min(np.array(alphas)),
-        np.max(np.array(alphas)), 100000)
-
-    if lb is not None and ub is not None:
-        ax.axvspan(lb, ub, alpha=.5, color="darkgreen",
-        label=f"{nsigmas}" + r"$\sigma$ confidence interval")
-
-    if siglb is not None and sigub is not None:
-        ax.axvspan(lb - siglb, lb + siglb, alpha=.2, color="darkgreen")
-        ax.axvspan(ub - sigub, ub + sigub, alpha=.2, color="darkgreen")
-
-    ax.axhline(y=delchisqcrit, color="orange", lw=1, ls="--")
-
-    for block in range(nblocks):
-        ax.scatter(alphas[block], delchisqs[block],
-            s=1, alpha=0.5, color="royalblue")
-
-        ll_fit = parabola(alphalinspace, *parabolaparams[block])
-
-        ax.plot(alphalinspace, ll_fit, color='red', lw=1, ls="--")
-
-        ax.scatter(alphas[block][np.argmin(delchisqs[block])],
-            np.min(delchisqs[block]), color='royalblue')
-
-    ax.scatter(bestalphapt, 0, color='red', marker="o",
-            label=("best $\\alpha_{\\mathrm{NP}}$ point: "
-                + f"{bestalphapt:.4e}"))
-    ax.errorbar(bestalphapt, 0, xerr=sigbestalphapt, color="red")
-
-    ax.scatter(bestalphaparabola, 0, color='orange', marker="*",
-            label=("best $\\alpha_{\\mathrm{NP}}$ parabola: "
-                + f"{bestalphaparabola:.4e}"))
-    ax.errorbar(bestalphaparabola, 0, xerr=sigbestalphaparabola, color='orange')
-
-    ax.set_title(plotitle)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    ax.set_xlim(xlims[0], xlims[1])
-    ax.set_ylim(ylims[0], ylims[1])
-    plt.legend()
-    plt.savefig(_plot_path + "/" + plotname + ".pdf")
-
-    return ax
-
-
-def plot_parabolic_fit(alphas, ll, params, plotname):
-    """Plot generated data and parabolic fit ."""
-
-    plt.figure(figsize=(10, 10 * 6 / 8))
-    plt.scatter(alphas, ll, color="orange")
-    plt.plot(alphas, parabola(alphas, *params), color="k", lw=1.5)
-    plt.savefig(_plot_path + "/parabola_" + plotname + ".pdf")
