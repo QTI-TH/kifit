@@ -179,6 +179,18 @@ def plot_parabolic_fit(alphas, ll, params, plotname):
     plt.savefig(_plot_path + "/parabola_" + plotname + ".pdf")
 
 
+def blocking_plot(nblocks, estimations, errors, label="", filename="blocking"):
+    """Plot the blocking iterative estimation of the given list of variables."""
+    plt.figure(figsize=(6, 6 * 6 / 8))
+    plt.errorbar(np.arange(1, nblocks + 1, 1), estimations, yerr=errors,
+        label=label, color="blue", alpha=0.6)
+    plt.legend()
+    plt.grid(True)
+    plt.xlabel("Blocks")
+    plt.ylabel("Estimation")
+    plt.savefig(f"plots/{filename}.pdf")
+
+
 def plot_mc_output(alphalist, delchisqlist, parabolaparams,
         nsigmas=2,
         xlabel=r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
@@ -320,7 +332,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas)
 
     fig, ax = plt.subplots()
-    ax.scatter(alphalist[x], delchisqlist_x, s=1, c="b")
+    ax.scatter(alphas, delchisqs, s=1, c="b")
 
     nblocks = len(alphas)
     nsamples = len(alphas[0])
@@ -373,7 +385,6 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     return fig, ax
 
 
-    #
     # fig, ax = plt.subplots()
     # ax.scatter(alphalist[x], delchisqlist_x, s=1, c="b")
     #
@@ -556,9 +567,9 @@ def set_axes(
     elem,
     minpos,
     maxneg,
-    ax1_fitinterpolpts,
-    ax2max_fitinterpolpts,
-    ax2min_fitinterpolpts,
+    absb,
+    ub,
+    lb,
 ):
 
     if xlims[0] is not None:
@@ -582,9 +593,9 @@ def set_axes(
         ymin_ax2 = ylims[0]
     else:
         ymin_ax1 = (
-            np.nanmin([np.abs(maxneg), np.abs(minpos), np.abs(ax1_fitinterpolpts)]) / 10
+            np.nanmin([np.abs(maxneg), np.abs(minpos), absb]) / 10
         )
-        ymin_ax2 = np.nanmin([np.nanmin(maxneg), np.nanmin(ax2min_fitinterpolpts)])
+        ymin_ax2 = np.nanmin([np.nanmin(maxneg), np.nanmin(lb)])
 
     ax1.set_ylim(bottom=ymin_ax1)
     ax2.set_ylim(bottom=ymin_ax2)
@@ -592,7 +603,7 @@ def set_axes(
     if ylims[1] is not None:
         ymax = ylims[1]
     else:
-        ymax = np.nanmax([np.nanmax(minpos), np.nanmax(ax1_fitinterpolpts)])
+        ymax = np.nanmax([np.nanmax(minpos), np.nanmax(absb)])
     ax1.set_ylim(top=ymax)
     ax2.set_ylim(top=ymax)
 
@@ -618,8 +629,8 @@ def set_axes(
                         [
                             np.nanmin(np.abs(minpos)),
                             np.nanmin(np.abs(maxneg)),
-                            np.nanmin(np.abs(ax2max_fitinterpolpts)),
-                            np.nanmin(np.abs(ax2min_fitinterpolpts)),
+                            np.nanmin(np.abs(ub)),
+                            np.nanmin(np.abs(lb)),
                         ]
                     )
                 )
@@ -627,6 +638,7 @@ def set_axes(
             )
         )
         print("linthreshold", linlim)
+
     else:
         linlim = linthreshold
     ax2.set_yscale("symlog", linthresh=linlim)
@@ -646,7 +658,6 @@ def plot_mphi_alphaNP(
     ylabel=r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
     xlims=[None, None], ylims=[None, None],
     linthreshold=None,
-    plotname="",
     showallowedfitpts=False,
     showbestdetbounds=False,
     showalldetbounds=False,
@@ -661,14 +672,26 @@ def plot_mphi_alphaNP(
     """
     # x-vectors
     nsigmas = mc_output[1]
-    bestalphas_parabola = mc_output[0].T[4]
-    sigbestalphas_parabola = mc_output[0].T[5]
-    bestalphas_pts = mc_output[0].T[6]
-    sigbestalphas_pts = mc_output[0].T[7]
-    lb = mc_output[0].T[8]
-    siglb = mc_output[0].T[9]
-    ub = mc_output[0].T[10]
-    sigub = mc_output[0].T[11]
+    # alphas = mc_output[0].T[0]
+    alphas = np.array([row[0] for row in mc_output[0]])
+    # bestalphas_parabola = mc_output[0].T[4]
+    bestalphas_parabola = np.array([row[4] for row in mc_output[0]])
+    # sigbestalphas_parabola = mc_output[0].T[5]
+    sigbestalphas_parabola = np.array([row[5] for row in mc_output[0]])
+    # bestalphas_pts = mc_output[0].T[6]
+    bestalphas_pts = np.array([row[6] for row in mc_output[0]])
+    # sigbestalphas_pts = mc_output[0].T[7]
+    sigbestalphas_pts = np.array([row[7] for row in mc_output[0]])
+    # lb = mc_output[0].T[8]
+    lb = np.array([row[8] for row in mc_output[0]])
+    # siglb = mc_output[0].T[9]
+    siglb = np.array([row[9] for row in mc_output[0]])
+    # ub = mc_output[0].T[10]
+    ub = np.array([row[10] for row in mc_output[0]])
+    # sigub = mc_output[0].T[11]
+    sigub = np.array([row[11] for row in mc_output[0]])
+
+    absb = np.max(np.array([np.abs(lb), np.abs(ub)]), axis=0)
 
     fig1, ax1 = plt.subplots()
     fig2, ax2 = plt.subplots()
@@ -746,9 +769,9 @@ def plot_mphi_alphaNP(
         elem,
         minpos,
         maxneg,
-        ax1_fitinterpolpts,
-        ax2max_fitinterpolpts,
-        ax2min_fitinterpolpts,
+        absb,
+        ub,
+        lb,
     )
 
     ax1.plot(
@@ -781,9 +804,18 @@ def plot_mphi_alphaNP(
     )
     ax2.fill_between(elem.mphis, ymin_ax2, maxneg, color=det_colour, alpha=0.3)
 
+    print("len mphis", len(elem.mphis))
+    print("len absb", len(absb))
+    print("type(mphis)", type(elem.mphis))
+    print("type(absb)", type(absb))
+    print("ymax", type(ymax))
+    print("absb", absb)
+    print("mphis", elem.mphis)
+    print("ymax", ymax)
+    print("ymax - absb", ymax - absb)
     ax1.fill_between(
         elem.mphis,
-        ax1_fitinterpolpts,
+        absb,
         ymax,
         color=fit_colour,
         alpha=0.3,
@@ -791,7 +823,7 @@ def plot_mphi_alphaNP(
     )
     ax2.fill_between(
         elem.mphis,
-        ax2max_fitinterpolpts,
+        ub,
         ymax,
         color=fit_colour,
         alpha=0.3,
@@ -800,7 +832,7 @@ def plot_mphi_alphaNP(
     ax2.fill_between(
         elem.mphis,
         ymin_ax2,
-        ax2min_fitinterpolpts,
+        lb,
         color=fit_colour,
         alpha=0.3,
         label="fit " + str(nsigmas) + r"$\sigma$-excluded",
@@ -820,7 +852,7 @@ def plot_mphi_alphaNP(
         + elem.id
         + "_"
         + prettyplotname
-        + str(len(alphalist[0]))
+        + str(len(alphas[0]))
         + "_fit_samples.pdf"
     )
 
@@ -830,7 +862,7 @@ def plot_mphi_alphaNP(
         + elem.id
         + "_"
         + prettyplotname
-        + str(len(alphalist[0]))
+        + str(len(alphas[0]))
         + "_fit_samples.pdf"
     )
 
