@@ -294,6 +294,8 @@ def get_bestalphaNP_and_bounds(
     optparams = np.array(optparams)
     confints = np.array(confints)
 
+    print(confints)
+
     reconstruced_alphas = - optparams.T[1] / (2 * optparams.T[0])
     best_alpha_parabola = np.mean(reconstruced_alphas)
     sig_alpha_parabola = np.std(reconstruced_alphas)
@@ -463,7 +465,7 @@ def get_confint(alphas, delchisqs, delchisqcrit):
     if len(pos) > 2:
         return np.array([alphas[int(min(pos))], alphas[int(max(pos))]])
     else:
-        return np.array([0, 0])
+        return np.array([None, None])
 
 
 def iterative_mc_search(
@@ -475,8 +477,8 @@ def iterative_mc_search(
         nblocks: int = 10,
         sigalphainit=1e-7,
         scalefactor: float = 3e-1,
+        sig_new_alpha_fraction: float = 0.3,
         maxiter: int = 3,
-        a_crit: int = 150,
         plot_output: bool = False,
         xind=0):
     """
@@ -536,7 +538,7 @@ def iterative_mc_search(
                 plot_mc_output(alphas, delchisqlist, newpopt, plotname=f"{i}")
 
         else:
-            if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha / 5):
+            if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha / sig_new_alpha_fraction):
 
                 # 1-> -1: switch to grid search
                 alphasamples = generate_alphaNP_sample(elem, nsamples_search,
@@ -561,13 +563,14 @@ def iterative_mc_search(
                 # generating a big number of data
                 # we will perform nexps experiments, each of them
                 # considering nsamples_exp data
+                print(nexps, nsamples_exp)
                 allalphasamples = generate_alphaNP_sample(elem, nexps * nsamples_exp,
                     search_mode="grid")
 
                 # shuffling the sample
                 np.random.shuffle(allalphasamples)
 
-                for exp in range(nexps):
+                for exp in tqdm(range(nexps)):
                     # collect data for a single experiment
                     alphasamples = allalphasamples[
                         exp * nsamples_exp: (exp + 1) * nsamples_exp]
@@ -593,7 +596,11 @@ def iterative_mc_search(
                             plotname=f"{i}_exp_{exp}")
                 break
 
-    minll = np.min(lls_exps)
+    
+    final_popt = parabolic_fit(elem, np.array(alphas_exps).flatten(),
+        np.array(lls_exps).flatten())
+
+    minll = parabola_llmin(final_popt)
 
     delchisqs_exps = []
     delchisq_optparams_exps = []
@@ -608,7 +615,8 @@ def iterative_mc_search(
 
     confints_exps = np.array([get_confint(alphas_exps[s], delchisqs_exps[s],
         delchisqcrit) for s in range(nexps)])
-
+    
+    
     (best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB) = \
         get_bestalphaNP_and_bounds(bestalphas_exps, optparams_exps,
@@ -643,7 +651,7 @@ def sample_alphaNP_fit(
         nblocks: int = 10,
         scalefactor: float = 3e-1,
         maxiter: int = 3,
-        a_crit: int = 150,
+        sig_new_alpha_fraction: float = 0.3,
         plot_output: bool = False,
         mphivar: bool = False,
         x0: int = 0):
@@ -680,8 +688,8 @@ def sample_alphaNP_fit(
             nsigmas=nsigmas,
             nblocks=nblocks,
             scalefactor=scalefactor,
-            a_crit=a_crit,
             maxiter=maxiter,
+            sig_new_alpha_fraction = 0.3,
             plot_output=plot_output,
             xind=x)
 
