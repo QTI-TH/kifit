@@ -294,8 +294,6 @@ def get_bestalphaNP_and_bounds(
     optparams = np.array(optparams)
     confints = np.array(confints)
 
-    print(confints)
-
     reconstruced_alphas = - optparams.T[1] / (2 * optparams.T[0])
     best_alpha_parabola = np.mean(reconstruced_alphas)
     sig_alpha_parabola = np.std(reconstruced_alphas)
@@ -407,10 +405,9 @@ def parabolic_fit(elem, alphalist, llist, plotfit=False, plotname=None):
         alphalist,
         llist,
         p0=[a0, b0, c0])
-
+    
     if plotfit:
         from kifit.plotfit import plot_parabolic_fit
-
         plot_parabolic_fit(alphalist, llist, popt, plotname=plotname)
 
     return popt
@@ -465,7 +462,10 @@ def get_confint(alphas, delchisqs, delchisqcrit):
     if len(pos) > 2:
         return np.array([alphas[int(min(pos))], alphas[int(max(pos))]])
     else:
-        return np.array([None, None])
+        raise ValueError(f"The parameter set contains too few elements to compute\
+                the confidence interval. Please change simulation hyper parameters."
+            )
+        
 
 
 def iterative_mc_search(
@@ -477,7 +477,7 @@ def iterative_mc_search(
         nblocks: int = 10,
         sigalphainit=1e-7,
         scalefactor: float = 3e-1,
-        sig_new_alpha_fraction: float = 0.3,
+        sig_new_alpha_fraction: float = 0.25,
         maxiter: int = 3,
         plot_output: bool = False,
         xind=0):
@@ -528,7 +528,7 @@ def iterative_mc_search(
             popt = parabolic_fit(elem, alphas, lls,
                 plotfit=plot_output, plotname=str(i))
 
-            new_alpha, std_new_alpha, sig_new_alpha = \
+            _, std_new_alpha, sig_new_alpha = \
                 update_alphaNP_for_next_iteration(elem, alphas, lls,
                     scalefactor=scalefactor)
 
@@ -538,7 +538,7 @@ def iterative_mc_search(
                 plot_mc_output(alphas, delchisqlist, newpopt, plotname=f"{i}")
 
         else:
-            if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha / sig_new_alpha_fraction):
+            if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha * sig_new_alpha_fraction):
 
                 # 1-> -1: switch to grid search
                 alphasamples = generate_alphaNP_sample(elem, nsamples_search,
@@ -546,8 +546,7 @@ def iterative_mc_search(
                 alphas, lls = compute_ll(elem, alphasamples)
 
                 popt = parabolic_fit(elem, alphas, lls,
-                    plotfit=plot_output, plotname=str(i))
-
+                    plotfit=False, plotname=str(i))
                 new_alpha, std_new_alpha, sig_new_alpha = \
                     update_alphaNP_for_next_iteration(elem, alphas, lls,
                         scalefactor=scalefactor)
@@ -586,8 +585,9 @@ def iterative_mc_search(
                     lls_exps.append(lls)
 
                     popt = parabolic_fit(elem, alphas, lls,
-                        plotfit=plot_output, plotname=f"{i}_exp_{exp}")
+                        plotfit=False, plotname=f"{i}_exp_{exp}")
                     optparams_exps.append(popt)
+
 
                     if plot_output:
                         delchisqlist, newpopt = get_delchisq(lls,
@@ -651,7 +651,7 @@ def sample_alphaNP_fit(
         nblocks: int = 10,
         scalefactor: float = 3e-1,
         maxiter: int = 3,
-        sig_new_alpha_fraction: float = 0.3,
+        sig_new_alpha_fraction: float = 0.25,
         plot_output: bool = False,
         mphivar: bool = False,
         x0: int = 0):
@@ -689,7 +689,7 @@ def sample_alphaNP_fit(
             nblocks=nblocks,
             scalefactor=scalefactor,
             maxiter=maxiter,
-            sig_new_alpha_fraction = 0.3,
+            sig_new_alpha_fraction=sig_new_alpha_fraction,
             plot_output=plot_output,
             xind=x)
 
