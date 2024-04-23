@@ -7,17 +7,15 @@ print(ca.get_dimensions)
 
 plot_linfit(ca, resmagnifac=1)
 
-# num_samples_det = 100
-num_samples_search = 100
-num_samples_experiment = 200
+num_samples_det = 100
+num_samples_search = 50
+num_samples_experiment = 100
 num_experiments = 100
 num_blocks = 10
 
 max_iter = 10
 
-num_samples_det = 100
-
-gkp_dims = [3]
+gkp_dims = []
 nmgkp_dims = []
 
 mc_output = sample_alphaNP_fit(
@@ -31,6 +29,3 @@ plot_alphaNP_ll(ca, mc_output, xind=0)
 
 plot_mphi_alphaNP(ca, mc_output, gkp_dims, nmgkp_dims, num_samples_det,
     showalldetbounds=True, showallowedfitpts=True)
-
-# plot_mphi_alphaNP(ca, mc_output, gkp_dims, nmgkp_dims, nsh,
-#     showalldetbounds=True, showallowedfitpts=True)

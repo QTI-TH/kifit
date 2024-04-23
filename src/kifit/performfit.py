@@ -251,7 +251,7 @@ def update_alphaNP_for_next_iteration(
         alphalist,
         llist,
         scalefactor: float = .3,
-        small_alpha_fraction = .1,
+        small_alpha_fraction: float = .1,
     ):
     """
     Compute sig_alphaNP for next iteration.
@@ -293,8 +293,6 @@ def get_bestalphaNP_and_bounds(
     """
     optparams = np.array(optparams)
     confints = np.array(confints)
-
-    print(confints)
 
     reconstruced_alphas = - optparams.T[1] / (2 * optparams.T[0])
     best_alpha_parabola = np.mean(reconstruced_alphas)
@@ -393,14 +391,27 @@ def parabolic_fit(elem, alphalist, llist, plotfit=False, plotname=None):
     lm = min(llist)
     am = alphalist[np.argmin(llist)]
 
-    a0 = (am * (ll - lu) + al * (lu - lm) + au * (lm - ll)) / (
-        (al - am) * (al - au) * (am - au))
+    if am != al and am != au and al != au:
+        a0 = (am * (ll - lu) + al * (lu - lm) + au * (lm - ll)) / (
+            (al - am) * (al - au) * (am - au))
 
-    b0 = (am**2 * (lu - ll) + au**2 * (ll - lm) + al**2 * (lm - lu)) / (
-        (al - am) * (al - au) * (am - au))
+        b0 = (am**2 * (lu - ll) + au**2 * (ll - lm) + al**2 * (lm - lu)) / (
+            (al - am) * (al - au) * (am - au))
 
-    c0 = (am * (am - au) * au * ll + al * (al - am) * am * lu
-        + al * au * (au - al) * lm) / ((al - am) * (al - au) * (am - au))
+        c0 = (am * (am - au) * au * ll + al * (al - am) * am * lu
+            + al * au * (au - al) * lm) / ((al - am) * (al - au) * (am - au))
+    else:
+        if am == al or am == au:
+            a0 = (au * ll - al * lu) / (al * (al - au) * au)
+            b0 = (al**2 * lu - au**2 * ll) / (al * (al - au) * au)
+            c0 = 0
+        elif al == au:
+            a0 = (lm - lu) / (am - au)**2
+            b0 = 2 * au * (lu - lm) / (am - au)**2
+            c0 = (am**2 * lu - 2 * am * au * lu + au**2 * lm) / (am - au)**2
+
+    # print("a0, b0, c0")
+    # print([a0, b0, c0])
 
     popt, _ = curve_fit(
         parabola,
@@ -416,6 +427,16 @@ def parabolic_fit(elem, alphalist, llist, plotfit=False, plotname=None):
     return popt
 
 
+def get_delchisq_popt(popt, minll):
+    if len(popt)==3:
+        newpopt = np.array([
+            2 * popt[0], 2 * popt[1], 2 * (popt[2] - minll)])
+        # newpopt = np.array([
+        #     2 * popt[0], 2 * popt[1], popt[1]**2 / (2 * popt[0]) + 2 * minll])
+
+        return newpopt
+
+
 def get_delchisq(llist, minll=None, popt=[]):
     """
     Compute delta chi^2 from list of negative loglikelihoods, subtracting the
@@ -425,13 +446,13 @@ def get_delchisq(llist, minll=None, popt=[]):
     if minll is None:
         minll = min(llist)
 
-    delchisqlist = 2 * (llist - min(llist))
+    if len(llist) > 0:
+        delchisqlist = 2 * (llist - min(llist))
+    else:
+        raise ValueError(f"llist {llist} passed to get_delchisq is not a list.")
 
     if len(popt)==3:
-        newpopt = np.array([
-            2 * popt[0], 2 * popt[1], 2 * (popt[2] - minll)])
-        # newpopt = np.array([
-        #     2 * popt[0], 2 * popt[1], popt[1]**2 / (2 * popt[0]) + 2 * minll])
+        newpopt = get_delchisq_popt(popt, minll)
 
         return delchisqlist, newpopt
 
@@ -465,7 +486,7 @@ def get_confint(alphas, delchisqs, delchisqcrit):
     if len(pos) > 2:
         return np.array([alphas[int(min(pos))], alphas[int(max(pos))]])
     else:
-        return np.array([None, None])
+        return np.array([np.nan, np.nan])
 
 
 def iterative_mc_search(
@@ -515,7 +536,12 @@ def iterative_mc_search(
     lls_exps = []
     bestalphas_exps = []
 
-    for i in range(maxiter):
+    if mphivar is False:
+        iterations = tqdm(range(maxiter))
+    else:
+        iterations = range(maxiter)
+
+    for i in iterations:
         # print(f"Iterative search step {i+1}")
         if i == 0:
             # 0: start with random search
@@ -538,7 +564,7 @@ def iterative_mc_search(
                 plot_mc_output(alphas, delchisqlist, newpopt, plotname=f"{i}")
 
         else:
-            if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha / sig_new_alpha_fraction):
+            if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha * sig_new_alpha_fraction):
 
                 # 1-> -1: switch to grid search
                 alphasamples = generate_alphaNP_sample(elem, nsamples_search,
@@ -563,14 +589,13 @@ def iterative_mc_search(
                 # generating a big number of data
                 # we will perform nexps experiments, each of them
                 # considering nsamples_exp data
-                print(nexps, nsamples_exp)
                 allalphasamples = generate_alphaNP_sample(elem, nexps * nsamples_exp,
                     search_mode="grid")
 
                 # shuffling the sample
                 np.random.shuffle(allalphasamples)
 
-                for exp in tqdm(range(nexps)):
+                for exp in range(nexps):
                     # collect data for a single experiment
                     alphasamples = allalphasamples[
                         exp * nsamples_exp: (exp + 1) * nsamples_exp]
@@ -590,24 +615,27 @@ def iterative_mc_search(
                     optparams_exps.append(popt)
 
                     if plot_output:
-                        delchisqlist, newpopt = get_delchisq(lls,
-                            popt=popt)
+                        delchisqlist, newpopt = get_delchisq(lls, popt=popt)
                         plot_mc_output(alphas, delchisqlist, newpopt,
                             plotname=f"{i}_exp_{exp}")
                 break
 
-    
-    final_popt = parabolic_fit(elem, np.array(alphas_exps).flatten(),
+    # minll = np.min(lls_exps)
+    #
+    #         popt = parabolic_fit(elem, alphas, lls,
+    #             plotfit=plot_output, plotname=str(i))
+    #
+    global_popt = parabolic_fit(elem, np.array(alphas_exps).flatten(),
         np.array(lls_exps).flatten())
 
-    minll = parabola_llmin(final_popt)
+    minll = parabola_llmin(global_popt)
+    delchisq_optparams = get_delchisq_popt(global_popt, minll)
 
     delchisqs_exps = []
     delchisq_optparams_exps = []
 
     for s in range(nexps):
-        delchisqs, params = get_delchisq(lls_exps[s], minll,
-            popt=optparams_exps[s])
+        delchisqs, params = get_delchisq(lls_exps[s], minll, popt=optparams_exps[s])
         delchisqs_exps.append(delchisqs)
         delchisq_optparams_exps.append(params)
 
@@ -615,8 +643,7 @@ def iterative_mc_search(
 
     confints_exps = np.array([get_confint(alphas_exps[s], delchisqs_exps[s],
         delchisqcrit) for s in range(nexps)])
-    
-    
+
     (best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB) = \
         get_bestalphaNP_and_bounds(bestalphas_exps, optparams_exps,
@@ -626,7 +653,7 @@ def iterative_mc_search(
 
     if plot_output:
         plot_final_mc_output(elem, alphas_exps, delchisqs_exps,
-            delchisq_optparams_exps, delchisqcrit,
+            delchisq_optparams_exps, delchisq_optparams, delchisqcrit,
             bestalphaparabola=best_alpha_parabola,
             sigbestalphaparabola=sig_alpha_parabola,
             bestalphapt=best_alpha_pts, sigbestalphapt=sig_alpha_pts,
@@ -635,7 +662,7 @@ def iterative_mc_search(
 
     return [
         np.array(alphas_exps), np.array(delchisqs_exps),
-        np.array(delchisq_optparams_exps),
+        np.array(delchisq_optparams_exps), np.array(delchisq_optparams),
         delchisqcrit,
         best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB,
@@ -651,7 +678,6 @@ def sample_alphaNP_fit(
         nblocks: int = 10,
         scalefactor: float = 3e-1,
         maxiter: int = 3,
-        sig_new_alpha_fraction: float = 0.3,
         plot_output: bool = False,
         mphivar: bool = False,
         x0: int = 0):
@@ -671,7 +697,7 @@ def sample_alphaNP_fit(
 
     """
     if mphivar:
-        x_range = range(len(elem.Xcoeff_data))
+        x_range = tqdm(range(len(elem.Xcoeff_data)))
     else:
         x_range = [x0]
 
@@ -688,10 +714,11 @@ def sample_alphaNP_fit(
             nsigmas=nsigmas,
             nblocks=nblocks,
             scalefactor=scalefactor,
+            a_crit=a_crit,
             maxiter=maxiter,
-            sig_new_alpha_fraction = 0.3,
             plot_output=plot_output,
-            xind=x)
+            xind=x,
+            mphivar=mphivar)
 
         res_list.append(res)
 
@@ -707,7 +734,8 @@ def sample_alphaNP_fit(
 # DETERMINANT METHODS
 
 def sample_alphaNP_det(
-    elem, dim, nsamples, mphivar=False, gkp=True, outputdataname="alphaNP_det"
+    elem, dim, nsamples, mphivar=False, gkp=True, outputdataname="alphaNP_det",
+    x0=0
 ):
     """
     Get a set of nsamples samples of alphaNP by varying the masses and isotope
@@ -801,15 +829,15 @@ def sample_alphaNP_det(
         print("""Computing alphaNP""")
         print()
         if mphivar:
-            Nx = len(elem.Xcoeff_data)
+            x_range = range(len(elem.Xcoeff_data))
         else:
-            Nx = 1
+            x_range = [x0]
 
         # mphi_list = []
         alphaNPs = []  # alphaNP list for best alphaNP and all
         sigalphaNPs = []
 
-        for x in range(Nx):
+        for x in x_range:
             if mphivar:
                 elem._update_Xcoeffs(x)
                 # mphi_list.append(elem.mphi)
