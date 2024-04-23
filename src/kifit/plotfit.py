@@ -179,10 +179,10 @@ def plot_parabolic_fit(alphas, ll, params, plotname):
     plt.savefig(_plot_path + "/parabola_" + plotname + ".pdf")
 
 
-def blocking_plot(nblocks, estimations, errors, label="", filename="blocking"):
+def blocking_plot(nblocks, estimations, uncertainties, label="", filename="blocking"):
     """Plot the blocking iterative estimation of the given list of variables."""
     plt.figure(figsize=(6, 6 * 6 / 8))
-    plt.errorbar(np.arange(1, nblocks + 1, 1), estimations, yerr=errors,
+    plt.errorbar(np.arange(1, nblocks + 1, 1), estimations, yerr=uncertainties,
         label=label, color="blue", alpha=0.6)
     plt.legend()
     plt.grid(True)
