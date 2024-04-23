@@ -8,6 +8,7 @@ print(ca.get_dimensions)
 plot_linfit(ca, resmagnifac=1)
 
 # num_samples_det = 100
+num_samples_det = 100
 num_samples_search = 100
 num_samples_experiment = 200
 num_experiments = 20
@@ -16,9 +17,7 @@ sig_new_alpha_fraction = 0.25
 
 max_iter = 100
 
-num_samples_det = 100
-
-gkp_dims = [3]
+gkp_dims = []
 nmgkp_dims = []
 
 mc_output = sample_alphaNP_fit(
