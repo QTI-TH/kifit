@@ -46,7 +46,7 @@ default_colour = [
 
 det_colour = "#1f77b4"
 fit_colour = "#2ca02c"
-
+fit_colour2 = 'limegreen'
 
 ###############################################################################
 
@@ -233,7 +233,8 @@ def plot_mc_output(alphalist, delchisqlist, parabolaparams,
     return ax
 
 
-def plot_final_mc_output(elem, alphas, delchisqs, parabolaparams, delchisqcrit,
+def plot_final_mc_output(elem, alphas, delchisqs,
+        parabolaparams, optparabolaparams, delchisqcrit,
         bestalphaparabola=None, sigbestalphaparabola=None,
         bestalphapt=None, sigbestalphapt=None,
         lb=None, siglb=None, ub=None, sigub=None,
@@ -266,18 +267,21 @@ def plot_final_mc_output(elem, alphas, delchisqs, parabolaparams, delchisqcrit,
 
     ax.axhline(y=delchisqcrit, color="orange", lw=1, ls="--")
 
+    ll_global_fit = parabola(alphalinspace, *optparabolaparams)
+    ax.plot(alphalinspace, ll_global_fit, color='red', lw=1, ls='--')
+
     for block in range(nblocks):
         ax.scatter(alphas[block], delchisqs[block],
             s=1, alpha=0.5, color="royalblue")
 
         ll_fit = parabola(alphalinspace, *parabolaparams[block])
 
-        ax.plot(alphalinspace, ll_fit, color='red', lw=1, ls="--")
+        ax.plot(alphalinspace, ll_fit, color='red', alpha=.3, lw=1, ls="--")
 
         ax.scatter(alphas[block][np.argmin(delchisqs[block])],
             np.min(delchisqs[block]), color='royalblue')
 
-    ax.scatter(bestalphapt, 0, color='red', marker="o",
+    ax.scatter(bestalphapt, 0, color='royalblue', marker="o",
             label=("best $\\alpha_{\\mathrm{NP}}$ point: "
                 + f"{bestalphapt:.4e}"))
     ax.errorbar(bestalphapt, 0, xerr=sigbestalphapt, color="red")
@@ -319,15 +323,16 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     alphas = mc_output[0][xind][0]
     delchisqs = mc_output[0][xind][1]
     parabolaparams = mc_output[0][xind][2]
-    delchisqcrit = mc_output[0][xind][3]
-    bestalphaparabola = mc_output[0][xind][4]
-    sigbestalphaparabola = mc_output[0][xind][5]
-    bestalphapt = mc_output[0][xind][6]
-    sigbestalphapt = mc_output[0][xind][7]
-    lb = mc_output[0][xind][8]
-    siglb = mc_output[0][xind][9]
-    ub = mc_output[0][xind][10]
-    sigub = mc_output[0][xind][11]
+    optparabolaparams = mc_output[0][xind][3]
+    delchisqcrit = mc_output[0][xind][4]
+    bestalphaparabola = mc_output[0][xind][5]
+    sigbestalphaparabola = mc_output[0][xind][6]
+    bestalphapt = mc_output[0][xind][7]
+    sigbestalphapt = mc_output[0][xind][8]
+    lb = mc_output[0][xind][9]
+    siglb = mc_output[0][xind][10]
+    ub = mc_output[0][xind][11]
+    sigub = mc_output[0][xind][12]
 
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas)
 
@@ -350,26 +355,29 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
 
     ax.axhline(y=delchisqcrit, color="orange", lw=1, ls="--")
 
+    ll_global_fit = parabola(alphalinspace, *optparabolaparams)
+    ax.plot(alphalinspace, ll_global_fit, color='red', lw=1, ls='--')
+
     for block in range(nblocks):
         ax.scatter(alphas[block], delchisqs[block],
             s=1, alpha=0.5, color="royalblue")
 
         ll_fit = parabola(alphalinspace, *parabolaparams[block])
 
-        ax.plot(alphalinspace, ll_fit, color='red', lw=1, ls="--")
+        ax.plot(alphalinspace, ll_fit, color='red', alpha=.3, lw=1, ls="--")
 
         ax.scatter(alphas[block][np.argmin(delchisqs[block])],
             np.min(delchisqs[block]), color='royalblue')
 
-    ax.scatter(bestalphapt, 0, color='red', marker="o",
-            label=("best $\\alpha_{\\mathrm{NP}}$ point: "
-                + f"{bestalphapt:.4e}"))
-    ax.errorbar(bestalphapt, 0, xerr=sigbestalphapt, color="red")
+    ax.errorbar(bestalphapt, 0, xerr=sigbestalphapt,
+        color="purple", marker="o",
+        label=("best $\\alpha_{\\mathrm{NP}}$ point: "
+            + f"{bestalphapt:.4e}({sigbestalphapt:.4e})"))
 
-    ax.scatter(bestalphaparabola, 0, color='orange', marker="*",
-            label=("best $\\alpha_{\\mathrm{NP}}$ parabola: "
-                + f"{bestalphaparabola:.4e}"))
-    ax.errorbar(bestalphaparabola, 0, xerr=sigbestalphaparabola, color='orange')
+    ax.errorbar(bestalphaparabola, 0, xerr=sigbestalphaparabola,
+        color='orange', marker="*",
+        label=("best $\\alpha_{\\mathrm{NP}}$ parabola: "
+            + f"{bestalphaparabola:.4e}({sigbestalphaparabola:.4e})"))
 
     if plotitle is None:
         plotitle = elem.id + ", " + str(nsamples) + " samples, x=" + str(xind)
@@ -442,6 +450,9 @@ def plot_mphi_alphaNP_det_bound(
     Plot GKP/NMGKP bounds for one dimension dim.
 
     """
+
+    print("minpos", minpos)
+    print("maxneg", maxneg)
     if gkp:
         method_tag = "GKP"
 
@@ -532,28 +543,37 @@ def plot_mphi_alphaNP_fit_bound(ax1, ax2, elem,
         plotabs=True, showallowedfitpts=False):
 
     # mphi vs abs(alphaNP)
-    ax1.scatter(elem.mphis, np.abs(bestalphas_parabola), color='k', marker="*")
+    ax1.scatter(elem.mphis, np.abs(bestalphas_parabola), color='orange', marker="*",
+        label=r"best $\alpha_{\mathrm{NP}} \pm \sigma[\alpha_{\mathrm{NP}}]$")
+
     ax1.errorbar(elem.mphis, bestalphas_parabola, yerr=sigbestalphas_parabola,
-        color='k')
-    ax1.scatter(elem.mphis, np.abs(bestalphas_pts), color='k', marker="o", s=2)
-    ax1.errorbar(elem.mphis, bestalphas_pts, yerr=sigbestalphas_pts, ecolor='k')
+        color='orange', ls='none')
+    # ax1.scatter(elem.mphis, np.abs(bestalphas_pts), color='k', marker="o", s=2)
+    # ax1.errorbar(elem.mphis, bestalphas_pts, yerr=sigbestalphas_pts, ecolor='k')
 
     ax1.plot(elem.mphis, np.max(np.array([np.abs(lb), np.abs(ub)]), axis=0),
         color=fit_colour)
-    ax1.errorbar(elem.mphis, lb, yerr=np.max(np.array([siglb, sigub]), axis=0),
-        ecolor=fit_colour)
+    ax1.plot(elem.mphis,
+        np.max(np.array([np.abs(lb) + 2 * siglb, np.abs(ub) + 2 * sigub]), axis=0),
+        ls='--', color=fit_colour2, label=r"$2\sigma$ uncertainty on fit bound")
 
     # mphi vs alphaNP
-    ax2.scatter(elem.mphis, bestalphas_parabola, color='k', marker="*")
+    ax2.scatter(elem.mphis, bestalphas_parabola, color='orange', marker="*",
+        label=r"best $\alpha_{\mathrm{NP}} \pm \sigma[\alpha_{\mathrm{NP}}]$")
     ax2.errorbar(elem.mphis, bestalphas_parabola, yerr=sigbestalphas_parabola,
-        color='k')
-    ax2.scatter(elem.mphis, bestalphas_pts, color='k', marker="o", s=2)
-    ax2.errorbar(elem.mphis, bestalphas_pts, yerr=sigbestalphas_pts, ecolor='k')
+        color='orange', ls='none')
+    # ax2.scatter(elem.mphis, bestalphas_pts, color='k', marker="o", s=2)
+    # ax2.errorbar(elem.mphis, bestalphas_pts, yerr=sigbestalphas_pts, ecolor='k')
+
+    ax2.plot(elem.mphis, ub, color=fit_colour)
+    ax2.plot(elem.mphis, ub + sigub, ls='--', color=fit_colour2,
+        label=r"$2\sigma$ uncertainty on fit bound")
 
     ax2.plot(elem.mphis, lb, color=fit_colour)
-    ax2.errorbar(elem.mphis, lb, yerr=siglb, ecolor=fit_colour)
-    ax2.plot(elem.mphis, ub, color=fit_colour)
-    ax2.errorbar(elem.mphis, ub, yerr=sigub, ecolor=fit_colour)
+    ax2.plot(elem.mphis, lb - siglb, ls='--', color=fit_colour2)
+
+    print("ub", ub)
+    print("lb", lb)
 
     return ax1, ax2
 
@@ -591,19 +611,23 @@ def set_axes(
     if ylims[0] is not None:
         ymin_ax1 = ylims[0]
         ymin_ax2 = ylims[0]
-    else:
-        ymin_ax1 = (
-            np.nanmin([np.abs(maxneg), np.abs(minpos), absb]) / 10
-        )
-        ymin_ax2 = np.nanmin([np.nanmin(maxneg), np.nanmin(lb)])
 
+    else:
+        ymin_ax1 = 1e-17
+        ymin_ax2 = -1
+    #     ymin_ax1 = (
+    #         np.nanmin(np.abs(np.array(list(maxneg) + list(minpos) + list(absb)))) / 10)
+    #     ymin_ax2 = np.nanmin(list(maxneg) + list(lb))
+    #
     ax1.set_ylim(bottom=ymin_ax1)
     ax2.set_ylim(bottom=ymin_ax2)
 
     if ylims[1] is not None:
         ymax = ylims[1]
+
     else:
-        ymax = np.nanmax([np.nanmax(minpos), np.nanmax(absb)])
+        ymax = 1
+    #     ymax = 10 * np.nanmax(list(minpos) + list(absb))
     ax1.set_ylim(top=ymax)
     ax2.set_ylim(top=ymax)
 
@@ -627,8 +651,8 @@ def set_axes(
                 np.log10(
                     np.nanmin(
                         [
-                            np.nanmin(np.abs(minpos)),
-                            np.nanmin(np.abs(maxneg)),
+                            # np.nanmin(np.abs(minpos)),
+                            # np.nanmin(np.abs(maxneg)),
                             np.nanmin(np.abs(ub)),
                             np.nanmin(np.abs(lb)),
                         ]
@@ -774,69 +798,67 @@ def plot_mphi_alphaNP(
         lb,
     )
 
-    ax1.plot(
-        elem.mphis,
-        np.nanmin([np.abs(minpos), np.abs(maxneg)], axis=0),
-        color=det_colour,
-    )
+    if len(minpos) > 1 and len(maxneg) > 1:
+        ax1.plot(
+            elem.mphis,
+            np.nanmin([np.abs(minpos), np.abs(maxneg)], axis=0),
+            color=det_colour,
+        )
 
-    ax1.fill_between(
-        elem.mphis,
-        np.nanmin([np.abs(minpos), np.abs(maxneg)], axis=0),
-        ymax,
-        label=det_label + " " + str(nsigmas) + r"$\sigma$-excluded",
-        color=det_colour,
-        alpha=0.3,
-    )
+        ax1.fill_between(
+            elem.mphis,
+            np.nanmin([np.abs(minpos), np.abs(maxneg)], axis=0),
+            ymax,
+            label=det_label + " " + str(nsigmas) + r"$\sigma$-excluded",
+            color=det_colour,
+            alpha=0.3,
+        )
 
-    ax2.plot(elem.mphis, minpos, color=det_colour)  # , label=det_label)
-    ax2.plot(elem.mphis, maxneg, color=det_colour)
-    ax2.scatter(elem.mphis, minpos, color=det_colour, s=1)
-    ax2.scatter(elem.mphis, maxneg, color=det_colour, s=1)
+        ax2.plot(elem.mphis, minpos, color=det_colour)  # , label=det_label)
+        ax2.plot(elem.mphis, maxneg, color=det_colour)
+        ax2.scatter(elem.mphis, minpos, color=det_colour, s=1)
+        ax2.scatter(elem.mphis, maxneg, color=det_colour, s=1)
 
-    ax2.fill_between(
-        elem.mphis,
-        minpos,
-        ymax,
-        color=det_colour,
-        alpha=0.3,
-        label=det_label + " " + str(nsigmas) + r"$\sigma$-excluded",
-    )
-    ax2.fill_between(elem.mphis, ymin_ax2, maxneg, color=det_colour, alpha=0.3)
+        ax2.fill_between(
+            elem.mphis,
+            minpos,
+            ymax,
+            color=det_colour,
+            alpha=0.3,
+            label=det_label + " " + str(nsigmas) + r"$\sigma$-excluded",
+        )
+        ax2.fill_between(
+            elem.mphis,
+            maxneg,
+            ymin_ax2,
+            color=det_colour,
+            alpha=0.3
+        )
 
-    print("len mphis", len(elem.mphis))
-    print("len absb", len(absb))
-    print("type(mphis)", type(elem.mphis))
-    print("type(absb)", type(absb))
-    print("ymax", type(ymax))
-    print("absb", absb)
-    print("mphis", elem.mphis)
-    print("ymax", ymax)
-    print("ymax - absb", ymax - absb)
-    ax1.fill_between(
-        elem.mphis,
-        absb,
-        ymax,
-        color=fit_colour,
-        alpha=0.3,
-        label="fit " + str(nsigmas) + r"$\sigma$-excluded",
-    )
-    ax2.fill_between(
-        elem.mphis,
-        ub,
-        ymax,
-        color=fit_colour,
-        alpha=0.3,
-        label="fit " + str(nsigmas) + r"$\sigma$-excluded",
-    )
-    ax2.fill_between(
-        elem.mphis,
-        ymin_ax2,
-        lb,
-        color=fit_colour,
-        alpha=0.3,
-        label="fit " + str(nsigmas) + r"$\sigma$-excluded",
-    )
+    if len(absb) > 1:
+        ax1.fill_between(
+            elem.mphis,
+            absb,
+            ymax,
+            color=fit_colour,
+            alpha=0.3,
+            label="fit " + str(nsigmas) + r"$\sigma$-excluded",
+        )
+        ax2.fill_between(
+            elem.mphis,
+            ub,
+            ymax,
+            color=fit_colour,
+            alpha=0.3,
+            label="fit " + str(nsigmas) + r"$\sigma$-excluded",
+        )
+        ax2.fill_between(
+            elem.mphis,
+            lb,
+            ymin_ax2,
+            color=fit_colour,
+            alpha=0.3
+        )
 
     ax1.legend(loc="upper left", fontsize="9")
     ax2.legend(loc="upper left", fontsize="9")
