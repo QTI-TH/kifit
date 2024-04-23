@@ -462,10 +462,7 @@ def get_confint(alphas, delchisqs, delchisqcrit):
     if len(pos) > 2:
         return np.array([alphas[int(min(pos))], alphas[int(max(pos))]])
     else:
-        raise ValueError(f"The parameter set contains too few elements to compute\
-                the confidence interval. Please change simulation hyper parameters."
-            )
-        
+        return np.array([None, None])
 
 
 def iterative_mc_search(
