@@ -501,7 +501,8 @@ def iterative_mc_search(
         sig_new_alpha_fraction: float = 0.3,
         maxiter: int = 3,
         plot_output: bool = False,
-        xind=0):
+        xind=0,
+        mphivar: bool = False):
     """
     Perform iterative search for best alphaNP value and the standard deviation.
 
@@ -515,9 +516,6 @@ def iterative_mc_search(
         scalefactor (float): factor used to rescale the search interval.
         maxiter (int): maximum number of iterations spent within the iterative
             search.
-        a_crit: critical parabola parameter. If a < a_crit, the search is
-            stopped and alphaNP, sig_alphaNP are calculated with use of the
-            blocking method.
 
     Return:
         mean_best_alpha: best alphaNP value, found by averaging over all blocks
@@ -714,7 +712,6 @@ def sample_alphaNP_fit(
             nsigmas=nsigmas,
             nblocks=nblocks,
             scalefactor=scalefactor,
-            a_crit=a_crit,
             maxiter=maxiter,
             plot_output=plot_output,
             xind=x,
