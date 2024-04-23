@@ -307,9 +307,6 @@ def get_bestalphaNP_and_bounds(
     iterative_lb, iterative_lb_err = blocking(lowbounds_list, nblocks=nblocks)
     iterative_ub, iterative_ub_err = blocking(upbounds_list, nblocks=nblocks)
 
-    print(iterative_lb_err)
-    print(iterative_ub_err)
-
     lb = iterative_lb[-1]
     ub = iterative_ub[-1]
     sig_LB = iterative_lb_err[-1]
