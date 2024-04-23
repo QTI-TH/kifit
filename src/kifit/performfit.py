@@ -312,8 +312,6 @@ def get_bestalphaNP_and_bounds(
     sig_LB = iterative_lb_err[-1]
     sig_UB = iterative_ub_err[-1]
 
-    print("type lb", type(lb))
-
     LB = lb or -1e-17
     UB = ub or 1e-17
 
