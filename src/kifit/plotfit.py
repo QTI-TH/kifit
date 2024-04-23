@@ -165,7 +165,7 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1):
     ax3.set_ylabel(r"Lin. Reg. Resid.")
 
     plt.tight_layout()
-    plt.savefig(_plot_path + "/linfit_" + elem.id + ".pdf")
+    plt.savefig(_plot_path + "/linfit_" + elem.id + ".png")
 
     return fig, ax1, ax2, ax3
 
@@ -176,7 +176,7 @@ def plot_parabolic_fit(alphas, ll, params, plotname):
     plt.figure(figsize=(10, 10 * 6 / 8))
     plt.scatter(alphas, ll, color="orange")
     plt.plot(alphas, parabola(alphas, *params), color="k", lw=1.5)
-    plt.savefig(_plot_path + "/parabola_" + plotname + ".pdf")
+    plt.savefig(_plot_path + "/parabola_" + plotname + ".png")
 
 
 def blocking_plot(nblocks, estimations, errors, label="", filename="blocking"):
@@ -188,7 +188,7 @@ def blocking_plot(nblocks, estimations, errors, label="", filename="blocking"):
     plt.grid(True)
     plt.xlabel("Blocks")
     plt.ylabel("Estimation")
-    plt.savefig(f"plots/{filename}.pdf")
+    plt.savefig(f"plots/{filename}.png")
 
 
 def plot_mc_output(alphalist, delchisqlist, parabolaparams,
@@ -228,7 +228,7 @@ def plot_mc_output(alphalist, delchisqlist, parabolaparams,
     ax.set_xlim(xlims[0], xlims[1])
     ax.set_ylim(ylims[0], ylims[1])
     plt.legend()
-    plt.savefig(_plot_path + "/" + plotname + ".pdf")
+    plt.savefig(_plot_path + "/" + plotname + ".png")
 
     return ax
 
@@ -297,7 +297,7 @@ def plot_final_mc_output(elem, alphas, delchisqs, parabolaparams, delchisqcrit,
     ax.set_ylim(ylims[0], ylims[1])
     plt.legend()
     plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + "_x" + str(xind)
-        + ".pdf")
+        + ".png")
 
     return fig, ax
 
@@ -380,7 +380,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     ax.set_ylim(ylims[0], ylims[1])
     plt.legend()
     plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + "_x" + str(xind)
-        + ".pdf")
+        + ".png")
 
     return fig, ax
 
@@ -419,7 +419,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     #     + str(x)
     #     + "_"
     #     + str(len(alphalist[0]))
-    #     + "_fit_samples.pdf"
+    #     + "_fit_samples.png"
     # )
     # return fig, ax
 
@@ -853,7 +853,7 @@ def plot_mphi_alphaNP(
         + "_"
         + prettyplotname
         + str(len(alphas[0]))
-        + "_fit_samples.pdf"
+        + "_fit_samples.png"
     )
 
     fig2.savefig(
@@ -863,7 +863,7 @@ def plot_mphi_alphaNP(
         + "_"
         + prettyplotname
         + str(len(alphas[0]))
-        + "_fit_samples.pdf"
+        + "_fit_samples.png"
     )
 
     return fig1, ax1, fig2, ax2
