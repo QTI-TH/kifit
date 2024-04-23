@@ -314,8 +314,8 @@ def get_bestalphaNP_and_bounds(
 
     print("type lb", type(lb))
 
-    LB = np.where(lb==0., np.nan, lb)
-    UB = np.where(ub==0, np.nan, ub)
+    LB = lb or -1e-17
+    UB = ub or 1e-17
 
     if draw_output:
         from kifit.plotfit import blocking_plot
@@ -498,11 +498,10 @@ def iterative_mc_search(
         nblocks: int = 10,
         sigalphainit=1e-7,
         scalefactor: float = 3e-1,
+        sig_new_alpha_fraction: float = 0.3,
         maxiter: int = 3,
-        a_crit: int = 150,
         plot_output: bool = False,
-        xind: int = 0,
-        mphivar: bool = False):
+        xind=0):
     """
     Perform iterative search for best alphaNP value and the standard deviation.
 
@@ -565,7 +564,7 @@ def iterative_mc_search(
                 plot_mc_output(alphas, delchisqlist, newpopt, plotname=f"{i}")
 
         else:
-            if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha / 3):
+            if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha * sig_new_alpha_fraction):
 
                 # 1-> -1: switch to grid search
                 alphasamples = generate_alphaNP_sample(elem, nsamples_search,
@@ -679,7 +678,6 @@ def sample_alphaNP_fit(
         nblocks: int = 10,
         scalefactor: float = 3e-1,
         maxiter: int = 3,
-        a_crit: int = 150,
         plot_output: bool = False,
         mphivar: bool = False,
         x0: int = 0):
