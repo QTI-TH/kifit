@@ -542,6 +542,9 @@ def plot_mphi_alphaNP_fit_bound(ax1, ax2, elem,
     lb, siglb, ub, sigub,
         plotabs=True, showallowedfitpts=False):
 
+    print("sigbestalphas_parabola", sigbestalphas_parabola)
+    print("sigbestalphas_pts", sigbestalphas_pts)
+
     # mphi vs abs(alphaNP)
     ax1.scatter(elem.mphis, np.abs(bestalphas_parabola), color='orange', marker="*",
         label=r"best $\alpha_{\mathrm{NP}} \pm \sigma[\alpha_{\mathrm{NP}}]$")
@@ -699,21 +702,21 @@ def plot_mphi_alphaNP(
     # alphas = mc_output[0].T[0]
     alphas = np.array([row[0] for row in mc_output[0]])
     # bestalphas_parabola = mc_output[0].T[4]
-    bestalphas_parabola = np.array([row[4] for row in mc_output[0]])
+    bestalphas_parabola = np.array([row[5] for row in mc_output[0]])
     # sigbestalphas_parabola = mc_output[0].T[5]
-    sigbestalphas_parabola = np.array([row[5] for row in mc_output[0]])
+    sigbestalphas_parabola = np.array([row[6] for row in mc_output[0]])
     # bestalphas_pts = mc_output[0].T[6]
-    bestalphas_pts = np.array([row[6] for row in mc_output[0]])
+    bestalphas_pts = np.array([row[7] for row in mc_output[0]])
     # sigbestalphas_pts = mc_output[0].T[7]
-    sigbestalphas_pts = np.array([row[7] for row in mc_output[0]])
+    sigbestalphas_pts = np.array([row[8] for row in mc_output[0]])
     # lb = mc_output[0].T[8]
-    lb = np.array([row[8] for row in mc_output[0]])
+    lb = np.array([row[9] for row in mc_output[0]])
     # siglb = mc_output[0].T[9]
-    siglb = np.array([row[9] for row in mc_output[0]])
+    siglb = np.array([row[10] for row in mc_output[0]])
     # ub = mc_output[0].T[10]
-    ub = np.array([row[10] for row in mc_output[0]])
+    ub = np.array([row[11] for row in mc_output[0]])
     # sigub = mc_output[0].T[11]
-    sigub = np.array([row[11] for row in mc_output[0]])
+    sigub = np.array([row[12] for row in mc_output[0]])
 
     absb = np.max(np.array([np.abs(lb), np.abs(ub)]), axis=0)
 
