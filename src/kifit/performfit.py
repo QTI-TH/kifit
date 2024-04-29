@@ -69,7 +69,7 @@ def parabola_llmin(popt):
 #     return est, err
 #
 
-def blocking_bounds(lbs: List[float], ubs: List[float], nblocks: int,
+def blocking_bounds(elem, lbs: List[float], ubs: List[float], nblocks: int,
         plot_output: bool = False):
     """
     Blocking method to compute the statistical uncertainty of the confidence
@@ -91,6 +91,9 @@ def blocking_bounds(lbs: List[float], ubs: List[float], nblocks: int,
     # print("lbs", lbs)
     # print("ubs", ubs)
     # assert (lbs <= ubs).all()
+
+    lbs = np.array(lbs) * elem.dnorm
+    ubs = np.array(ubs) * elem.dnorm
 
     block_size = int(len(lbs) / nblocks)
 
@@ -330,7 +333,8 @@ def update_alphaNP_for_next_iteration(
 
     small_alphas = np.array([alphalist[ll] for ll in smalll[: int(nsamples * small_alpha_fraction)]])
 
-    new_alpha = np.mean(small_alphas)
+    # TODO: here we were using the mean, but median is more resilient to outliers
+    new_alpha = np.median(small_alphas)
 
     std_new_alpha = np.std(small_alphas)
 
@@ -348,6 +352,7 @@ def update_alphaNP_for_next_iteration(
 
 
 def get_bestalphaNP_and_bounds(
+        elem,
         bestalphaNPlist,
         optparams,
         confints,
@@ -373,8 +378,12 @@ def get_bestalphaNP_and_bounds(
     upperbounds_exps = confints.T[1]
 
     LB, UB, sig_LB, sig_UB = blocking_bounds(
-        lowbounds_exps, upperbounds_exps, nblocks=nblocks,
-        plot_output=plot_output)
+        elem,
+        lowbounds_exps, 
+        upperbounds_exps, 
+        nblocks=nblocks,
+        plot_output=plot_output
+    )
 
     print(f"Final result: {best_alpha_pts} with bounds [{LB}, {UB}].")
 
@@ -536,12 +545,12 @@ def iterative_mc_search(
         nsamples_search: int = 200,
         nexps: int = 1000,
         nsamples_exp: int = 1000,
-        nsigmas: int = 2,
+        nsigmas: int = 2,   
         nblocks: int = 10,
-        sigalphainit=1e-7,
-        scalefactor: float = 3e-1,
-        sig_new_alpha_fraction: float = 0.3,
-        maxiter: int = 3,
+        sigalphainit = 1.,
+        scalefactor: float = 2e-1,
+        sig_new_alpha_fraction: float = 0.25,
+        maxiter: int = 1000,
         plot_output: bool = False,
         xind=0,
         mphivar: bool = False):
@@ -605,7 +614,6 @@ def iterative_mc_search(
 
         else:
             if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha * sig_new_alpha_fraction):
-
                 # 1-> -1: switch to grid search
                 alphasamples = generate_alphaNP_sample(elem, nsamples_search,
                     search_mode="grid")
@@ -623,6 +631,7 @@ def iterative_mc_search(
                     plot_mc_output(alphas, delchisqlist, newpopt, plotname=f"{i}")
 
             else:
+                print(f"BREAKING AT ITER: {i+1}, with maxiter: {maxiter}")
                 # -1: final round: perform parabolic fits and use blocking method to
                 # determine best alphaNP and confidence intervals
 
@@ -653,6 +662,12 @@ def iterative_mc_search(
                     popt = parabolic_fit(elem, alphas, lls,
                         plotfit=plot_output, plotname=f"{i}_exp_{exp}")
                     optparams_exps.append(popt)
+
+                    
+                    if exp == 0:
+                        delchisqlist, newpopt = get_delchisq(lls, popt=popt)
+                        plot_mc_output(alphas, delchisqlist, newpopt,
+                            plotname=f"{i}_exp_{exp}")
 
                     if plot_output:
                         delchisqlist, newpopt = get_delchisq(lls, popt=popt)
@@ -686,7 +701,7 @@ def iterative_mc_search(
 
     (best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB) = \
-        get_bestalphaNP_and_bounds(bestalphas_exps, optparams_exps,
+        get_bestalphaNP_and_bounds(elem, bestalphas_exps, optparams_exps,
             confints_exps, nblocks=nblocks)
 
     elem.set_alphaNP_init(best_alpha_parabola, sig_alpha_parabola)
@@ -716,8 +731,9 @@ def sample_alphaNP_fit(
         nsamples_exp: int = 1000,
         nsigmas: int = 2,
         nblocks: int = 10,
-        scalefactor: float = 3e-1,
-        maxiter: int = 3,
+        scalefactor: float = 2e-1,
+        sig_new_alpha_fraction: float = 0.25,
+        maxiter: int = 1000,
         plot_output: bool = False,
         mphivar: bool = False,
         x0: int = 0):
@@ -756,6 +772,7 @@ def sample_alphaNP_fit(
             scalefactor=scalefactor,
             maxiter=maxiter,
             plot_output=plot_output,
+            sig_new_alpha_fraction=sig_new_alpha_fraction,
             xind=x,
             mphivar=mphivar)
 

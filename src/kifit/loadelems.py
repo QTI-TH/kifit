@@ -182,7 +182,7 @@ class Elem:
         self.m_ap = self.m_ap_in
 
         # initialise dvec rescaling factor
-        self.dnorm = 1.  # np.mean(self.nu_in / self.sig_nu_in)
+        self.dnorm = 1. # np.mean(self.nu_in / self.sig_nu_in) #1.
 
     def _init_fit_params(self):
         """

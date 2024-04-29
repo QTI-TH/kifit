@@ -8,12 +8,16 @@ print(ca.get_dimensions)
 plot_linfit(ca, resmagnifac=1)
 
 num_samples_det = 100
-num_samples_search = 50
-num_samples_experiment = 100
+num_samples_search = 200
+num_samples_experiment = 200
 num_experiments = 100
-num_blocks = 10
+num_blocks = 20
 
-max_iter = 10
+# search hyper-parameters
+max_iter = 1000
+scalefactor = 0.85
+sig_new_alpha_fraction = 0.12
+
 
 gkp_dims = []
 nmgkp_dims = []
@@ -21,9 +25,15 @@ nmgkp_dims = []
 mc_output = sample_alphaNP_fit(
     ca,
     nsamples_search=num_samples_search,
-    nexps=num_experiments, nsamples_exp=num_samples_experiment,
-    nblocks=num_blocks, maxiter=max_iter,
-    mphivar=True, plot_output=False)
+    nexps=num_experiments, 
+    nsamples_exp=num_samples_experiment,
+    nblocks=num_blocks, 
+    maxiter=max_iter,
+    mphivar=True, 
+    plot_output=False,
+    scalefactor=scalefactor,
+    sig_new_alpha_fraction=sig_new_alpha_fraction,
+)
 
 plot_alphaNP_ll(ca, mc_output, xind=0)
 
