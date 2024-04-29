@@ -44,29 +44,97 @@ def parabola_llmin(popt):
     return popt[2] - popt[1]**2 / (4 * popt[0])
 
 
-def blocking(experiments: List[float], nblocks: int):
+# def blocking(experiments: List[float], nblocks: int):
+#     """
+#     Blocking method to compute the statistical uncertainty of the MC simulation.
+#
+#     Args:
+#         experiments (List[float]): list of the experiments results.
+#     """
+#
+#     if (len(experiments) % nblocks != 0):
+#         raise ValueError(f"Number of experiments has to be a multiple of\
+#             nblocks. Here {len(experiments)} is not multiple of {nblocks}.")
+#
+#     block_size = int(len(experiments) / nblocks)
+#
+#     ave, est, err = [], [], []
+#
+#     for b in range(nblocks):
+#         block_data = experiments[b * block_size: (b + 1) * block_size]
+#         ave.append(np.mean(block_data))
+#         est.append(np.mean(ave))
+#         err.append(np.std(est))
+#
+#     return est, err
+#
+
+def blocking_bounds(lbs: List[float], ubs: List[float], nblocks: int,
+        plot_output: bool = False):
     """
-    Blocking method to compute the statistical uncertainty of the MC simulation.
+    Blocking method to compute the statistical uncertainty of the confidence
+    intervals.
 
     Args:
-        experiments (List[float]): list of the experiments results.
+        lbs: list of lower bounds for the different experiments.
+        ubs: crazy big Swiss bank
+        nblocks: number of blocks used by the blocking method.
+
     """
-
-    if (len(experiments) % nblocks != 0):
+    if len(lbs) != len(ubs):
+        raise ValueError(f"Lists of lower and upper bounds passed to the \
+        blocking method should be of equal length. \
+            len(lbs)={len(lbs)}, len(ubs)={len(ubs)}")
+    if (len(lbs) % nblocks != 0):
         raise ValueError(f"Number of experiments has to be a multiple of\
-            nblocks. Here {len(experiments)} is not multiple of {nblocks}.")
+            nblocks. Here {len(lbs)} is not multiple of {nblocks}.")
+    # print("lbs", lbs)
+    # print("ubs", ubs)
+    # assert (lbs <= ubs).all()
 
-    block_size = int(len(experiments) / nblocks)
+    block_size = int(len(lbs) / nblocks)
 
-    ave, est, err = [], [], []
+    # parametric bootstrap
+    lb_min, ub_max, lb_val, ub_val, sig_lb, sig_ub = [], [], [], [], [], []
 
     for b in range(nblocks):
-        block_data = experiments[b * block_size: (b + 1) * block_size]
-        ave.append(np.mean(block_data))
-        est.append(np.mean(ave))
-        err.append(np.std(est))
+        lb_block = lbs[b * block_size: (b + 1) * block_size]
+        ub_block = ubs[b * block_size: (b + 1) * block_size]
 
-    return est, err
+        lb_min.append(np.min(lb_block))
+        ub_max.append(np.max(ub_block))
+
+        lb_val.append(np.mean(lb_min))
+        ub_val.append(np.mean(ub_max))
+
+        sig_lb.append(np.std(lb_min))
+        sig_ub.append(np.std(ub_max))
+
+    sig_LB = sig_lb[-1]
+    sig_UB = sig_ub[-1]
+
+    LB = lb_val[-1] - sig_LB
+    UB = ub_val[-1] + sig_UB
+
+    if plot_output:
+
+        from kifit.plotfit import blocking_plot
+
+        blocking_plot(
+            nblocks=nblocks,
+            estimations=lb_val,
+            uncertainties=sig_lb,
+            label="Lower bound",
+            filename="blocking_lb"
+        )
+        blocking_plot(
+            nblocks=nblocks,
+            estimations=ub_val,
+            uncertainties=sig_ub,
+            label="Upper bound",
+            filename="blocking_ub"
+        )
+    return LB, UB, sig_LB, sig_UB
 
 
 def get_odr_residuals(p, x, y, sx, sy):
@@ -284,7 +352,7 @@ def get_bestalphaNP_and_bounds(
         optparams,
         confints,
         nblocks: int = 100,
-        draw_output: bool = True):
+        plot_output: bool = True):
     """
     Starting from a list of parabola parameters, apply the blocking method to
     compute the best alphaNP value, its uncertainty, as well as the nsigma -
@@ -301,38 +369,12 @@ def get_bestalphaNP_and_bounds(
     best_alpha_pts = np.mean(bestalphaNPlist)
     sig_alpha_pts = np.std(bestalphaNPlist)
 
-    lowbounds_list = confints.T[0]
-    upbounds_list = confints.T[1]
+    lowbounds_exps = confints.T[0]
+    upperbounds_exps = confints.T[1]
 
-    iterative_lb, iterative_lb_err = blocking(lowbounds_list, nblocks=nblocks)
-    iterative_ub, iterative_ub_err = blocking(upbounds_list, nblocks=nblocks)
-
-    lb = iterative_lb[-1]
-    ub = iterative_ub[-1]
-    sig_LB = iterative_lb_err[-1]
-    sig_UB = iterative_ub_err[-1]
-
-    print("type lb", type(lb))
-
-    LB = lb or -1e-17
-    UB = ub or 1e-17
-
-    if draw_output:
-        from kifit.plotfit import blocking_plot
-        blocking_plot(
-            nblocks=nblocks,
-            estimations=iterative_lb,
-            errors=iterative_lb_err,
-            label="Lower bound",
-            filename="blocking_lb"
-        )
-        blocking_plot(
-            nblocks=nblocks,
-            estimations=iterative_ub,
-            errors=iterative_ub_err,
-            label="Upper bound",
-            filename="blocking_ub"
-        )
+    LB, UB, sig_LB, sig_UB = blocking_bounds(
+        lowbounds_exps, upperbounds_exps, nblocks=nblocks,
+        plot_output=plot_output)
 
     print(f"Final result: {best_alpha_pts} with bounds [{LB}, {UB}].")
 
