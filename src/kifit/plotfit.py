@@ -165,18 +165,18 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1):
     ax3.set_ylabel(r"Lin. Reg. Resid.")
 
     plt.tight_layout()
-    plt.savefig(_plot_path + "/linfit_" + elem.id + ".pdf")
+    plt.savefig(_plot_path + "/linfit_" + elem.id + ".png")
 
     return fig, ax1, ax2, ax3
 
 
-def plot_parabolic_fit(alphas, ll, params, plotname):
+def plot_parabolic_fit(alphas, ll, params, plotname=None):
     """Plot generated data and parabolic fit ."""
 
     plt.figure(figsize=(10, 10 * 6 / 8))
     plt.scatter(alphas, ll, color="orange")
     plt.plot(alphas, parabola(alphas, *params), color="k", lw=1.5)
-    plt.savefig(_plot_path + "/parabola_" + plotname + ".pdf")
+    plt.savefig(_plot_path + "/parabola_" + plotname + ".png")
 
 
 def blocking_plot(nblocks, estimations, uncertainties, label="", filename="blocking"):
@@ -188,14 +188,14 @@ def blocking_plot(nblocks, estimations, uncertainties, label="", filename="block
     plt.grid(True)
     plt.xlabel("Blocks")
     plt.ylabel("Estimation")
-    plt.savefig(f"plots/{filename}.pdf")
+    plt.savefig(f"plots/{filename}.png")
 
 
 def plot_mc_output(alphalist, delchisqlist, parabolaparams,
         nsigmas=2,
         xlabel=r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
         ylabel=r"$\Delta \chi^2$",
-        plotname="mc_output",
+        plotname=None,
         xlims=[None, None], ylims=[None, None]):
     """
     plot 2-dimensional scatter plot showing the likelihood associated with the
@@ -206,17 +206,28 @@ def plot_mc_output(alphalist, delchisqlist, parabolaparams,
     """
     fig, ax = plt.subplots()
 
+    nsamples = len(alphalist)  # NEW
+
     ax.scatter(alphalist, delchisqlist, s=1, alpha=0.5, color="royalblue")
 
     ll_fit = parabola(alphalist, *parabolaparams)
     best_alpha = alphalist[np.argmin(ll_fit)]
+
+    smalll_indices = np.argsort(delchisqlist)  # NEW
+    small_alphas = np.array([alphalist[ll] for ll in smalll_indices[: int(nsamples * .1)]])  # NEW
+
+    new_alpha = np.median(small_alphas)  # NEW
 
     ax.plot(alphalist, ll_fit,
         color="black", ls="--", lw=1,
         label=rf"$\alpha$ fit min: {best_alpha:.4e}")
 
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas)
+
+    # print(delchisqcrit)
+
     ax.axhline(y=delchisqcrit, color="orange", lw=1, ls="--")
+    ax.axvline(x=new_alpha, color="red", lw=1, ls="-")  # NEW
 
     confint = get_confint(alphalist, delchisqlist, delchisqcrit)
     lb = confint[0]
@@ -228,7 +239,8 @@ def plot_mc_output(alphalist, delchisqlist, parabolaparams,
     ax.set_xlim(xlims[0], xlims[1])
     ax.set_ylim(ylims[0], ylims[1])
     plt.legend()
-    plt.savefig(_plot_path + "/" + plotname + ".pdf")
+    plt.savefig(_plot_path + "/mc_output_" + plotname + ".png")
+    plt.close()
 
     return ax
 
@@ -301,7 +313,8 @@ def plot_final_mc_output(elem, alphas, delchisqs,
     ax.set_ylim(ylims[0], ylims[1])
     plt.legend()
     plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + "_x" + str(xind)
-        + ".pdf")
+        + ".png")
+    plt.close()
 
     return fig, ax
 
@@ -388,7 +401,8 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     ax.set_ylim(ylims[0], ylims[1])
     plt.legend()
     plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + "_x" + str(xind)
-        + ".pdf")
+        + ".png")
+    plt.close()
 
     return fig, ax
 
@@ -427,7 +441,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     #     + str(x)
     #     + "_"
     #     + str(len(alphalist[0]))
-    #     + "_fit_samples.pdf"
+    #     + "_fit_samples.png"
     # )
     # return fig, ax
 
@@ -878,7 +892,7 @@ def plot_mphi_alphaNP(
         + "_"
         + prettyplotname
         + str(len(alphas[0]))
-        + "_fit_samples.pdf"
+        + "_fit_samples.png"
     )
 
     fig2.savefig(
@@ -888,7 +902,9 @@ def plot_mphi_alphaNP(
         + "_"
         + prettyplotname
         + str(len(alphas[0]))
-        + "_fit_samples.pdf"
+        + "_fit_samples.png"
     )
+
+    plt.close()
 
     return fig1, ax1, fig2, ax2

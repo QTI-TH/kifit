@@ -36,7 +36,7 @@ def parabola(x, a, b, c):
     return a * x**2 + b * x + c
 
 
-def parabola_alphaNPmin(popt):
+def parabola_best_alphaNP(popt):
     return -popt[1] / (2 * popt[0])
 
 
@@ -81,6 +81,9 @@ def blocking_bounds(lbs: List[float], ubs: List[float], nblocks: int,
         nblocks: number of blocks used by the blocking method.
 
     """
+    if plot_output:
+        print("Là je vais dessiner une chiée de figures.")
+
     if len(lbs) != len(ubs):
         raise ValueError(f"Lists of lower and upper bounds passed to the \
         blocking method should be of equal length. \
@@ -294,7 +297,8 @@ def generate_element_sample(elem, nsamples: int):
     return parameters_samples
 
 
-def generate_alphaNP_sample(elem, nsamples: int, search_mode: str = "random"):
+def generate_alphaNP_sample(elem, nsamples: int, search_mode: str = "random",
+    lb: float=None, ub: float=None):
     """
     Generate ``nsamples`` of alphaNP according to the initial conditions
     provided by the ``elem`` data. The sample can be generated either randomly
@@ -306,45 +310,90 @@ def generate_alphaNP_sample(elem, nsamples: int, search_mode: str = "random"):
             elem.alphaNP_init, elem.sig_alphaNP_init, nsamples
         )
     elif search_mode == "grid":
-        alphaNP_samples = np.linspace(
-            elem.alphaNP_init - elem.sig_alphaNP_init,
-            elem.alphaNP_init + elem.sig_alphaNP_init,
-            nsamples
-        )
+        if lb is None or ub is None:
+            alphaNP_samples = np.linspace(
+                elem.alphaNP_init - elem.sig_alphaNP_init,
+                elem.alphaNP_init + elem.sig_alphaNP_init,
+                nsamples
+            )
+        else:
+            alphaNP_samples = np.linspace(
+                lb,
+                ub,
+                nsamples
+            )
+
     return np.sort(alphaNP_samples)
+
+
+def get_new_alphaNP_interval(
+        alphalist,
+        llist,
+        popt,
+        scalefactor: float = .1):
+
+    smalll_inds = np.argsort(llist)[: int(len(llist) * scalefactor)]
+    print("smalll_inds", smalll_inds)
+    print(f"taking {int(len(llist) * scalefactor)} points")
+
+    small_alphas = alphalist[smalll_inds]
+    smallls = llist[smalll_inds]
+
+    # sorted_alpha_inds = np.argsort(small_alphas)
+    # small_alphas = small_alphas[sorted_alpha_inds]
+    # smallls = smallls[sorted_alpha_inds]
+
+    lb_best_alpha = np.percentile(small_alphas, 16)
+    ub_best_alpha = np.percentile(small_alphas, 84)
+
+    best_alpha_parabola = parabola_best_alphaNP(popt)
+
+    print("lb_best_alpha      ", lb_best_alpha)
+    print("ub_best_alpha      ", ub_best_alpha)
+    print("best_alpha_parabola", best_alpha_parabola)
+
+    return (small_alphas, smallls,
+        best_alpha_parabola, lb_best_alpha, ub_best_alpha)
 
 
 def update_alphaNP_for_next_iteration(
         elem,
+        new_alphas,
+        new_lls,
         alphalist,
         llist,
-        scalefactor: float = .3,
-        small_alpha_fraction: float = .1,
-    ):
+        scalefactor: float = .1):  # ,
+    # small_alpha_fraction: float = .3):
     """
     Compute sig_alphaNP for next iteration.
 
     """
-    nsamples = len(alphalist)
-    smalll = np.argsort(llist)
+    new_alpha = np.median(new_alphas)
+    std_new_alphas = np.std(new_alphas)
+    std_new_lls = np.std(new_lls)
 
-    small_alphas = np.array([alphalist[ll] for ll in smalll[: int(nsamples * small_alpha_fraction)]])
+    # lb_best_alphas = np.percentile(new_alphas, 45)
+    # ub_best_alphas = np.percentile(new_alphas, 55)
+    #
+    # best_alpha_inds = np.argwhere(
+    #     (lb_best_alphas < alphalist) & (alphalist < ub_best_alphas)).flatten()
 
-    new_alpha = np.mean(small_alphas)
-
-    std_new_alpha = np.std(small_alphas)
-
-    sig_new_alpha = scalefactor * min(
-        np.abs(max(alphalist) - new_alpha),
-        np.abs(min(alphalist) - new_alpha))
+    # best_alpha_interval_ll = llist[best_alpha_inds]
+    # Delta_new_ll = np.abs(
+    #     max(best_alpha_interval_ll) - min(best_alpha_interval_ll))
+    Delta_new_ll = 0
+    #
+    # sig_new_alpha = scalefactor * min(
+    sig_new_alpha = np.average([
+        np.abs(max(new_alphas) - new_alpha),
+        np.abs(min(new_alphas) - new_alpha)])
 
     elem.set_alphaNP_init(new_alpha, sig_new_alpha)
 
     # print(f"""New search interval: \
     #     [{elem.alphaNP_init - elem.sig_alphaNP_init}, \
     #     {elem.alphaNP_init + elem.sig_alphaNP_init}]""")
-
-    return new_alpha, std_new_alpha, sig_new_alpha
+    return std_new_lls, Delta_new_ll, new_alpha, std_new_alphas, sig_new_alpha
 
 
 def get_bestalphaNP_and_bounds(
@@ -352,7 +401,7 @@ def get_bestalphaNP_and_bounds(
         optparams,
         confints,
         nblocks: int = 100,
-        plot_output: bool = True):
+        plot_output: bool = False):
     """
     Starting from a list of parabola parameters, apply the blocking method to
     compute the best alphaNP value, its uncertainty, as well as the nsigma -
@@ -382,7 +431,7 @@ def get_bestalphaNP_and_bounds(
         best_alpha_pts, sig_alpha_pts, LB, sig_LB, UB, sig_UB)
 
 
-def compute_ll(elem, alphasamples, scalefactor: float = 3e-1):
+def compute_ll(elem, alphasamples, scalefactor: float = .1):
     """
     Generate alphaNP list for element ``elem`` according to ``parameters_samples``.
 
@@ -486,10 +535,13 @@ def get_delchisq(llist, minll=None, popt=[]):
 
     """
     if minll is None:
-        minll = min(llist)
+        if len(popt) == 3:
+            minll = parabola_llmin(popt)
+        else:
+            minll = min(llist)
 
     if len(llist) > 0:
-        delchisqlist = 2 * (llist - min(llist))
+        delchisqlist = 2 * (llist - minll)
     else:
         raise ValueError(f"llist {llist} passed to get_delchisq is not a list.")
 
@@ -531,6 +583,26 @@ def get_confint(alphas, delchisqs, delchisqcrit):
         return np.array([np.nan, np.nan])
 
 
+def equilibrate_interval(newalphas, newlls):
+
+    sorted_alpha_inds = np.argsort(newalphas)
+    newalphas = newalphas[sorted_alpha_inds]
+    newlls = newlls[sorted_alpha_inds]
+
+    llequill = (min(newlls[0], newlls[-1]) / max(newlls[0], newlls[-1]))
+
+    if llequill < .4:
+        print("REGULATING UNBALANCED INTERVAL")
+        limiting_ll = min(newlls[0], newlls[-1])
+        print("newlls     ", newlls)
+        print("min ll     ", min(newlls))
+        print("limiting_ll", limiting_ll)
+        reduced_ll_inds = np.where(newlls <= limiting_ll)
+        newalphas = newalphas[reduced_ll_inds]
+        newlls = newlls[reduced_ll_inds]
+    return newalphas, newlls
+
+
 def iterative_mc_search(
         elem,
         nsamples_search: int = 200,
@@ -538,10 +610,10 @@ def iterative_mc_search(
         nsamples_exp: int = 1000,
         nsigmas: int = 2,
         nblocks: int = 10,
-        sigalphainit=1e-7,
-        scalefactor: float = 3e-1,
-        sig_new_alpha_fraction: float = 0.3,
-        maxiter: int = 3,
+        sigalphainit: float = 1.,
+        scalefactor: float = .1,  # 2e-1,
+        # sig_new_alpha_fraction: float = 0.1,
+        maxiter: int = 1000,
         plot_output: bool = False,
         xind=0,
         mphivar: bool = False):
@@ -582,89 +654,102 @@ def iterative_mc_search(
         iterations = range(maxiter)
 
     for i in iterations:
-        # print(f"Iterative search step {i+1}")
+        print(f"Iterative search step {i+1}")
         if i == 0:
             # 0: start with random search
             elem.set_alphaNP_init(0., sigalphainit)
 
             alphasamples = generate_alphaNP_sample(elem, nsamples_search,
                 search_mode="random")
-            alphas, lls = compute_ll(elem, alphasamples)
 
-            popt = parabolic_fit(elem, alphas, lls,
-                plotfit=plot_output, plotname=str(i))
+            Delta_new_ll = 0
+            std_new_ll = 1
 
-            new_alpha, std_new_alpha, sig_new_alpha = \
-                update_alphaNP_for_next_iteration(elem, alphas, lls,
-                    scalefactor=scalefactor)
-
-            if plot_output:
-                delchisqlist, newpopt = get_delchisq(lls, popt=popt)
-
-                plot_mc_output(alphas, delchisqlist, newpopt, plotname=f"{i}")
+        # 1 -> -1: grid search
+        elif ((i < maxiter - 1) and (Delta_new_ll < std_new_ll)):
+            alphasamples = generate_alphaNP_sample(elem, nsamples_search,
+                    search_mode="grid")
 
         else:
-            if (i < maxiter - 1) and (std_new_alpha < sig_new_alpha * sig_new_alpha_fraction):
+            print(f"BREAKING AT ITER: {i+1}, with maxiter: {maxiter}")
+            break
 
-                # 1-> -1: switch to grid search
-                alphasamples = generate_alphaNP_sample(elem, nsamples_search,
-                    search_mode="grid")
-                alphas, lls = compute_ll(elem, alphasamples)
+        # compute ll, parabola and possible new interval
+        alphas, lls = compute_ll(elem, alphasamples)
 
-                popt = parabolic_fit(elem, alphas, lls,
-                    plotfit=plot_output, plotname=str(i))
+        popt = parabolic_fit(elem, alphas, lls,
+            plotfit=plot_output, plotname=str(i + 1))
 
-                new_alpha, std_new_alpha, sig_new_alpha = \
-                    update_alphaNP_for_next_iteration(elem, alphas, lls,
-                        scalefactor=scalefactor)
+        if plot_output:
+            delchisqlist, delchisqpopt = get_delchisq(lls, popt=popt)
+            plot_mc_output(alphas, delchisqlist, delchisqpopt, plotname=f"{i + 1}")
 
-                if plot_output:
-                    delchisqlist, newpopt = get_delchisq(lls, popt=popt)
-                    plot_mc_output(alphas, delchisqlist, newpopt, plotname=f"{i}")
+        (
+            new_alphas, new_lls,
+            new_alpha_parabola, new_lb_alpha, new_ub_alpha
+        ) = get_new_alphaNP_interval(alphas, lls, popt,
+                scalefactor=scalefactor)
 
-            else:
-                # -1: final round: perform parabolic fits and use blocking method to
-                # determine best alphaNP and confidence intervals
+        # test new interval, if good, update
+        print("max(new_alphas)    ", max(new_alphas))
+        new_alphas, new_lls = equilibrate_interval(new_alphas, new_lls)
+        print("max(new_alphas_eq) ", max(new_alphas))
 
-                # generating a big number of data
-                # we will perform nexps experiments, each of them
-                # considering nsamples_exp data
-                allalphasamples = generate_alphaNP_sample(elem, nexps * nsamples_exp,
-                    search_mode="grid")
+        if (((new_alpha_parabola > 0)
+                and (min(new_alphas) < 0.9 * new_alpha_parabola)
+                and (1.1 * new_alpha_parabola < max(new_alphas)))
+            or ((new_alpha_parabola < 0)
+                and (min(new_alphas) < 1.1 * new_alpha_parabola)
+                and (0.9 * new_alpha_parabola < max(new_alphas)))):
 
-                # shuffling the sample
-                np.random.shuffle(allalphasamples)
+            (
+                std_new_ll, Delta_new_ll, _, _, _
+            ) = update_alphaNP_for_next_iteration(
+                elem, new_alphas, new_lls, alphas, lls
+            )
+            # print("Delta_new_ll", Delta_new_ll)
+            # print("std_new_ll", std_new_ll)
 
-                for exp in range(nexps):
-                    # collect data for a single experiment
-                    alphasamples = allalphasamples[
-                        exp * nsamples_exp: (exp + 1) * nsamples_exp]
+        else:
+            new_alphas = alphas
+            new_lls = lls
 
-                    # compute alphas and LLs for this experiment
-                    alphas, lls = compute_ll(elem, alphasamples)
+            print(f"{i} interval not updated")
 
-                    # save all alphas, lls and best alpha of the sample
-                    # TODO: I think this is not necessary. We only need to save
-                    #       the extremes of the interval
-                    alphas_exps.append(alphas)
-                    bestalphas_exps.append(alphas[np.argmin(lls)])
-                    lls_exps.append(lls)
+            # attempt to jump out of window
 
-                    popt = parabolic_fit(elem, alphas, lls,
-                        plotfit=plot_output, plotname=f"{i}_exp_{exp}")
-                    optparams_exps.append(popt)
+    # -1: final round: perform parabolic fits and use blocking method to
 
-                    if plot_output:
-                        delchisqlist, newpopt = get_delchisq(lls, popt=popt)
-                        plot_mc_output(alphas, delchisqlist, newpopt,
-                            plotname=f"{i}_exp_{exp}")
-                break
+    allalphasamples = generate_alphaNP_sample(elem, nexps * nsamples_exp,
+        search_mode="grid")
 
-    # minll = np.min(lls_exps)
-    #
-    #         popt = parabolic_fit(elem, alphas, lls,
-    #             plotfit=plot_output, plotname=str(i))
-    #
+    # shuffle the sample
+    np.random.shuffle(allalphasamples)
+
+    for exp in range(nexps):
+        # collect data for a single experiment
+        alphasamples = allalphasamples[
+            exp * nsamples_exp: (exp + 1) * nsamples_exp]
+
+        # compute alphas and LLs for this experiment
+        alphas, lls = compute_ll(elem, alphasamples)
+
+        # save all alphas, lls and best alpha of the sample
+        # TODO: I think this is not necessary. We only need to save
+        #       the extremes of the interval
+        alphas_exps.append(alphas)
+        bestalphas_exps.append(alphas[np.argmin(lls)])
+        lls_exps.append(lls)
+
+        popt = parabolic_fit(elem, alphas, lls,
+            plotfit=plot_output, plotname=f"m1_exp_{exp}")
+        optparams_exps.append(popt)
+
+        if plot_output:
+            delchisqlist, newpopt = get_delchisq(lls, popt=popt)
+            plot_mc_output(alphas, delchisqlist, newpopt,
+                plotname=f"m1_exp_{exp}")
+
     global_popt = parabolic_fit(elem, np.array(alphas_exps).flatten(),
         np.array(lls_exps).flatten())
 
@@ -675,6 +760,7 @@ def iterative_mc_search(
     delchisq_optparams_exps = []
 
     for s in range(nexps):
+        # minll = parabola_llmin(popt=optparams_exps[s])  # NEW
         delchisqs, params = get_delchisq(lls_exps[s], minll, popt=optparams_exps[s])
         delchisqs_exps.append(delchisqs)
         delchisq_optparams_exps.append(params)
@@ -716,8 +802,10 @@ def sample_alphaNP_fit(
         nsamples_exp: int = 1000,
         nsigmas: int = 2,
         nblocks: int = 10,
-        scalefactor: float = 3e-1,
-        maxiter: int = 3,
+        scalefactor: float = .1,
+        sigalphainit: float = 1.,
+        # sig_new_alpha_fraction: float = 0.1,
+        maxiter: int = 1000,
         plot_output: bool = False,
         mphivar: bool = False,
         x0: int = 0):
@@ -755,7 +843,9 @@ def sample_alphaNP_fit(
             nblocks=nblocks,
             scalefactor=scalefactor,
             maxiter=maxiter,
+            sigalphainit=sigalphainit,
             plot_output=plot_output,
+            # sig_new_alpha_fraction=sig_new_alpha_fraction,
             xind=x,
             mphivar=mphivar)
 
