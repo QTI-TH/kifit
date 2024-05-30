@@ -14,8 +14,8 @@ num_experiments = 5
 num_blocks = 1
 
 # search hyper-parameters
-max_iter = 50
-scalefactor = 0.5
+max_iter = 100
+scalefactor = 0.3
 # sig_new_alpha_fraction = 0.12
 
 

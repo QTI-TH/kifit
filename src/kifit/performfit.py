@@ -298,7 +298,7 @@ def generate_element_sample(elem, nsamples: int):
 
 
 def generate_alphaNP_sample(elem, nsamples: int, search_mode: str = "random",
-    lb: float=None, ub: float=None):
+        lb: float = None, ub: float = None):
     """
     Generate ``nsamples`` of alphaNP according to the initial conditions
     provided by the ``elem`` data. The sample can be generated either randomly
@@ -331,13 +331,15 @@ def get_new_alphaNP_interval(
         llist,
         popt,
         scalefactor: float = .1):
+    print("may ll   ", max(llist))
 
     smalll_inds = np.argsort(llist)[: int(len(llist) * scalefactor)]
-    print("smalll_inds", smalll_inds)
-    print(f"taking {int(len(llist) * scalefactor)} points")
+
+    # print(f"taking {int(len(llist) * scalefactor)} points to next level")
 
     small_alphas = alphalist[smalll_inds]
     smallls = llist[smalll_inds]
+    print("max small", max(smallls))
 
     # sorted_alpha_inds = np.argsort(small_alphas)
     # small_alphas = small_alphas[sorted_alpha_inds]
@@ -384,7 +386,7 @@ def update_alphaNP_for_next_iteration(
     Delta_new_ll = 0
     #
     # sig_new_alpha = scalefactor * min(
-    sig_new_alpha = np.average([
+    sig_new_alpha = np.min([  # average
         np.abs(max(new_alphas) - new_alpha),
         np.abs(min(new_alphas) - new_alpha)])
 
@@ -588,18 +590,27 @@ def equilibrate_interval(newalphas, newlls):
     sorted_alpha_inds = np.argsort(newalphas)
     newalphas = newalphas[sorted_alpha_inds]
     newlls = newlls[sorted_alpha_inds]
+    print("len newlls before ", len(newlls))
 
-    llequill = (min(newlls[0], newlls[-1]) / max(newlls[0], newlls[-1]))
+    minll = min(newlls)
+    min_llim = min(newlls[0], newlls[-1]) - minll
+    max_llim = max(newlls[0], newlls[-1]) - minll
+
+    llequill = min_llim / max_llim
+
+    print("llequill", llequill)
 
     if llequill < .4:
         print("REGULATING UNBALANCED INTERVAL")
         limiting_ll = min(newlls[0], newlls[-1])
-        print("newlls     ", newlls)
-        print("min ll     ", min(newlls))
-        print("limiting_ll", limiting_ll)
+        # print("newlls     ", newlls)
+        # print("min ll     ", min(newlls))
+        # print("max ll     ", max(newlls))
+        # print("limiting_ll", limiting_ll)
         reduced_ll_inds = np.where(newlls <= limiting_ll)
         newalphas = newalphas[reduced_ll_inds]
         newlls = newlls[reduced_ll_inds]
+        print("len newlls after", len(newlls))
     return newalphas, newlls
 
 
@@ -691,30 +702,55 @@ def iterative_mc_search(
                 scalefactor=scalefactor)
 
         # test new interval, if good, update
-        print("max(new_alphas)    ", max(new_alphas))
-        new_alphas, new_lls = equilibrate_interval(new_alphas, new_lls)
-        print("max(new_alphas_eq) ", max(new_alphas))
+        # print("max(new_alphas)    ", max(new_alphas))
+        # new_alphas, new_lls = equilibrate_interval(new_alphas, new_lls)
+        # print("max(new_alphas_eq) ", max(new_alphas))
 
-        if (((new_alpha_parabola > 0)
-                and (min(new_alphas) < 0.9 * new_alpha_parabola)
-                and (1.1 * new_alpha_parabola < max(new_alphas)))
-            or ((new_alpha_parabola < 0)
-                and (min(new_alphas) < 1.1 * new_alpha_parabola)
-                and (0.9 * new_alpha_parabola < max(new_alphas)))):
+        sf = scalefactor
+        it = 1
 
-            (
-                std_new_ll, Delta_new_ll, _, _, _
-            ) = update_alphaNP_for_next_iteration(
-                elem, new_alphas, new_lls, alphas, lls
-            )
-            # print("Delta_new_ll", Delta_new_ll)
-            # print("std_new_ll", std_new_ll)
+        while sf < 1 and it < maxiter:
 
-        else:
-            new_alphas = alphas
-            new_lls = lls
+            new_alphas, new_lls = equilibrate_interval(new_alphas, new_lls)
 
-            print(f"{i} interval not updated")
+            if (
+                    (
+                        (new_alpha_parabola > 0)
+                        and (min(new_alphas) < 0.9 * new_alpha_parabola)
+                        and (1.1 * new_alpha_parabola < max(new_alphas))
+                    ) or (
+                        (new_alpha_parabola < 0)
+                        and (min(new_alphas) < 1.1 * new_alpha_parabola)
+                        and (0.9 * new_alpha_parabola < max(new_alphas))
+                    )
+            ):
+
+                (
+                    std_new_ll, Delta_new_ll, _, _, _
+                ) = update_alphaNP_for_next_iteration(
+                    elem, new_alphas, new_lls, alphas, lls
+                )
+
+                sf = 1
+                # print("Delta_new_ll", Delta_new_ll)
+                # print("std_new_ll", std_new_ll)
+
+            else:
+                print("adjusting scalefactor")
+                it += 1
+                sf += it**2 * scalefactor**it
+                print("sf ", sf)
+                (
+                    new_alphas, new_lls,
+                    new_alpha_parabola, new_lb_alpha, new_ub_alpha
+                ) = get_new_alphaNP_interval(alphas, lls, popt,
+                    scalefactor=sf)
+                it += 1
+
+            # new_alphas = alphas
+            # new_lls = lls
+
+            # print(f"{i} interval not updated")
 
             # attempt to jump out of window
 
@@ -727,6 +763,7 @@ def iterative_mc_search(
     np.random.shuffle(allalphasamples)
 
     for exp in range(nexps):
+        # print("exp", exp)
         # collect data for a single experiment
         alphasamples = allalphasamples[
             exp * nsamples_exp: (exp + 1) * nsamples_exp]
