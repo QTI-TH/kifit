@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 
 from scipy.interpolate import interp1d
-from scipy.linalg import cholesky
+from scipy.linalg import cholesky, cho_factor, cho_solve
 from scipy.odr import ODR, Model, RealData
 from scipy.special import binom
 from scipy.stats import chi2, linregress, multivariate_normal
@@ -21,7 +21,7 @@ if not os.path.exists(_output_data_path):
     os.makedirs(_output_data_path)
 
 
-np.random.seed(1)
+# np.random.seed(1)
 
 
 def linfit(p, x):
@@ -255,21 +255,49 @@ def print_progress(s, nsamples):
         print("Progress", prog, "%")
     return 0
 
+#
+# def choLL(absd, covmat, lam=1e-7):
+#     """
+#     For a given sample of absd, with the covariance matrix covmat, compute the
+#     log-likelihood using the Cholesky decomposition of covmat.
+#
+#     """
+#     # print("lam", lam)
+#     chol_covmat = cholesky(covmat + lam * np.eye(covmat.shape[0]), lower=True)
+#
+#     # L, lower = cho_factor(covmat + lam * np.eye(covmat.shape[0]),
+#     #     lower=True)
+#     #
+#     # logdetsigd = 2 * np.sum(np.log(np.diag(L)))
+#     # d_sigdinv_d = absd.dot(cho_solve((L, lower), absd))
+#
+#     logdetsigd = 2 * np.sum(np.log(np.diag(chol_covmat)))
+#     d_sigdinv_d = absd.dot(cho_solve((chol_covmat, True), absd))
+#
+#     return 0.5 * (logdetsigd + d_sigdinv_d)
+#
+#     # A = np.linalg.solve(chol_covmat, absd)
+#     # At = np.linalg.solve(chol_covmat.T, absd)
+#
+#     # ll = np.dot(A, A) / 2 + np.dot(At, At) / 2 + np.sum(np.log(np.diag(chol_covmat)))
+#
+#     # return ll
+#
 
-def choLL(absd, covmat, lam=0):
+
+def choLL(absd, covmat, lam=1e-7):
     """
     For a given sample of absd, with the covariance matrix covmat, compute the
     log-likelihood using the Cholesky decomposition of covmat.
 
     """
-    chol_covmat = cholesky(covmat + lam * np.identity(covmat.shape[0]), lower=True)
+    chol_covmat, lower = cho_factor(covmat + lam * np.eye(covmat.shape[0]), lower=True)
 
-    A = np.linalg.solve(chol_covmat, absd)
-    At = np.linalg.solve(chol_covmat.T, absd)
+    absd_covinv_absd = absd.dot(cho_solve((chol_covmat, lower), absd))
 
-    ll = np.dot(A, A) / 2 + np.dot(At, At) / 2 + np.sum(np.log(np.diag(chol_covmat)))
+    logdet = 2 * np.sum(np.log(np.diag(chol_covmat)))
 
-    return ll
+    return 0.5 * (logdet + absd_covinv_absd)
 
 
 def get_llist(absdsamples, nsamples):
@@ -283,6 +311,8 @@ def get_llist(absdsamples, nsamples):
     for s in range(nsamples):
         llist.append(choLL(absdsamples[s], cov_absd))
 
+        # print("absd shape ", (absdsamples[s] @ absdsamples[s]).shape)
+
     return np.array(llist)
 
 
@@ -291,10 +321,10 @@ def generate_element_sample(elem, nsamples: int):
     Generate ``nsamples`` of ``elem`` varying the input parameters according
     to the provided standard deviations.
     """
-    parameters_samples = get_paramsamples(
+    parameter_samples = get_paramsamples(
         elem.means_input_params, elem.stdevs_input_params, nsamples
     )
-    return parameters_samples
+    return parameter_samples
 
 
 def generate_alphaNP_sample(elem, nsamples: int, search_mode: str = "random",
@@ -370,7 +400,7 @@ def update_alphaNP_for_next_iteration(
     Compute sig_alphaNP for next iteration.
 
     """
-    new_alpha = np.median(new_alphas)
+    new_alpha = np.average(new_alphas)
     std_new_alphas = np.std(new_alphas)
     std_new_lls = np.std(new_lls)
 
@@ -665,6 +695,7 @@ def iterative_mc_search(
         iterations = range(maxiter)
 
     for i in iterations:
+        print()
         print(f"Iterative search step {i+1}")
         if i == 0:
             # 0: start with random search
@@ -691,9 +722,12 @@ def iterative_mc_search(
         popt = parabolic_fit(elem, alphas, lls,
             plotfit=plot_output, plotname=str(i + 1))
 
+        llmin_parabola = parabola_llmin(popt)
+
         if plot_output:
             delchisqlist, delchisqpopt = get_delchisq(lls, popt=popt)
-            plot_mc_output(alphas, delchisqlist, delchisqpopt, plotname=f"{i + 1}")
+            plot_mc_output(alphas, delchisqlist, delchisqpopt,
+                plotname=f"{i + 1}", llmin=llmin_parabola)
 
         (
             new_alphas, new_lls,
@@ -713,17 +747,25 @@ def iterative_mc_search(
 
             new_alphas, new_lls = equilibrate_interval(new_alphas, new_lls)
 
+            window_width = max(new_alphas) - min(new_alphas)
+
             if (
-                    (
-                        (new_alpha_parabola > 0)
-                        and (min(new_alphas) < 0.9 * new_alpha_parabola)
-                        and (1.1 * new_alpha_parabola < max(new_alphas))
-                    ) or (
-                        (new_alpha_parabola < 0)
-                        and (min(new_alphas) < 1.1 * new_alpha_parabola)
-                        and (0.9 * new_alpha_parabola < max(new_alphas))
-                    )
-            ):
+                    (min(new_alphas) + window_width / 3 < new_alpha_parabola)
+                    and (new_alpha_parabola < (
+                        min(new_alphas) + 2 / 3 * window_width))
+                ):
+            #
+            # if (
+            #         (
+            #             (new_alpha_parabola > 0)
+            #             and (min(new_alphas) < 0.9 * new_alpha_parabola)
+            #             and (1.1 * new_alpha_parabola < max(new_alphas))
+            #         ) or (
+            #             (new_alpha_parabola < 0)
+            #             and (min(new_alphas) < 1.1 * new_alpha_parabola)
+            #             and (0.9 * new_alpha_parabola < max(new_alphas))
+            #         )
+            # ):
 
                 (
                     std_new_ll, Delta_new_ll, _, _, _
@@ -736,21 +778,21 @@ def iterative_mc_search(
                 # print("std_new_ll", std_new_ll)
 
             else:
-                print("adjusting scalefactor")
-                it += 1
-                sf += it**2 * scalefactor**it
-                print("sf ", sf)
-                (
-                    new_alphas, new_lls,
-                    new_alpha_parabola, new_lb_alpha, new_ub_alpha
-                ) = get_new_alphaNP_interval(alphas, lls, popt,
-                    scalefactor=sf)
-                it += 1
+                # print("adjusting scalefactor")
+                # it += 1
+                # sf += it**2 * scalefactor**it
+                # print("sf ", sf)
+                # (
+                #     new_alphas, new_lls,
+                #     new_alpha_parabola, new_lb_alpha, new_ub_alpha
+                # ) = get_new_alphaNP_interval(alphas, lls, popt,
+                #     scalefactor=sf)
+                # it += 1
+                new_alphas = alphas
+                new_lls = lls
 
-            # new_alphas = alphas
-            # new_lls = lls
-
-            # print(f"{i} interval not updated")
+                print(f"{i} interval not updated")
+                break
 
             # attempt to jump out of window
 
@@ -783,9 +825,10 @@ def iterative_mc_search(
         optparams_exps.append(popt)
 
         if plot_output:
+            llmin_parabola = parabola_llmin(popt)
             delchisqlist, newpopt = get_delchisq(lls, popt=popt)
             plot_mc_output(alphas, delchisqlist, newpopt,
-                plotname=f"m1_exp_{exp}")
+                plotname=f"m1_exp_{exp}", llmin=llmin_parabola)
 
     global_popt = parabolic_fit(elem, np.array(alphas_exps).flatten(),
         np.array(lls_exps).flatten())

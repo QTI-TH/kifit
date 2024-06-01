@@ -196,7 +196,7 @@ def plot_mc_output(alphalist, delchisqlist, parabolaparams,
         xlabel=r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
         ylabel=r"$\Delta \chi^2$",
         plotname=None,
-        xlims=[None, None], ylims=[None, None]):
+        xlims=[None, None], ylims=[None, None], llmin=0):
     """
     plot 2-dimensional scatter plot showing the likelihood associated with the
     parameter values given in alphalist, as well as the parabola defined by the
@@ -220,7 +220,7 @@ def plot_mc_output(alphalist, delchisqlist, parabolaparams,
 
     ax.plot(alphalist, ll_fit,
         color="black", ls="--", lw=1,
-        label=rf"$\alpha$ fit min: {best_alpha:.4e}")
+        label=rf"$\alpha$ fit min: {best_alpha:.4e}, $\min \log L$:{llmin:.4e}")
 
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas)
 
@@ -238,7 +238,8 @@ def plot_mc_output(alphalist, delchisqlist, parabolaparams,
     ax.set_ylabel(ylabel)
     ax.set_xlim(xlims[0], xlims[1])
     ax.set_ylim(ylims[0], ylims[1])
-    plt.legend()
+    plt.legend(loc='upper center')
+    plt.title(rf"{len(alphalist)} samples")
     plt.savefig(_plot_path + "/mc_output_" + plotname + ".png")
     plt.close()
 

@@ -4,17 +4,24 @@ from kifit.plotfit import plot_linfit, plot_alphaNP_ll, plot_mphi_alphaNP
 
 ca = Elem.get('Ybmin')
 print(ca.get_dimensions)
+print()
+print("relative uncertainties")
+print(ca.sig_nu / ca.nu)
+print(ca.sig_m_a_in / ca.m_a_in)
+print(ca.sig_m_ap_in / ca.m_ap_in)
+
+
 
 plot_linfit(ca, resmagnifac=1)
 
 num_samples_det = 100
-num_samples_search = 200
-num_samples_experiment = 400
+num_samples_search = 1000  # 200
+num_samples_experiment = 1000  # 10000
 num_experiments = 5
 num_blocks = 1
 
 # search hyper-parameters
-max_iter = 100
+max_iter = 20
 scalefactor = 0.3
 # sig_new_alpha_fraction = 0.12
 
@@ -32,7 +39,7 @@ mc_output = sample_alphaNP_fit(
     mphivar=False,
     plot_output=True,
     scalefactor=scalefactor,
-    sigalphainit=1.,
+    sigalphainit=1e-5,
     # sig_new_alpha_fraction=sig_new_alpha_fraction,
     x0=0,
 )
