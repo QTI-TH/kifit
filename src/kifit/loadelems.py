@@ -476,8 +476,6 @@ class Elem:
         This is a (nisotopepairs x ntransitions)-matrix.
 
         """
-        print("nu-in shape", (self.nu_in).shape)
-        print("mu-in shape", (self.muvec_in).shape)
         # return np.divide(self.nu_in.T, self.muvec_in).T
         return np.divide(self.nu_in.T, self.muvec_in).T
 

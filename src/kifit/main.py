@@ -15,13 +15,13 @@ print(ca.sig_m_ap_in / ca.m_ap_in)
 plot_linfit(ca, resmagnifac=1)
 
 num_samples_det = 100
-num_samples_search = 1000  # 200
-num_samples_experiment = 1000  # 10000
+num_samples_search = 100000  # 200
+num_samples_experiment = 10000  # 10000
 num_experiments = 5
 num_blocks = 1
 
 # search hyper-parameters
-max_iter = 20
+max_iter = 7
 scalefactor = 0.3
 # sig_new_alpha_fraction = 0.12
 

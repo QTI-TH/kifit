@@ -21,7 +21,7 @@ if not os.path.exists(_output_data_path):
     os.makedirs(_output_data_path)
 
 
-# np.random.seed(1)
+np.random.seed(2)
 
 
 def linfit(p, x):
@@ -30,18 +30,6 @@ def linfit(p, x):
 
 def linfit_x(p, y):
     return (y - p[1]) / p[0]
-
-
-def parabola(x, a, b, c):
-    return a * x**2 + b * x + c
-
-
-def parabola_best_alphaNP(popt):
-    return -popt[1] / (2 * popt[0])
-
-
-def parabola_llmin(popt):
-    return popt[2] - popt[1]**2 / (4 * popt[0])
 
 
 # def blocking(experiments: List[float], nblocks: int):
@@ -285,7 +273,7 @@ def print_progress(s, nsamples):
 #
 
 
-def choLL(absd, covmat, lam=1e-7):
+def choLL(absd, covmat, lam=0):
     """
     For a given sample of absd, with the covariance matrix covmat, compute the
     log-likelihood using the Cholesky decomposition of covmat.
@@ -299,6 +287,19 @@ def choLL(absd, covmat, lam=1e-7):
 
     return 0.5 * (logdet + absd_covinv_absd)
 
+#
+#
+# def choLL(absd, covmat, lam=0):
+#     # Regularize the covariance matrix and perform Cholesky decomposition
+#     chol_covmat = cholesky(covmat + lam * np.identity(covmat.shape[0]), lower=True)
+#
+#     # Solve for A where chol_covmat * A = absd
+#     A = np.linalg.solve(chol_covmat, absd)
+#
+#     # Compute the log-likelihood
+#     ll = -0.5 * (np.dot(A, A) + 2 * np.sum(np.log(np.diag(chol_covmat))))
+#
+#
 
 def get_llist(absdsamples, nsamples):
     """
@@ -359,7 +360,6 @@ def generate_alphaNP_sample(elem, nsamples: int, search_mode: str = "random",
 def get_new_alphaNP_interval(
         alphalist,
         llist,
-        popt,
         scalefactor: float = .1):
     print("may ll   ", max(llist))
 
@@ -378,14 +378,14 @@ def get_new_alphaNP_interval(
     lb_best_alpha = np.percentile(small_alphas, 16)
     ub_best_alpha = np.percentile(small_alphas, 84)
 
-    best_alpha_parabola = parabola_best_alphaNP(popt)
+    best_alpha = np.median(small_alphas)
 
     print("lb_best_alpha      ", lb_best_alpha)
     print("ub_best_alpha      ", ub_best_alpha)
-    print("best_alpha_parabola", best_alpha_parabola)
+    print("best_alpha", best_alpha)
 
     return (small_alphas, smallls,
-        best_alpha_parabola, lb_best_alpha, ub_best_alpha)
+        best_alpha, lb_best_alpha, ub_best_alpha)
 
 
 def update_alphaNP_for_next_iteration(
@@ -430,24 +430,18 @@ def update_alphaNP_for_next_iteration(
 
 def get_bestalphaNP_and_bounds(
         bestalphaNPlist,
-        optparams,
         confints,
         nblocks: int = 100,
         plot_output: bool = False):
     """
-    Starting from a list of parabola parameters, apply the blocking method to
+    Starting from the best alphaNP values, apply the blocking method to
     compute the best alphaNP value, its uncertainty, as well as the nsigma -
     upper and lower bounds on alphaNP.
 
     """
-    optparams = np.array(optparams)
     confints = np.array(confints)
 
-    reconstruced_alphas = - optparams.T[1] / (2 * optparams.T[0])
-    best_alpha_parabola = np.mean(reconstruced_alphas)
-    sig_alpha_parabola = np.std(reconstruced_alphas)
-
-    best_alpha_pts = np.mean(bestalphaNPlist)
+    best_alpha_pts = np.median(bestalphaNPlist)
     sig_alpha_pts = np.std(bestalphaNPlist)
 
     lowbounds_exps = confints.T[0]
@@ -459,8 +453,7 @@ def get_bestalphaNP_and_bounds(
 
     print(f"Final result: {best_alpha_pts} with bounds [{LB}, {UB}].")
 
-    return (best_alpha_parabola, sig_alpha_parabola,
-        best_alpha_pts, sig_alpha_pts, LB, sig_LB, UB, sig_UB)
+    return (best_alpha_pts, sig_alpha_pts, LB, sig_LB, UB, sig_UB)
 
 
 def compute_ll(elem, alphasamples, scalefactor: float = .1):
@@ -499,91 +492,22 @@ def compute_ll(elem, alphasamples, scalefactor: float = .1):
     return np.array(alphasamples), np.array(llist)
 
 
-def parabolic_fit(elem, alphalist, llist, plotfit=False, plotname=None):
-    """
-    Perform parabolic fit to alphaNP and loglikelihood values. No messing around
-    with the minimum.
-
-    Returns: parabola parameters.
-
-    """
-    ll = llist[0]
-    al = alphalist[0]
-    lu = llist[-1]
-    au = alphalist[-1]
-    lm = min(llist)
-    am = alphalist[np.argmin(llist)]
-
-    if am != al and am != au and al != au:
-        a0 = (am * (ll - lu) + al * (lu - lm) + au * (lm - ll)) / (
-            (al - am) * (al - au) * (am - au))
-
-        b0 = (am**2 * (lu - ll) + au**2 * (ll - lm) + al**2 * (lm - lu)) / (
-            (al - am) * (al - au) * (am - au))
-
-        c0 = (am * (am - au) * au * ll + al * (al - am) * am * lu
-            + al * au * (au - al) * lm) / ((al - am) * (al - au) * (am - au))
-    else:
-        if am == al or am == au:
-            a0 = (au * ll - al * lu) / (al * (al - au) * au)
-            b0 = (al**2 * lu - au**2 * ll) / (al * (al - au) * au)
-            c0 = 0
-        elif al == au:
-            a0 = (lm - lu) / (am - au)**2
-            b0 = 2 * au * (lu - lm) / (am - au)**2
-            c0 = (am**2 * lu - 2 * am * au * lu + au**2 * lm) / (am - au)**2
-
-    # print("a0, b0, c0")
-    # print([a0, b0, c0])
-
-    popt, _ = curve_fit(
-        parabola,
-        alphalist,
-        llist,
-        p0=[a0, b0, c0])
-
-    if plotfit:
-        from kifit.plotfit import plot_parabolic_fit
-
-        plot_parabolic_fit(alphalist, llist, popt, plotname=plotname)
-
-    return popt
-
-
-def get_delchisq_popt(popt, minll):
-    if len(popt)==3:
-        newpopt = np.array([
-            2 * popt[0], 2 * popt[1], 2 * (popt[2] - minll)])
-        # newpopt = np.array([
-        #     2 * popt[0], 2 * popt[1], popt[1]**2 / (2 * popt[0]) + 2 * minll])
-
-        return newpopt
-
-
-def get_delchisq(llist, minll=None, popt=[]):
+def get_delchisq(llist, minll=None):
     """
     Compute delta chi^2 from list of negative loglikelihoods, subtracting the
     minimum.
 
     """
     if minll is None:
-        if len(popt) == 3:
-            minll = parabola_llmin(popt)
-        else:
-            minll = min(llist)
+        minll = min(llist)
 
     if len(llist) > 0:
         delchisqlist = 2 * (llist - minll)
+
+        return delchisqlist
+
     else:
         raise ValueError(f"llist {llist} passed to get_delchisq is not a list.")
-
-    if len(popt)==3:
-        newpopt = get_delchisq_popt(popt, minll)
-
-        return delchisqlist, newpopt
-
-    else:
-        return delchisqlist
 
 
 def get_delchisq_crit(nsigmas=2, dof=1):
@@ -684,7 +608,6 @@ def iterative_mc_search(
 
     from kifit.plotfit import plot_mc_output, plot_final_mc_output
 
-    optparams_exps = []
     alphas_exps = []
     lls_exps = []
     bestalphas_exps = []
@@ -719,21 +642,17 @@ def iterative_mc_search(
         # compute ll, parabola and possible new interval
         alphas, lls = compute_ll(elem, alphasamples)
 
-        popt = parabolic_fit(elem, alphas, lls,
-            plotfit=plot_output, plotname=str(i + 1))
-
-        llmin_parabola = parabola_llmin(popt)
+        llmin_10 = np.percentile(lls, 10)
 
         if plot_output:
-            delchisqlist, delchisqpopt = get_delchisq(lls, popt=popt)
-            plot_mc_output(alphas, delchisqlist, delchisqpopt,
-                plotname=f"{i + 1}", llmin=llmin_parabola)
+            delchisqlist = get_delchisq(lls)
+            plot_mc_output(alphas, delchisqlist,
+                plotname=f"{i + 1}", llmin=llmin_10)
 
         (
             new_alphas, new_lls,
-            new_alpha_parabola, new_lb_alpha, new_ub_alpha
-        ) = get_new_alphaNP_interval(alphas, lls, popt,
-                scalefactor=scalefactor)
+            new_alpha, new_lb_alpha, new_ub_alpha
+        ) = get_new_alphaNP_interval(alphas, lls, scalefactor=scalefactor)
 
         # test new interval, if good, update
         # print("max(new_alphas)    ", max(new_alphas))
@@ -749,23 +668,15 @@ def iterative_mc_search(
 
             window_width = max(new_alphas) - min(new_alphas)
 
+            print("min(window)     ", min(new_alphas) + window_width / 4)
+            print("new alpha       ", new_alpha)
+            print("max(window)     ", min(new_alphas) + 3 / 4 * window_width)
+
             if (
-                    (min(new_alphas) + window_width / 3 < new_alpha_parabola)
-                    and (new_alpha_parabola < (
-                        min(new_alphas) + 2 / 3 * window_width))
-                ):
-            #
-            # if (
-            #         (
-            #             (new_alpha_parabola > 0)
-            #             and (min(new_alphas) < 0.9 * new_alpha_parabola)
-            #             and (1.1 * new_alpha_parabola < max(new_alphas))
-            #         ) or (
-            #             (new_alpha_parabola < 0)
-            #             and (min(new_alphas) < 1.1 * new_alpha_parabola)
-            #             and (0.9 * new_alpha_parabola < max(new_alphas))
-            #         )
-            # ):
+                    (min(new_alphas) + window_width / 4 < new_alpha)
+                    and (new_alpha < (
+                        min(new_alphas) + 3 / 4 * window_width))
+            ):
 
                 (
                     std_new_ll, Delta_new_ll, _, _, _
@@ -785,7 +696,7 @@ def iterative_mc_search(
                 # (
                 #     new_alphas, new_lls,
                 #     new_alpha_parabola, new_lb_alpha, new_ub_alpha
-                # ) = get_new_alphaNP_interval(alphas, lls, popt,
+                # ) = get_new_alphaNP_interval(alphas, lls,
                 #     scalefactor=sf)
                 # it += 1
                 new_alphas = alphas
@@ -820,57 +731,43 @@ def iterative_mc_search(
         bestalphas_exps.append(alphas[np.argmin(lls)])
         lls_exps.append(lls)
 
-        popt = parabolic_fit(elem, alphas, lls,
-            plotfit=plot_output, plotname=f"m1_exp_{exp}")
-        optparams_exps.append(popt)
-
         if plot_output:
-            llmin_parabola = parabola_llmin(popt)
-            delchisqlist, newpopt = get_delchisq(lls, popt=popt)
-            plot_mc_output(alphas, delchisqlist, newpopt,
-                plotname=f"m1_exp_{exp}", llmin=llmin_parabola)
+            llmin_10 = np.percentile(lls, 10)
+            delchisqlist = get_delchisq(lls)
+            plot_mc_output(alphas, delchisqlist,
+                plotname=f"m1_exp_{exp}", llmin=llmin_10)
 
-    global_popt = parabolic_fit(elem, np.array(alphas_exps).flatten(),
-        np.array(lls_exps).flatten())
-
-    minll = parabola_llmin(global_popt)
-    delchisq_optparams = get_delchisq_popt(global_popt, minll)
+    minll_10 = np.percentile(np.array(lls_exps).flatten(), 10)
 
     delchisqs_exps = []
-    delchisq_optparams_exps = []
 
     for s in range(nexps):
-        # minll = parabola_llmin(popt=optparams_exps[s])  # NEW
-        delchisqs, params = get_delchisq(lls_exps[s], minll, popt=optparams_exps[s])
+        delchisqs = get_delchisq(lls_exps[s], minll_10)
         delchisqs_exps.append(delchisqs)
-        delchisq_optparams_exps.append(params)
 
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas, dof=1)
 
     confints_exps = np.array([get_confint(alphas_exps[s], delchisqs_exps[s],
         delchisqcrit) for s in range(nexps)])
 
-    (best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
+    (best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB) = \
-        get_bestalphaNP_and_bounds(bestalphas_exps, optparams_exps,
+        get_bestalphaNP_and_bounds(bestalphas_exps,
             confints_exps, nblocks=nblocks)
 
-    elem.set_alphaNP_init(best_alpha_parabola, sig_alpha_parabola)
+    elem.set_alphaNP_init(best_alpha_pts, sig_alpha_pts)
 
     if plot_output:
         plot_final_mc_output(elem, alphas_exps, delchisqs_exps,
-            delchisq_optparams_exps, delchisq_optparams, delchisqcrit,
-            bestalphaparabola=best_alpha_parabola,
-            sigbestalphaparabola=sig_alpha_parabola,
+            delchisqcrit,
             bestalphapt=best_alpha_pts, sigbestalphapt=sig_alpha_pts,
             lb=LB, siglb=sig_LB, ub=UB, sigub=sig_UB,
             nsigmas=nsigmas, xind=xind)
 
     return [
         np.array(alphas_exps), np.array(delchisqs_exps),
-        np.array(delchisq_optparams_exps), np.array(delchisq_optparams),
         delchisqcrit,
-        best_alpha_parabola, sig_alpha_parabola, best_alpha_pts, sig_alpha_pts,
+        best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB,
         xind]  # * elem.dnorm
 
