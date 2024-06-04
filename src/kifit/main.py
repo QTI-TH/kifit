@@ -11,7 +11,6 @@ print(ca.sig_m_a_in / ca.m_a_in)
 print(ca.sig_m_ap_in / ca.m_ap_in)
 
 
-
 plot_linfit(ca, resmagnifac=1)
 
 num_samples_det = 100

@@ -456,7 +456,7 @@ def get_bestalphaNP_and_bounds(
     return (best_alpha_pts, sig_alpha_pts, LB, sig_LB, UB, sig_UB)
 
 
-def compute_ll(elem, alphasamples, scalefactor: float = .1):
+def compute_ll(elem, alphasamples, scalefactor: float = .1, elementsamples=None):
     """
     Generate alphaNP list for element ``elem`` according to ``parameters_samples``.
 
@@ -474,7 +474,14 @@ def compute_ll(elem, alphasamples, scalefactor: float = .1):
 
     alphasamples = np.sort(alphasamples)
 
-    elemsamples = generate_element_sample(elem, nsamples)
+    if elementsamples is None:
+        print("generating element sample")
+        elemsamples = generate_element_sample(elem, nsamples)
+    
+    else:
+        print("using same element samples")
+        elemsamples = elementsamples
+
     fitparamsamples = np.tensordot(np.ones(nsamples), elem.means_fit_params, axes=0)
 
     fitparamsamples[:, -1] = alphasamples
