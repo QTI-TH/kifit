@@ -21,7 +21,7 @@ if not os.path.exists(_output_data_path):
     os.makedirs(_output_data_path)
 
 
-np.random.seed(2)
+np.random.seed(1)
 
 
 def linfit(p, x):
@@ -301,15 +301,21 @@ def choLL(absd, covmat, lam=0):
 #
 #
 
-def get_llist(absdsamples, nsamples):
+
+def get_llist(absdsamples, nelemsamples):
     """
-    Get ll for list of absd-samples of length nsamples.
+    For a fixed alphaNP value, get ll for the nelemsamples samples of the input
+    parameters.
 
     """
+    # compute covariance matrix for fixed alpha value
+    # print("absdsamples.shape", np.array(absdsamples).shape)
     cov_absd = np.cov(np.array(absdsamples), rowvar=False)
 
+    # print("cov.shape", cov_absd.shape)
+
     llist = []
-    for s in range(nsamples):
+    for s in range(nelemsamples):
         llist.append(choLL(absdsamples[s], cov_absd))
 
         # print("absd shape ", (absdsamples[s] @ absdsamples[s]).shape)
@@ -361,7 +367,6 @@ def get_new_alphaNP_interval(
         alphalist,
         llist,
         scalefactor: float = .1):
-    print("may ll   ", max(llist))
 
     smalll_inds = np.argsort(llist)[: int(len(llist) * scalefactor)]
 
@@ -369,7 +374,6 @@ def get_new_alphaNP_interval(
 
     small_alphas = alphalist[smalll_inds]
     smallls = llist[smalll_inds]
-    print("max small", max(smallls))
 
     # sorted_alpha_inds = np.argsort(small_alphas)
     # small_alphas = small_alphas[sorted_alpha_inds]
@@ -379,10 +383,6 @@ def get_new_alphaNP_interval(
     ub_best_alpha = np.percentile(small_alphas, 84)
 
     best_alpha = np.median(small_alphas)
-
-    print("lb_best_alpha      ", lb_best_alpha)
-    print("ub_best_alpha      ", ub_best_alpha)
-    print("best_alpha", best_alpha)
 
     return (small_alphas, smallls,
         best_alpha, lb_best_alpha, ub_best_alpha)
@@ -456,7 +456,7 @@ def get_bestalphaNP_and_bounds(
     return (best_alpha_pts, sig_alpha_pts, LB, sig_LB, UB, sig_UB)
 
 
-def compute_ll(elem, alphasamples, scalefactor: float = .1):
+def compute_ll(elem, alphasamples, nelemsamples, scalefactor: float = .1):
     """
     Generate alphaNP list for element ``elem`` according to ``parameters_samples``.
 
@@ -470,26 +470,33 @@ def compute_ll(elem, alphasamples, scalefactor: float = .1):
     Return:
         List[float], List[float]: alphaNP samples and list of associated log likelihood.
     """
-    nsamples = len(alphasamples)
 
-    alphasamples = np.sort(alphasamples)
+    # sampling input parameters
+    elemsamples = generate_element_sample(elem, nelemsamples)
 
-    elemsamples = generate_element_sample(elem, nsamples)
-    fitparamsamples = np.tensordot(np.ones(nsamples), elem.means_fit_params, axes=0)
-
+    # sampling fit parameters
+    nalphasamples = len(alphasamples)
+    # alphasamples = np.sort(alphasamples)
+    # same intercept and slope for all, only alphaNP is updated
+    fitparamsamples = np.tensordot(np.ones(nalphasamples), elem.means_fit_params, axes=0)
     fitparamsamples[:, -1] = alphasamples
 
-    absdsamples = []
+    alphalist = []
+    llist = []
 
-    for s in range(nsamples):
-        elem._update_elem_params(elemsamples[s])
-        elem._update_fit_params(fitparamsamples[s])
-        absdsamples.append(elem.absd)
+    for s in range(nalphasamples):
+        absdsamples_alpha = []
 
-    llist = get_llist(np.array(absdsamples), nsamples)
+        for t in range(nelemsamples):
+            elem._update_elem_params(elemsamples[t])
+            elem._update_fit_params(fitparamsamples[s])
+            absdsamples_alpha.append(elem.absd)
+
+        alphalist.append(np.ones(nelemsamples) * alphasamples[s])
+        llist.append(get_llist(np.array(absdsamples_alpha), nelemsamples))
 
     # return elem.dnorm * np.array(alphalist), elem.dnorm * np.array(llist)
-    return np.array(alphasamples), np.array(llist)
+    return np.array(alphalist).flatten(), np.array(llist).flatten()
 
 
 def get_delchisq(llist, minll=None):
@@ -544,7 +551,6 @@ def equilibrate_interval(newalphas, newlls):
     sorted_alpha_inds = np.argsort(newalphas)
     newalphas = newalphas[sorted_alpha_inds]
     newlls = newlls[sorted_alpha_inds]
-    print("len newlls before ", len(newlls))
 
     minll = min(newlls)
     min_llim = min(newlls[0], newlls[-1]) - minll
@@ -556,6 +562,7 @@ def equilibrate_interval(newalphas, newlls):
 
     if llequill < .4:
         print("REGULATING UNBALANCED INTERVAL")
+        print("length initial sample ", len(newlls))
         limiting_ll = min(newlls[0], newlls[-1])
         # print("newlls     ", newlls)
         # print("min ll     ", min(newlls))
@@ -564,15 +571,17 @@ def equilibrate_interval(newalphas, newlls):
         reduced_ll_inds = np.where(newlls <= limiting_ll)
         newalphas = newalphas[reduced_ll_inds]
         newlls = newlls[reduced_ll_inds]
-        print("len newlls after", len(newlls))
+        print("length regulated sample ", len(newlls))
     return newalphas, newlls
 
 
 def iterative_mc_search(
         elem,
-        nsamples_search: int = 200,
+        nelemsamples_search: int = 200,
+        nalphasamples_search: int = 200,
         nexps: int = 1000,
-        nsamples_exp: int = 1000,
+        nelemsamples_exp: int = 1000,
+        nalphasamples_exp: int = 1000,
         nsigmas: int = 2,
         nblocks: int = 10,
         sigalphainit: float = 1.,
@@ -624,7 +633,7 @@ def iterative_mc_search(
             # 0: start with random search
             elem.set_alphaNP_init(0., sigalphainit)
 
-            alphasamples = generate_alphaNP_sample(elem, nsamples_search,
+            alphasamples = generate_alphaNP_sample(elem, nalphasamples_search,
                 search_mode="random")
 
             Delta_new_ll = 0
@@ -632,7 +641,7 @@ def iterative_mc_search(
 
         # 1 -> -1: grid search
         elif ((i < maxiter - 1) and (Delta_new_ll < std_new_ll)):
-            alphasamples = generate_alphaNP_sample(elem, nsamples_search,
+            alphasamples = generate_alphaNP_sample(elem, nalphasamples_search,
                     search_mode="grid")
 
         else:
@@ -640,8 +649,7 @@ def iterative_mc_search(
             break
 
         # compute ll, parabola and possible new interval
-        alphas, lls = compute_ll(elem, alphasamples)
-
+        alphas, lls = compute_ll(elem, alphasamples, nelemsamples_search)
         llmin_10 = np.percentile(lls, 10)
 
         if plot_output:
@@ -709,7 +717,7 @@ def iterative_mc_search(
 
     # -1: final round: perform parabolic fits and use blocking method to
 
-    allalphasamples = generate_alphaNP_sample(elem, nexps * nsamples_exp,
+    allalphasamples = generate_alphaNP_sample(elem, nexps * nalphasamples_exp,
         search_mode="grid")
 
     # shuffle the sample
@@ -719,10 +727,10 @@ def iterative_mc_search(
         # print("exp", exp)
         # collect data for a single experiment
         alphasamples = allalphasamples[
-            exp * nsamples_exp: (exp + 1) * nsamples_exp]
+            exp * nalphasamples_exp: (exp + 1) * nalphasamples_exp]
 
         # compute alphas and LLs for this experiment
-        alphas, lls = compute_ll(elem, alphasamples)
+        alphas, lls = compute_ll(elem, alphasamples, nelemsamples_exp)
 
         # save all alphas, lls and best alpha of the sample
         # TODO: I think this is not necessary. We only need to save
@@ -774,9 +782,11 @@ def iterative_mc_search(
 
 def sample_alphaNP_fit(
         elem,
-        nsamples_search,
-        nexps: int = 1000,
-        nsamples_exp: int = 1000,
+        nelemsamples_search,
+        nalphasamples_search,
+        nexps,
+        nelemsamples_exp,
+        nalphasamples_exp,
         nsigmas: int = 2,
         nblocks: int = 10,
         scalefactor: float = .1,
@@ -813,9 +823,11 @@ def sample_alphaNP_fit(
 
         res = iterative_mc_search(
             elem=elem,
-            nsamples_search=nsamples_search,
+            nelemsamples_search=nelemsamples_search,
+            nalphasamples_search=nalphasamples_search,
             nexps=nexps,
-            nsamples_exp=nsamples_exp,
+            nelemsamples_exp=nelemsamples_exp,
+            nalphasamples_exp=nalphasamples_exp,
             nsigmas=nsigmas,
             nblocks=nblocks,
             scalefactor=scalefactor,
