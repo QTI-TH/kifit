@@ -205,7 +205,7 @@ def plot_mc_output(alphalist, delchisqlist,
     new_alpha = np.median(small_alphas)  # NEW
 
     ax.axvline(x=new_alpha, color="red", lw=1, ls="-",
-        label=r"new $\alpha_{\mathrm{NP}}$")  # NEW
+            label=rf"new $\alpha$: {new_alpha:.4e}")  # NEW
 
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
