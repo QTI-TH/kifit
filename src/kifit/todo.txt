@@ -1,0 +1,70 @@
+SIMPLE MODIFICATION OF ITERATIVE SEARCH
+
+Define Deltall as spread at best alphaNP value. => Applies to case of central
+logL explosion.
+
+SEE WHAT DOMINATES THE WOBBLING IN Ybmin
+
+The question to be addressed is, which is the hierarchy of wobbles: What is the
+loglikelihood most sensitive to? Are we most limited by
+- the numerical uncertainty introduced by the inversion of the covariance matrix
+- it's sensitivity to the element samples
+- it's sensitivity to alphaNP
+- statistics (number of element samples / number of alphaNP samples)
+
+and how does this manifest itself in the logL(alphaNP) plots?
+
+
+Cholesky does not seem to be the problem. The cross-check with spectral
+decomposition seems to work. 
+-> implement this as a pytest of choLL
+
+Atm I have the impression that:
+- The shape of the logL(alphaNP) curve is really dominated by alphaNP, not by
+  the element samples
+- The vertical offset (logL-value) is dominated by the element samples.
+
+If this is the case, there is some motivation for subtracting the minll value
+from each "parabola" separately, i.e. aligning them in the (alphaNP,
+logL)-plane. Recall that we are interested in the constraint on alphaNP given a
+certain set of experimental data, not in finding the atom producing the smallest
+negative loglikelihood. ;-) In this case the blocking method works perfectly
+well. 
+
+What we need to get under control is the shape-shifting of the
+logL(alphaNP)-curve. We need to understand what determines these shifts. 
+- If it's the element parameters, we're good: This simply means that we have hit
+  the experimental uncertainty. In practice, we would then need to abort the
+  iterative search early enough and apply the blocking method. Done.
+- If it's the statistics, we need to understand how many smples are needed to
+  stabilise the system to such an extent that the minimum cannot shift out of
+  the window that we are zooming into.
+- If it is something else, we need to find out what it is. :/
+
+=> 2 "numerical experiments":
+    1) for fixed interval of alphaNP, plot logL(alphaNP) for different
+    elemen samples
+    2) for fixed element samples (defined globally/ comment out
+    generate_elemsamples), perform iterative search and see whether
+    shape-shifting in Yb remains
+
+
+
+CHECK OTHER SETUPS
+
+- other Ca cases (Ca_Aarhus..., etc.)
+- combine elements (different versions of Ca / Ca + Yb / ..), requires
+  reimplementation of function that loops over elements and combines
+  loglikelihoods
+
+
+ITERATIVE SEARCH + STOPPING CONDITIONS
+
+- implement warning / stopping condition for blocking method (warning if mean
+  and variance are still wobbling a lot / stopping condition if amount of
+  wobbling becomes smaller than (scalefactor * (uncertainty on confidence
+  interval)) or something of the like
+
+AESTHETICS
+
+- add uncertainties on confidence intervals to mc_output plots

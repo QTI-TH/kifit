@@ -2,7 +2,7 @@ from kifit.loadelems import Elem
 from kifit.performfit import sample_alphaNP_fit
 from kifit.plotfit import plot_linfit, plot_alphaNP_ll, plot_mphi_alphaNP
 
-ca = Elem.get('Camin')
+ca = Elem.get('Ybmin')
 print(ca.get_dimensions)
 print()
 print("relative uncertainties")
@@ -17,7 +17,7 @@ num_elemsamples_search = 100  # 200
 num_alphasamples_search = 100
 num_elemsamples_experiment = 100
 num_alphasamples_experiment = 100
-num_experiments = 5
+num_experiments = 50
 num_blocks = 1
 
 # search hyper-parameters
@@ -41,12 +41,12 @@ mc_output = sample_alphaNP_fit(
     mphivar=False,
     plot_output=True,
     scalefactor=scalefactor,
-    sigalphainit=1e-6,
+    sigalphainit=1e-7,
     # sig_new_alpha_fraction=sig_new_alpha_fraction,
     x0=0,
 )
 
-plot_alphaNP_ll(ca, mc_output, xind=0, ylims=[-1e7, 2e8])
+# plot_alphaNP_ll(ca, mc_output, xind=0, ylims=[-1e7, 2e8])
 
 # plot_mphi_alphaNP(ca, mc_output, gkp_dims, nmgkp_dims, num_samples_det,
 #     showalldetbounds=True, showallowedfitpts=True)

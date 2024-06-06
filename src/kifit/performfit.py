@@ -392,8 +392,8 @@ def update_alphaNP_for_next_iteration(
         elem,
         new_alphas,
         new_lls,
-        # alphalist,
-        # llist,
+        alphalist,
+        llist,
         scalefactor: float = .1):  # ,
     # small_alpha_fraction: float = .3):
     """
@@ -402,18 +402,18 @@ def update_alphaNP_for_next_iteration(
     """
     new_alpha = np.average(new_alphas)
     std_new_alphas = np.std(new_alphas)
-    std_new_lls = np.std(new_lls)
+    # std_new_lls = np.std(new_lls)
 
-    # lb_best_alphas = np.percentile(new_alphas, 45)
-    # ub_best_alphas = np.percentile(new_alphas, 55)
+    lb_best_alphas = np.percentile(new_alphas, 45)
+    ub_best_alphas = np.percentile(new_alphas, 55)
     #
-    # best_alpha_inds = np.argwhere(
-    #     (lb_best_alphas < alphalist) & (alphalist < ub_best_alphas)).flatten()
+    best_alpha_inds = np.argwhere(
+        (lb_best_alphas < alphalist) & (alphalist < ub_best_alphas)).flatten()
 
-    # best_alpha_interval_ll = llist[best_alpha_inds]
-    # Delta_new_ll = np.abs(
-    #     max(best_alpha_interval_ll) - min(best_alpha_interval_ll))
-    Delta_new_ll = 0
+    best_alpha_interval_ll = llist[best_alpha_inds]
+    Delta_new_ll = np.abs(
+        max(best_alpha_interval_ll) - min(best_alpha_interval_ll))
+    # Delta_new_ll = 0
     #
     # sig_new_alpha = scalefactor * min(
     sig_new_alpha = np.min([  # average
@@ -425,7 +425,9 @@ def update_alphaNP_for_next_iteration(
     # print(f"""New search interval: \
     #     [{elem.alphaNP_init - elem.sig_alphaNP_init}, \
     #     {elem.alphaNP_init + elem.sig_alphaNP_init}]""")
-    return std_new_lls, Delta_new_ll, new_alpha, std_new_alphas, sig_new_alpha
+    # return std_new_lls, Delta_new_ll, new_alpha, std_new_alphas, sig_new_alpha
+    return Delta_new_ll, new_alpha, std_new_alphas, sig_new_alpha
+
 
 
 def get_bestalphaNP_and_bounds(
@@ -655,6 +657,8 @@ def iterative_mc_search(
 
     alphas = []
     lls = []
+    window_height = 0
+    Delta_new_ll = 0
 
     for i in iterations:
         print()
@@ -666,12 +670,9 @@ def iterative_mc_search(
             alphasamples = generate_alphaNP_sample(elem, nalphasamples_search,
                 search_mode="random")
 
-            # Delta_new_ll = 0
-            # std_new_ll = 1
-
         # 1 -> break: grid search
         else:
-            if i < maxiter:   # and (Delta_new_ll < std_new_ll)):
+            if i < maxiter and Delta_new_ll < window_height / 20:   # and (Delta_new_ll < std_new_ll)):
                 alphasamples = generate_alphaNP_sample(
                     elem, nalphasamples_search, search_mode="grid")
 
@@ -684,13 +685,14 @@ def iterative_mc_search(
         old_lls = lls
 
         alphas, lls = compute_ll(elem, alphasamples, nelemsamples_search)
+
         print("computing new alphas")
-        llmin_10 = np.percentile(lls, 10)
+        minll_1 = np.percentile(lls, 1)
 
         if plot_output:
-            delchisqlist = get_delchisq(lls)
+            delchisqlist = get_delchisq(lls, minll_1)
             plot_mc_output(alphas, delchisqlist,
-                plotname=f"{i + 1}", llmin=llmin_10)
+                plotname=f"{i + 1}", minll=minll_1)
 
         (
             new_alphas, new_lls,
@@ -714,6 +716,7 @@ def iterative_mc_search(
             alpha_window_lfrac=window_lb, alpha_window_ufrac=window_ub)
 
         window_width = max(new_alphas) - min(new_alphas)
+        window_height = max(new_lls) - min(new_lls)
 
         print("min(window)     ",
             min(new_alphas) + window_width * (1 - window_frac) / 2)
@@ -729,9 +732,9 @@ def iterative_mc_search(
         ):
 
             (
-                std_new_ll, Delta_new_ll, _, _, _
+                Delta_new_ll, _, _, _
             ) = update_alphaNP_for_next_iteration(
-                elem, new_alphas, new_lls  # , alphas, lls
+                elem, new_alphas, new_lls, alphas, lls
             )
 
             print("updating alphas")
@@ -755,9 +758,9 @@ def iterative_mc_search(
             # it += 1
 
             (
-                std_new_ll, Delta_new_ll, _, _, _
+                Delta_new_ll, _, _, _
             ) = update_alphaNP_for_next_iteration(
-                elem, old_alphas, old_lls   # , alphas, lls
+                elem, old_alphas, old_lls, alphas, lls
             )
 
             new_alphas = alphas
@@ -779,6 +782,8 @@ def iterative_mc_search(
     # shuffle the sample
     np.random.shuffle(allalphasamples)
 
+    delchisqs_exps = []
+
     for exp in range(nexps):
         # print("exp", exp)
         # collect data for a single experiment
@@ -795,21 +800,23 @@ def iterative_mc_search(
         bestalphas_exps.append(alphas[np.argmin(lls)])
         lls_exps.append(lls)
 
+        minll_1 = np.percentile(lls, 1)
+        delchisqlist = get_delchisq(lls, minll=minll_1)
+
         if plot_output:
-            llmin_10 = np.percentile(lls, 10)
-            delchisqlist = get_delchisq(lls)
             plot_mc_output(alphas, delchisqlist,
-                plotname=f"m1_exp_{exp}", llmin=llmin_10)
+                plotname=f"m1_exp_{exp}", minll=minll_1)
 
-    minll_1 = np.percentile(np.array(lls_exps).flatten(), 1)
+        delchisqs_exps.append(delchisqlist)
 
-    delchisqs_exps = []
+    # minll_1 = np.percentile(np.array(lls_exps).flatten(), 1)
+    # delchisqs_exps = []
 
-    for s in range(nexps):
-        delchisqs = get_delchisq(lls_exps[s], minll_1)
-        delchisqs_exps.append(delchisqs)
-
-        print("min delchisqs exp" + str(s) + ":", min(delchisqs))
+    # for s in range(nexps):
+    #     delchisqs = get_delchisq(lls_exps[s], minll=minll_1)
+    #     delchisqs_exps.append(delchisqs)
+    #
+    #     print("min delchisqs exp" + str(s) + ":", min(delchisqs))
 
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas, dof=1)
 
@@ -837,7 +844,7 @@ def iterative_mc_search(
         delchisqcrit,
         best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB,
-        xind] * elem.dnorm
+        xind]  # * elem.dnorm
 
 
 def sample_alphaNP_fit(

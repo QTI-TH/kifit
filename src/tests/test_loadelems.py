@@ -165,6 +165,15 @@ def test_constr_dvec():
     assert np.allclose(ca.absd, absd_explicit, rtol=1e-25)
 
 
+def test_constr_logL():
+    ca = Elem.get('Ca_testdata')
+    camin = Elem.get('Camin')
+    ybmin = Elem.get('Ybmin')
+    print(ca.absd)
+    print(camin.absd)
+    print(ybmin.absd)
+
+
 def levi_civita_tensor(d):
     arr = np.zeros([d for _ in range(d)])
     for x in permutations(tuple(range(d))):
@@ -280,6 +289,7 @@ if __name__ == "__main__":
     test_load_individual()
     test_set_fit_params()
     test_constr_dvec()
+    test_constr_logL()
     test_levi_civita()
     test_alphaNP_GKP()
     test_alphaNP_NMGKP()
