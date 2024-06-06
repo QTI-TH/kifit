@@ -8,7 +8,7 @@ from kifit.performfit import compute_ll, generate_element_sample
 elem = Elem.get('Ybmin')
 
 n = 4
-nsamples_list = [502, 802, 1002, 1502]
+nsamples_list = [103, 503, 1003, 1503]
 alphas, lls = [], []
 colors = ["orange", "red", "royalblue", "green"]
 
@@ -17,8 +17,14 @@ for i in range(n):
     nsamples = nsamples_list[i]
     print(f"nsamples: {nsamples}")
     elemsamples = generate_element_sample(elem, nsamples)
-    alphasample = np.linspace(-2.5e-8, -1.5e-8, nsamples)
-    one_alphas, one_lls = compute_ll(elem, alphasample, nelemsamples=nsamples, elementsamples=elemsamples)
+    alphasample = np.linspace(-3e-8, 0, nsamples)
+    one_alphas, one_lls = compute_ll(
+        elem, 
+        alphasample, 
+        nelemsamples=nsamples, 
+        elementsamples=elemsamples,
+        decomposition_method="spectral"
+    )
     alphas.append(one_alphas)
     lls.append(one_lls)
     np.save(arr=np.array(one_alphas), file=f"debug_data/alphas_{nsamples}n.npy")
@@ -31,7 +37,7 @@ for i in range(n):
     print(alphas[i][min_index])
     plt.vlines(alphas[i][min_index], min([min(l) for l in lls]), max([max(l) for l in lls]), ls="--", lw=1, color=colors[i])
 plt.legend()
-plt.savefig(f"debug_{nsamples}.png", dpi=600)
+plt.savefig(f"debug_{nsamples}_spec.png", dpi=600)
 plt.xlabel(r"$\alpha$")
 plt.ylabel(r"LL")
 
