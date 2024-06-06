@@ -492,6 +492,7 @@ def compute_ll(elem, alphasamples, nelemsamples, elementsamples=None):
     llist = []
 
     for s in range(nalphasamples):
+        print(f"alpha {s+1}/{nalphasamples}")
         absdsamples_alpha = []
 
         for t in range(nelemsamples):

@@ -7,24 +7,31 @@ from kifit.performfit import compute_ll, generate_element_sample
 
 elem = Elem.get('Ybmin')
 
-n = 3
-nsamples = 1000
+n = 4
+nsamples_list = [502, 802, 1002, 1502]
 alphas, lls = [], []
-colors = sns.color_palette("magma", n_colors=n).as_hex()
+colors = ["orange", "red", "royalblue", "green"]
 
 for i in range(n):
     np.random.seed(42*(i+1))
-    nsamples = 10*(i+1)
+    nsamples = nsamples_list[i]
     print(f"nsamples: {nsamples}")
     elemsamples = generate_element_sample(elem, nsamples)
-    alphasample = np.linspace(-5e-8, 1e-8, nsamples)
+    alphasample = np.linspace(-2.5e-8, -1.5e-8, nsamples)
     one_alphas, one_lls = compute_ll(elem, alphasample, nelemsamples=nsamples, elementsamples=elemsamples)
     alphas.append(one_alphas)
     lls.append(one_lls)
+    np.save(arr=np.array(one_alphas), file=f"debug_data/alphas_{nsamples}n.npy")
+    np.save(arr=np.array(one_lls), file=f"debug_data/lls_{nsamples}n.npy")
 
 plt.figure(figsize=(6, 6*6/8))
 for i in range(n):
-    plt.plot(alphas[i], lls[i], label=f"Sample {i}", color=colors[i], alpha=0.7, lw=1)
+    plt.plot(alphas[i], lls[i], label=f"n = {nsamples_list[i]}", color=colors[i], alpha=0.7, lw=1)
+    min_index = np.argmin(lls[i])
+    print(alphas[i][min_index])
+    plt.vlines(alphas[i][min_index], min([min(l) for l in lls]), max([max(l) for l in lls]), ls="--", lw=1, color=colors[i])
 plt.legend()
-plt.savefig("debug.png", dpi=600)
-plt.show()
+plt.savefig(f"debug_{nsamples}.png", dpi=600)
+plt.xlabel(r"$\alpha$")
+plt.ylabel(r"LL")
+
