@@ -235,7 +235,7 @@ def plot_final_mc_output(elem, alphas, delchisqs, delchisqcrit,
     """
     fig, ax = plt.subplots()
 
-    nblocks = len(alphas)
+    nexps = len(alphas)
     nsamples = len(alphas[0])
 
     # alphalinspace = np.linspace(np.min(np.array(alphas)),
@@ -251,12 +251,12 @@ def plot_final_mc_output(elem, alphas, delchisqs, delchisqcrit,
 
     ax.axhline(y=delchisqcrit, color="orange", lw=1, ls="--")
 
-    for block in range(nblocks):
-        ax.scatter(alphas[block], delchisqs[block],
-            s=1, alpha=0.5, color="royalblue")
+    for exp in range(nexps):
+        ax.scatter(alphas[exp], delchisqs[exp],
+            s=1, alpha=0.5, color='royalblue')
 
-        ax.scatter(alphas[block][np.argmin(delchisqs[block])],
-            np.min(delchisqs[block]), color='royalblue')
+        ax.scatter(alphas[exp][np.argmin(delchisqs[exp])],
+            np.min(delchisqs[exp]), color='royalblue')
 
     ax.scatter(bestalphapt, 0, color='orange', marker="*",
             label=("best $\\alpha_{\\mathrm{NP}}$ point: "
@@ -331,8 +331,9 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
         ax.scatter(alphas[block][np.argmin(delchisqs[block])],
             np.min(delchisqs[block]), color='royalblue')
 
-    ax.errorbar(bestalphapt, 0, xerr=sigbestalphapt,
-        color="purple", marker="o",
+    ax.errorbar(bestalphapt, 0, xerr=sigbestalphapt, color="red")
+    ax.scatter(bestalphapt, 0,
+        color="orange", marker="*",
         label=("best $\\alpha_{\\mathrm{NP}}$ point: "
             + f"{bestalphapt:.4e}({sigbestalphapt:.4e})"))
 
