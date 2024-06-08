@@ -17,7 +17,7 @@ num_elemsamples_search = 100  # 200
 num_alphasamples_search = 100
 num_elemsamples_experiment = 100
 num_alphasamples_experiment = 100
-num_experiments = 50
+num_experiments = 5
 num_blocks = 1
 
 # search hyper-parameters
@@ -41,7 +41,7 @@ mc_output = sample_alphaNP_fit(
     mphivar=False,
     plot_output=True,
     scalefactor=scalefactor,
-    sigalphainit=1e-7,
+    sigalphainit=1,
     # sig_new_alpha_fraction=sig_new_alpha_fraction,
     x0=0,
 )

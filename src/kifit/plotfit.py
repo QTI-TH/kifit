@@ -258,11 +258,6 @@ def plot_final_mc_output(elem, alphas, delchisqs, delchisqcrit,
         ax.scatter(alphas[exp][np.argmin(delchisqs[exp])],
             np.min(delchisqs[exp]), color='royalblue')
 
-    ax.scatter(bestalphapt, 0, color='orange', marker="*",
-            label=("best $\\alpha_{\\mathrm{NP}}$ point: "
-                + f"{bestalphapt:.4e}"))
-    ax.errorbar(bestalphapt, 0, xerr=sigbestalphapt, color="red")
-
     if plotitle is None:
         plotitle = elem.id + ", " + str(nsamples) + " samples, x=" + str(xind)
 
@@ -271,6 +266,19 @@ def plot_final_mc_output(elem, alphas, delchisqs, delchisqcrit,
     ax.set_ylabel(ylabel)
     ax.set_xlim(xlims[0], xlims[1])
     ax.set_ylim(ylims[0], ylims[1])
+
+    (ymin, ymax) = ax.get_ylim()
+
+    errorbarpos = - (ymax - ymin) / 20
+    print("errorbarpos", errorbarpos)
+    ax.errorbar(bestalphapt, errorbarpos, xerr=sigbestalphapt, color="red")
+    ax.scatter(bestalphapt, errorbarpos, color='orange', marker="*",
+            label=("best $\\alpha_{\\mathrm{NP}}$ point: "
+                + f"{bestalphapt:.4e}"))
+
+
+    ax.set_ylim(2 * errorbarpos, ymax)
+
     plt.legend()
     plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + "_x" + str(xind)
         + ".png")
@@ -331,11 +339,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
         ax.scatter(alphas[block][np.argmin(delchisqs[block])],
             np.min(delchisqs[block]), color='royalblue')
 
-    ax.errorbar(bestalphapt, 0, xerr=sigbestalphapt, color="red")
-    ax.scatter(bestalphapt, 0,
-        color="orange", marker="*",
-        label=("best $\\alpha_{\\mathrm{NP}}$ point: "
-            + f"{bestalphapt:.4e}({sigbestalphapt:.4e})"))
+    (ymin, ymax) = ax.get_ylim()
 
     if plotitle is None:
         plotitle = elem.id + ", " + str(nsamples) + " samples, x=" + str(xind)
@@ -344,6 +348,17 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     ax.set_ylabel(ylabel)
     ax.set_xlim(xlims[0], xlims[1])
     ax.set_ylim(ylims[0], ylims[1])
+
+    errorbarpos = - (ymax - ymin) / 10
+    print("errorbarpos", errorbarpos)
+    ax.errorbar(bestalphapt, errorbarpos, xerr=sigbestalphapt, color="red")
+    ax.scatter(bestalphapt, errorbarpos,
+        color="orange", marker="*",
+        label=("best $\\alpha_{\\mathrm{NP}}$ point: "
+            + f"{bestalphapt:.4e}({sigbestalphapt:.4e})"))
+
+    ax.set_ylim(2 * errorbarpos, ymax)
+
     plt.legend()
     plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + "_x" + str(xind)
         + ".png")

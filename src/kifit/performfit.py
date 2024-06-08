@@ -388,6 +388,32 @@ def get_new_alphaNP_interval(
         best_alpha, lb_best_alpha, ub_best_alpha)
 
 
+def get_bestalpha_and_logL_spread_of_next_iteration(
+        new_alphas,
+        new_lls,
+        current_alphas,
+        current_lls,
+        scalefactor: float = .1):
+
+    new_best_alphas = new_alphas[new_lls < np.percentile(new_lls, 10)]
+
+    new_best_alpha = np.median(new_best_alphas)
+    sig_new_best_alpha = np.std(new_alphas)  # don't want to be too aggressive
+
+    alphainds_best_window = np.where(np.logical_and(
+        (min(new_best_alphas) < current_alphas), (current_alphas < max(new_best_alphas))
+    ))[0]
+
+    if len(alphainds_best_window) < 5:
+        raise IndexError(f"""Increase number of samples.
+        {len(alphainds_best_window)} points in new best window.""")
+
+    Delta_new_ll = (max(current_lls[alphainds_best_window])
+        - min(current_lls[alphainds_best_window]))
+
+    return new_best_alpha, sig_new_best_alpha, Delta_new_ll
+
+
 def update_alphaNP_for_next_iteration(
         elem,
         new_alphas,
@@ -400,21 +426,56 @@ def update_alphaNP_for_next_iteration(
     Compute sig_alphaNP for next iteration.
 
     """
-    new_alpha = np.average(new_alphas)
+    new_alpha = np.median(new_alphas)
     std_new_alphas = np.std(new_alphas)
     # std_new_lls = np.std(new_lls)
 
-    lb_best_alphas = np.percentile(new_alphas, 45)
-    ub_best_alphas = np.percentile(new_alphas, 55)
-    #
-    best_alpha_inds = np.argwhere(
-        (lb_best_alphas < alphalist) & (alphalist < ub_best_alphas)).flatten()
+    # lb_best_alphas = np.percentile(new_alphas, 45)
+    # ub_best_alphas = np.percentile(new_alphas, 55)
+    print()
+    print("TESTI")
+    print("new_lls", new_lls)
+    print("new_best_alphas", np.percentile(new_lls, 10))
+    print("min new_lls", min(new_lls))
 
-    best_alpha_interval_ll = llist[best_alpha_inds]
-    Delta_new_ll = np.abs(
-        max(best_alpha_interval_ll) - min(best_alpha_interval_ll))
-    # Delta_new_ll = 0
+    new_best_alphas = new_alphas[new_lls < np.percentile(new_lls, 10)]
+
+    alphainds_best_window = np.where(np.logical_and(
+        (min(new_best_alphas) < alphalist), (alphalist < max(new_best_alphas))
+    ))[0]
+
+    if len(alphainds_best_window) < 5:
+        raise IndexError(f"""Increase number of samples.
+        {len(alphainds_best_window)} points in new best window.""")
+
+    # lb = np.where(min(new_best_alphas) < alphalist)
+    # ub = np.where(alphalist < max(new_best_alphas))
     #
+    # alphainds_best_window = np.intersect1d(lb, ub)
+    #
+    # print("lb", lb)
+    # print("ub", ub)
+
+    # print("alphainds", alphainds_best_window)
+    # print("len(alphainds)", len(alphainds_best_window))
+    #
+    # print("min alphalist", min(alphalist))
+    # print("max alphalist", max(alphalist))
+    #
+    # print("min new best alpha", min(new_best_alphas))
+    # print("max new best alpha", max(new_best_alphas))
+
+    # print("testi",
+    #     llist[np.argwhere(min(new_best_alphas) < alphalist).flatten()])
+    #
+    # print("testi2",
+    #     llist[np.argwhere(max(new_best_alphas) > alphalist).flatten()])
+    #
+
+    # print("alphainds", alphainds)
+
+    Delta_new_ll = max(llist[alphainds_best_window]) - min(llist[alphainds_best_window])
+
     # sig_new_alpha = scalefactor * min(
     sig_new_alpha = np.min([  # average
         np.abs(max(new_alphas) - new_alpha),
@@ -427,7 +488,6 @@ def update_alphaNP_for_next_iteration(
     #     {elem.alphaNP_init + elem.sig_alphaNP_init}]""")
     # return std_new_lls, Delta_new_ll, new_alpha, std_new_alphas, sig_new_alpha
     return Delta_new_ll, new_alpha, std_new_alphas, sig_new_alpha
-
 
 
 def get_bestalphaNP_and_bounds(
@@ -660,9 +720,14 @@ def iterative_mc_search(
     window_height = 0
     Delta_new_ll = 0
 
+    # ITERATIVE SEARCH
+    ###########################################################################
     for i in iterations:
         print()
         print(f"Iterative search step {i+1}")
+
+        # GENERATE ALPHA SAMPLE
+        #######################################################################
         if i == 0:
             # 0: start with random search
             elem.set_alphaNP_init(0., sigalphainit)
@@ -672,21 +737,24 @@ def iterative_mc_search(
 
         # 1 -> break: grid search
         else:
-            if i < maxiter and Delta_new_ll < window_height / 20:   # and (Delta_new_ll < std_new_ll)):
+            if i < maxiter:  # and Delta_new_ll < window_height / 20:
                 alphasamples = generate_alphaNP_sample(
                     elem, nalphasamples_search, search_mode="grid")
 
-            else:
-                # use old alphasamples
-                print(f"BREAKING AT ITER: {i}, with maxiter: {maxiter}")
-                break
+            # else:
+            #     # use old alphasamples
+            #     print(f"BREAKING AT ITER: {i}, with maxiter: {maxiter}")
+            #     break
 
+        # ALPHAS FROM LAST ROUND -> OLD ALPHAS
+        #######################################################################
         old_alphas = alphas
         old_lls = lls
 
+        # COMPUTE LogL FOR NEWLY GENERATED ALPHA SAMPLES
+        #######################################################################
         alphas, lls = compute_ll(elem, alphasamples, nelemsamples_search)
 
-        print("computing new alphas")
         minll_1 = np.percentile(lls, 1)
 
         if plot_output:
@@ -694,42 +762,54 @@ def iterative_mc_search(
             plot_mc_output(alphas, delchisqlist,
                 plotname=f"{i + 1}", minll=minll_1)
 
+        # DEFINE POTENTIAL NEW INTERVAL
+        #######################################################################
+
         (
             new_alphas, new_lls,
-            new_alpha, new_lb_alpha, new_ub_alpha
+            new_best_alpha, new_lb_alpha, new_ub_alpha
         ) = get_new_alphaNP_interval(alphas, lls, scalefactor=scalefactor)
 
-        # test new interval, if good, update
-        # print("max(new_alphas)    ", max(new_alphas))
-        # new_alphas, new_lls = equilibrate_interval(new_alphas, new_lls)
-        # print("max(new_alphas_eq) ", max(new_alphas))
+        # TEST NEW INTERVAL. IF GOOD, UPDATE ALPHA, SIGALPHA OF ELEM
+        #######################################################################
 
-        # sf = scalefactor
-        # it = 1
-        #
-        # if sf < 1 and it < maxiter:
         window_frac = 1 / 2
         window_lb = (1 - window_frac) / 2
         window_ub = (1 + window_frac) / 2
 
-        new_alphas, new_lls = equilibrate_interval(new_alphas, new_lls,
-            alpha_window_lfrac=window_lb, alpha_window_ufrac=window_ub)
-
         window_width = max(new_alphas) - min(new_alphas)
         window_height = max(new_lls) - min(new_lls)
 
-        print("min(window)     ",
-            min(new_alphas) + window_width * (1 - window_frac) / 2)
-        print("new alpha       ", new_alpha)
-        print("max(window)     ",
-            min(new_alphas) + (1 + window_frac) / 2 * window_width)
+        (
+            new_best_alpha, sig_new_best_alpha, Deltall
+        ) = get_bestalpha_and_logL_spread_of_next_iteration(
+            new_alphas, new_lls, alphas, lls
+        )
+
+        print("len(new_lls) before equil", len(new_lls))
 
         if (
-                (min(new_alphas) + window_width * (1 - window_frac) / 2
-                    < new_alpha)
-                and (new_alpha < (
-                    min(new_alphas) + (1 + window_frac) / 2 * window_width))
+                # Is new best alpha in centre of window?
+                (
+                    (min(new_alphas) + window_width * (1 - window_frac) / 2
+                        < new_best_alpha)
+                    and (new_best_alpha < (
+                        min(new_alphas) + (1 + window_frac) / 2 * window_width))
+                )
+
+                and
+
+                # Is the vertical spread small enough in the region of interest?
+                (
+                    Deltall < window_height / 10
+
+                )
         ):
+
+            new_alphas, new_lls = equilibrate_interval(new_alphas, new_lls,
+                alpha_window_lfrac=window_lb, alpha_window_ufrac=window_ub)
+
+            print("len(new_lls) after equil", len(new_lls))
 
             (
                 Delta_new_ll, _, _, _
@@ -757,6 +837,18 @@ def iterative_mc_search(
             #     scalefactor=sf)
             # it += 1
 
+            print("lb window",
+                min(new_alphas) + window_width * (1 - window_frac) / 2)
+            print("new best alpha", new_best_alpha)
+            print("ub window",
+                min(new_alphas) + (1 + window_frac) / 2 * window_width)
+
+            print()
+            print("Deltall", Deltall)
+            print("window_height", window_height)
+
+            # attempt to jump out of window
+
             (
                 Delta_new_ll, _, _, _
             ) = update_alphaNP_for_next_iteration(
@@ -766,13 +858,9 @@ def iterative_mc_search(
             new_alphas = alphas
             new_lls = lls
 
-            print(f"{i} interval not updated")
-            print("new min: ", min(new_alphas))
-            print("new max: ", max(new_alphas))
+            print(f"BREAKING AT ITER: {i}, with maxiter: {maxiter}")
 
             break
-
-        # attempt to jump out of window
 
     # -1: final round: perform parabolic fits and use blocking method to
 
@@ -847,6 +935,252 @@ def iterative_mc_search(
         xind]  # * elem.dnorm
 
 
+#
+# def iterative_mc_search(
+#         elem,
+#         nelemsamples_search: int = 200,
+#         nalphasamples_search: int = 200,
+#         nexps: int = 1000,
+#         nelemsamples_exp: int = 1000,
+#         nalphasamples_exp: int = 1000,
+#         nsigmas: int = 2,
+#         nblocks: int = 10,
+#         sigalphainit: float = 1.,
+#         scalefactor: float = .1,  # 2e-1,
+#         # sig_new_alpha_fraction: float = 0.1,
+#         maxiter: int = 1000,
+#         plot_output: bool = False,
+#         xind=0,
+#         mphivar: bool = False):
+#     """
+#     Perform iterative search for best alphaNP value and the standard deviation.
+#
+#     Args:
+#         elem (Elem): target element.
+#         nsamples_search (int): number of samples.
+#         nsigmas (int): confidence level in standard deviations for which the
+#             upper and lower bounds are computed.
+#         nblocks (int): number of blocks used for the determination of the mean
+#             and standard deviation in the last iteration.
+#         scalefactor (float): factor used to rescale the search interval.
+#         maxiter (int): maximum number of iterations spent within the iterative
+#             search.
+#
+#     Return:
+#         mean_best_alpha: best alphaNP value, found by averaging over all blocks
+#         sig_best_alpha: standard deviation of the best_alphas over all blocks
+#         LB: lower nsigma-bound on alphaNP
+#         sig_LB: uncertainty on LB
+#         UB: upper nsigma-bound on alphaNP
+#         sig_UB: uncertainty on UB
+#
+#     """
+#
+#     from kifit.plotfit import plot_mc_output, plot_final_mc_output
+#
+#     alphas_exps = []
+#     lls_exps = []
+#     bestalphas_exps = []
+#
+#     if mphivar is False:
+#         iterations = tqdm(range(maxiter))
+#     else:
+#         iterations = range(maxiter)
+#
+#     alphas = []
+#     lls = []
+#     window_height = 0
+#     Delta_new_ll = 0
+#
+#     for i in iterations:
+#         print()
+#         print(f"Iterative search step {i+1}")
+#         if i == 0:
+#             # 0: start with random search
+#             elem.set_alphaNP_init(0., sigalphainit)
+#
+#             alphasamples = generate_alphaNP_sample(elem, nalphasamples_search,
+#                 search_mode="random")
+#
+#         # 1 -> break: grid search
+#         else:
+#             if i < maxiter:
+#                 # and Delta_new_ll < window_height / 20:   # and (Delta_new_ll < std_new_ll)):
+#                 # ADD COND HERE
+#                 alphasamples = generate_alphaNP_sample(
+#                     elem, nalphasamples_search, search_mode="grid")
+#
+#             else:
+#                 # use old alphasamples
+#                 print(f"BREAKING AT ITER: {i}, with maxiter: {maxiter}")
+#                 break
+#
+#         old_alphas = alphas
+#         old_lls = lls
+#
+#         alphas, lls = compute_ll(elem, alphasamples, nelemsamples_search)
+#
+#         print("computing new alphas")
+#         minll_1 = np.percentile(lls, 1)
+#
+#         if plot_output:
+#             delchisqlist = get_delchisq(lls, minll_1)
+#             plot_mc_output(alphas, delchisqlist,
+#                 plotname=f"{i + 1}", minll=minll_1)
+#
+#         (
+#             new_alphas, new_lls,
+#             new_alpha, new_lb_alpha, new_ub_alpha
+#         ) = get_new_alphaNP_interval(alphas, lls, scalefactor=scalefactor)
+#
+#         # test new interval, if good, update
+#         # print("max(new_alphas)    ", max(new_alphas))
+#         # new_alphas, new_lls = equilibrate_interval(new_alphas, new_lls)
+#         # print("max(new_alphas_eq) ", max(new_alphas))
+#
+#         # sf = scalefactor
+#         # it = 1
+#         #
+#         # if sf < 1 and it < maxiter:
+#         window_frac = 1 / 2
+#         window_lb = (1 - window_frac) / 2
+#         window_ub = (1 + window_frac) / 2
+#
+#         new_alphas, new_lls = equilibrate_interval(new_alphas, new_lls,
+#             alpha_window_lfrac=window_lb, alpha_window_ufrac=window_ub)
+#
+#         window_width = max(new_alphas) - min(new_alphas)
+#         window_height = max(new_lls) - min(new_lls)
+#
+#         print("min(window)     ",
+#             min(new_alphas) + window_width * (1 - window_frac) / 2)
+#         print("new alpha       ", new_alpha)
+#         print("max(window)     ",
+#             min(new_alphas) + (1 + window_frac) / 2 * window_width)
+#
+#         if (
+#                 (min(new_alphas) + window_width * (1 - window_frac) / 2
+#                     < new_alpha)
+#                 and (new_alpha < (
+#                     min(new_alphas) + (1 + window_frac) / 2 * window_width))
+#         ):
+#
+#             (
+#                 Delta_new_ll, _, _, _
+#             ) = update_alphaNP_for_next_iteration(
+#                 elem, new_alphas, new_lls, alphas, lls
+#             )
+#
+#             print("updating alphas")
+#             print("new min: ", min(new_alphas))
+#             print("new max: ", max(new_alphas))
+#
+#             # sf = 1
+#             # print("Delta_new_ll", Delta_new_ll)
+#             # print("std_new_ll", std_new_ll)
+#
+#         else:
+#             # print("adjusting scalefactor")
+#             # it += 1
+#             # sf += it**2 * scalefactor**it
+#             # print("sf ", sf)
+#             # (
+#             #     new_alphas, new_lls,
+#             #     new_alpha_parabola, new_lb_alpha, new_ub_alpha
+#             # ) = get_new_alphaNP_interval(alphas, lls,
+#             #     scalefactor=sf)
+#             # it += 1
+#
+#             # attempt to jump out of window
+#
+#             (
+#                 Delta_new_ll, _, _, _
+#             ) = update_alphaNP_for_next_iteration(
+#                 elem, old_alphas, old_lls, alphas, lls
+#             )
+#
+#             new_alphas = alphas
+#             new_lls = lls
+#
+#             print(f"{i} interval not updated")
+#             print("new min: ", min(new_alphas))
+#             print("new max: ", max(new_alphas))
+#
+#             break
+#
+#     # -1: final round: perform parabolic fits and use blocking method to
+#
+#     allalphasamples = generate_alphaNP_sample(elem, nexps * nalphasamples_exp,
+#         search_mode="grid")
+#
+#     # shuffle the sample
+#     np.random.shuffle(allalphasamples)
+#
+#     delchisqs_exps = []
+#
+#     for exp in range(nexps):
+#         # print("exp", exp)
+#         # collect data for a single experiment
+#         alphasamples = allalphasamples[
+#             exp * nalphasamples_exp: (exp + 1) * nalphasamples_exp]
+#
+#         # compute alphas and LLs for this experiment
+#         alphas, lls = compute_ll(elem, alphasamples, nelemsamples_exp)
+#
+#         # save all alphas, lls and best alpha of the sample
+#         # TODO: I think this is not necessary. We only need to save
+#         #       the extremes of the interval
+#         alphas_exps.append(alphas)
+#         bestalphas_exps.append(alphas[np.argmin(lls)])
+#         lls_exps.append(lls)
+#
+#         minll_1 = np.percentile(lls, 1)
+#         delchisqlist = get_delchisq(lls, minll=minll_1)
+#
+#         if plot_output:
+#             plot_mc_output(alphas, delchisqlist,
+#                 plotname=f"m1_exp_{exp}", minll=minll_1)
+#
+#         delchisqs_exps.append(delchisqlist)
+#
+#     # minll_1 = np.percentile(np.array(lls_exps).flatten(), 1)
+#     # delchisqs_exps = []
+#
+#     # for s in range(nexps):
+#     #     delchisqs = get_delchisq(lls_exps[s], minll=minll_1)
+#     #     delchisqs_exps.append(delchisqs)
+#     #
+#     #     print("min delchisqs exp" + str(s) + ":", min(delchisqs))
+#
+#     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas, dof=1)
+#
+#     confints_exps = np.array([get_confint(alphas_exps[s], delchisqs_exps[s],
+#         delchisqcrit) for s in range(nexps)])
+#
+#     print("confints_exps", confints_exps)
+#
+#     (best_alpha_pts, sig_alpha_pts,
+#         LB, sig_LB, UB, sig_UB) = \
+#         get_bestalphaNP_and_bounds(bestalphas_exps,
+#             confints_exps, nblocks=nblocks)
+#
+#     elem.set_alphaNP_init(best_alpha_pts, sig_alpha_pts)
+#
+#     if plot_output:
+#         plot_final_mc_output(elem, alphas_exps, delchisqs_exps,
+#             delchisqcrit,
+#             bestalphapt=best_alpha_pts, sigbestalphapt=sig_alpha_pts,
+#             lb=LB, siglb=sig_LB, ub=UB, sigub=sig_UB,
+#             nsigmas=nsigmas, xind=xind)
+#
+#     return [
+#         np.array(alphas_exps), np.array(delchisqs_exps),
+#         delchisqcrit,
+#         best_alpha_pts, sig_alpha_pts,
+#         LB, sig_LB, UB, sig_UB,
+#         xind]  # * elem.dnorm
+#
+#
 def sample_alphaNP_fit(
         elem,
         nelemsamples_search,
