@@ -764,12 +764,13 @@ def iterative_mc_search(
 
         # DEFINE POTENTIAL NEW INTERVAL
         #######################################################################
-
+        print("define POTENTIAL new interval")
+        print("lls", lls)
         (
             new_alphas, new_lls,
             new_best_alpha, new_lb_alpha, new_ub_alpha
         ) = get_new_alphaNP_interval(alphas, lls, scalefactor=scalefactor)
-
+        print("new_lls", new_lls)
         # TEST NEW INTERVAL. IF GOOD, UPDATE ALPHA, SIGALPHA OF ELEM
         #######################################################################
 
@@ -805,6 +806,7 @@ def iterative_mc_search(
 
                 )
         ):
+            print("hullu")
 
             new_alphas, new_lls = equilibrate_interval(new_alphas, new_lls,
                 alpha_window_lfrac=window_lb, alpha_window_ufrac=window_ub)
@@ -836,7 +838,6 @@ def iterative_mc_search(
             # ) = get_new_alphaNP_interval(alphas, lls,
             #     scalefactor=sf)
             # it += 1
-
             print("lb window",
                 min(new_alphas) + window_width * (1 - window_frac) / 2)
             print("new best alpha", new_best_alpha)
@@ -848,7 +849,7 @@ def iterative_mc_search(
             print("window_height", window_height)
 
             # attempt to jump out of window
-
+            print("old_lls in else", old_lls)
             (
                 Delta_new_ll, _, _, _
             ) = update_alphaNP_for_next_iteration(

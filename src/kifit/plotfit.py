@@ -350,7 +350,6 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     ax.set_ylim(ylims[0], ylims[1])
 
     errorbarpos = - (ymax - ymin) / 10
-    print("errorbarpos", errorbarpos)
     ax.errorbar(bestalphapt, errorbarpos, xerr=sigbestalphapt, color="red")
     ax.scatter(bestalphapt, errorbarpos,
         color="orange", marker="*",

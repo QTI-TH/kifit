@@ -41,7 +41,7 @@ mc_output = sample_alphaNP_fit(
     mphivar=False,
     plot_output=True,
     scalefactor=scalefactor,
-    sigalphainit=1,
+    sigalphainit=5e-7,
     # sig_new_alpha_fraction=sig_new_alpha_fraction,
     x0=0,
 )
