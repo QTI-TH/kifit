@@ -8,9 +8,10 @@ from scipy.linalg import cholesky, cho_factor, cho_solve
 from scipy.odr import ODR, Model, RealData
 from scipy.special import binom
 from scipy.stats import chi2, linregress, multivariate_normal
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, minimize
 
 from tqdm import tqdm
+
 
 
 _output_data_path = os.path.abspath(
@@ -1182,6 +1183,17 @@ def iterative_mc_search(
 #         xind]  # * elem.dnorm
 #
 #
+
+def scipy_minimize(elem, nelements, maxiter=1000, method="Powell"):
+
+    elements = generate_element_sample(elem, nelements)
+    # TODO: alphas
+    loss = loss_function(one_alpha, args)
+
+    results = minimize(loss, one_alpha, args, method=method, options={"maxiter": maxiter})
+    return results[1]
+
+
 def sample_alphaNP_fit(
         elem,
         nelemsamples_search,
