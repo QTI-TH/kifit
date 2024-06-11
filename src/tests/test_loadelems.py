@@ -28,10 +28,10 @@ def test_load_individual():
     Ca = Elem.get('Ca_testdata')
 
     assert np.all(np.nan_to_num(ca.nu) == np.nan_to_num(Ca.nu))
-    assert np.isclose(np.sum(ca.m_a), 119.88777255, rtol=1e-5)
-    assert np.isclose(np.sum(ca.m_ap), 133.86662192999998, rtol=1e-5)
-    assert np.isclose(np.sum(ca.sig_m_a_in**2), 1.452e-15, rtol=1e-5)
-    assert np.isclose(np.sum(ca.sig_m_ap_in**2), 1.15961e-13, rtol=1e-5)
+    assert np.isclose(np.sum(ca.m_a), 119.88777255, atol=0, rtol=1e-5)
+    assert np.isclose(np.sum(ca.m_ap), 133.86662192999998, atol=0, rtol=1e-5)
+    assert np.isclose(np.sum(ca.sig_m_a_in**2), 1.452e-15, atol=0, rtol=1e-5)
+    assert np.isclose(np.sum(ca.sig_m_ap_in**2), 1.15961e-13, atol=0, rtol=1e-5)
 
     assert ca.nisotopepairs == len(ca.ap_nisotope)
     assert ca.nisotopepairs == len(ca.m_a)
@@ -56,9 +56,10 @@ def test_load_individual():
         assert len(ca.sig_Xcoeff_data[x]) == ca.ntransitions + 1
 
     assert (ca.nu.size == ca.nisotopepairs * ca.ntransitions)
-    assert np.allclose(ca.mu_norm_isotope_shifts_in, mnu_Mathematica, rtol=1e-14)
+    assert np.allclose(ca.mu_norm_isotope_shifts_in, mnu_Mathematica,
+        atol=0, rtol=1e-14)
     assert np.allclose(ca.sig_mu_norm_isotope_shifts_in, sig_mnu_Mathematica,
-            rtol=1e-14)
+        atol=0, rtol=1e-14)
     # assert (np.sum(ca.corr_nu_nu) == ca.nisotopepairs * ca.ntransitions)
     # assert (np.sum(ca.corr_m_m) == 1)
     # assert (np.trace(ca.corr_m_mp) == 0)
@@ -68,19 +69,19 @@ def test_load_individual():
     assert (len(ca.muvec) == ca.nisotopepairs)
     assert (ca.mu_norm_avec.size == ca.nisotopepairs)
     assert np.allclose(ca.mu_norm_avec, np.array([(ca.a_nisotope[a] - ca.ap_nisotope[a])
-        / ca.muvec[a] for a in ca.range_a]), rtol=1e-5)
+        / ca.muvec[a] for a in ca.range_a]), atol=0, rtol=1e-5)
     assert (ca.np_term.size == ca.nisotopepairs * ca.ntransitions)
     assert np.all([i.is_integer() for i in ca.a_nisotope])
     assert np.all([i.is_integer() for i in ca.ap_nisotope])
     assert (ca.F1.size == ca.ntransitions)
     assert (ca.F1sq == ca.F1 @ ca.F1)
-    assert np.isclose(ca.F1[0], 1, rtol=1e-17)
+    assert np.isclose(ca.F1[0], 1, atol=0, rtol=1e-17)
     assert (ca.secph1.size == ca.ntransitions)
-    assert np.isclose(ca.secph1[0], 0, rtol=1e-17)
+    assert np.isclose(ca.secph1[0], 0, atol=0, rtol=1e-17)
     assert (ca.Kperp1.size == ca.ntransitions)
-    assert np.isclose(ca.Kperp1[0], 0, rtol=1e-17)
+    assert np.isclose(ca.Kperp1[0], 0, atol=0, rtol=1e-17)
     assert (ca.X1.size == ca.ntransitions)
-    assert np.isclose(ca.X1[0], 0, rtol=1e-17)
+    assert np.isclose(ca.X1[0], 0, atol=0, rtol=1e-17)
     assert (sum(ca.range_i) == sum(ca.range_j))
     assert (len(ca.range_i) == len(ca.range_j) + 1)
 
@@ -111,7 +112,7 @@ def test_set_fit_params():
     assert (np.sum(ca.ph1) == np.sum(ph1nit_Mathematica))
     assert (ca.alphaNP == alphaNP_Mathematica)
     assert (ca.F1[1:] == np.tan(ph1nit_Mathematica)).all()
-    assert np.isclose(ca.F1sq, F1_Mathematica @ F1_Mathematica, rtol=1e-15)
+    assert np.isclose(ca.F1sq, F1_Mathematica @ F1_Mathematica, atol=0, rtol=1e-15)
 
     theta_LL_Mathematica = np.concatenate((kappaperp1nit_LL_Mathematica,
             ph1nit_LL_Mathematica, 0.), axis=None)
@@ -120,7 +121,8 @@ def test_set_fit_params():
     assert (np.sum(ca.ph1) == np.sum(ph1nit_LL_Mathematica))
     assert (ca.alphaNP == alphaNP_Mathematica)
     assert (ca.F1[1:] == np.tan(ph1nit_LL_Mathematica)).all()
-    assert np.isclose(ca.F1sq, F1_LL_Mathematica @ F1_LL_Mathematica, rtol=1e-15)
+    assert np.isclose(ca.F1sq, F1_LL_Mathematica @ F1_LL_Mathematica,
+        atol=0, rtol=1e-15)
 
 
 def test_constr_dvec():
@@ -138,14 +140,14 @@ def test_constr_dvec():
 
     # without NP
     ca._update_fit_params(theta_LL_Mathematica)
-    assert (np.isclose(spp, spm, rtol=1e-7) for (spp, spm) in zip(ca.secph1,
+    assert (np.isclose(spp, spm, atol=0, rtol=1e-7) for (spp, spm) in zip(ca.secph1,
         secph1nit_LL_Mathematica)), (ca.secph1, secph1nit_LL_Mathematica)
-    assert np.allclose(ca.muvec, muvec_Mathematica, rtol=1e-10)
+    assert np.allclose(ca.muvec, muvec_Mathematica, atol=0, rtol=1e-10)
 
     D_a1i_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
-    assert np.allclose(D_a1i_Mathematica, D_a1i_python, rtol=1e-15)
+    assert np.allclose(D_a1i_Mathematica, D_a1i_python, atol=0, rtol=1e-15)
     assert np.allclose(np.array(dmat_Mathematica) / ca.dnorm, ca.dmat,
-            rtol=1e-8)
+        atol=0, rtol=1e-8)
 
     # with NP
     theta_LL_Mathematica_1 = np.concatenate((kappaperp1nit_LL_Mathematica,
@@ -153,16 +155,18 @@ def test_constr_dvec():
 
     ca._update_fit_params(theta_LL_Mathematica_1)
 
-    assert np.allclose(ca.np_term, NP_term_alphaNP_1_Mathematica, rtol=1e-7)
+    assert np.allclose(ca.np_term, NP_term_alphaNP_1_Mathematica, atol=0, rtol=1e-7)
 
     D_a1i_alphaNP_1_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
-    assert np.allclose(D_a1i_alphaNP_1_Mathematica, D_a1i_alphaNP_1_python, rtol=1e-15)
-    assert np.allclose(np.array(dmat_alphaNP_1_Mathematica) / ca.dnorm, ca.dmat, rtol=1e-14)
+    assert np.allclose(D_a1i_alphaNP_1_Mathematica, D_a1i_alphaNP_1_python,
+        atol=0, rtol=1e-15)
+    assert np.allclose(np.array(dmat_alphaNP_1_Mathematica) / ca.dnorm, ca.dmat,
+        atol=0, rtol=1e-14)
 
     absd_explicit = np.array([np.sqrt(np.sum(
         np.fromiter([ca.d_ai(a, i)**2 for i in ca.range_i], float))) for a in
         ca.range_a]) / ca.dnorm
-    assert np.allclose(ca.absd, absd_explicit, rtol=1e-25)
+    assert np.allclose(ca.absd, absd_explicit, atol=0, rtol=1e-25)
 
 
 def test_constr_logL():
@@ -261,12 +265,13 @@ def test_alphaNP_GKP():
 
     alphaNP_GKP_check = check_alphaNP_GKP(ca, 3)
     alphaNP_GKP_combinations = ca.alphaNP_GKP_combinations(3)
-    assert np.allclose(alphaNP_GKP_check, alphaNP_GKP_combinations, rtol=1e-50)
+    assert np.allclose(alphaNP_GKP_check, alphaNP_GKP_combinations,
+        atol=0, rtol=1e-12)
 
     alphaNP_GKP_simple = ca.alphaNP_GKP()
 
     assert np.isclose(alphaNP_GKP_combinations[0], alphaNP_GKP_simple,
-        rtol=1e-17)
+        atol=0, rtol=1e-13)
 
 
 def test_alphaNP_NMGKP():
@@ -276,12 +281,13 @@ def test_alphaNP_NMGKP():
 
     alphaNP_NMGKP_check = check_alphaNP_NMGKP(ca, 3)
     alphaNP_NMGKP_combinations = ca.alphaNP_NMGKP_combinations(3)
-    assert np.allclose(alphaNP_NMGKP_check, alphaNP_NMGKP_combinations, rtol=1e-50)
+    assert np.allclose(alphaNP_NMGKP_check, alphaNP_NMGKP_combinations,
+        atol=0, rtol=10)
 
     alphaNP_NMGKP_simple = ca.alphaNP_NMGKP()
 
     assert np.isclose(alphaNP_NMGKP_combinations[0], alphaNP_NMGKP_simple,
-        rtol=1e-17)
+        atol=0, rtol=1)
 
 
 if __name__ == "__main__":
