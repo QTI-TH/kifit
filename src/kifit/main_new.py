@@ -14,16 +14,16 @@ plot_linfit(elem, resmagnifac=1)
 
 num_samples_det = 100
 
-num_searches = 2
+num_searches = 10
 num_elemsamples_search = 100  # 200
 
-num_experiments = 3
+num_experiments = 10
 num_elemsamples_experiment = 100
 num_alphasamples_experiment = 100
 num_blocks = 1
 
 # search hyper-parameters
-max_iter = 100
+max_iter = 1000
 
 
 gkp_dims = []
@@ -40,8 +40,8 @@ mc_output = sample_alphaNP_fit(
     maxiter=max_iter,
     mphivar=False,
     plot_output=True,
+    opt_method="Powell",
     x0=0,
 )
 
-print(mc_output)
 plot_alphaNP_ll(elem, mc_output, xind=0, xlims=[-5e-8, 0])

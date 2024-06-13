@@ -401,12 +401,14 @@ def logL_alphaNP(alphaNP, elem, elemsamples):
     return np.percentile(lls, 10)
 
 
-def minimise_logL_alphaNP(elem, elemsamples,
-        alpha0=0, tol=1e-9, maxiter=100, method="BFGS"):
+def minimise_logL_alphaNP(
+        elem, elemsamples, alpha0, maxiter, opt_method, tol=1e-12
+    ):
 
-    minlogL = minimize(logL_alphaNP, x0=alpha0,
-        args=(elem, elemsamples),
-        method=method, options={"maxiter": maxiter})
+    minlogL = minimize(
+        logL_alphaNP, x0=alpha0, args=(elem, elemsamples),
+        method=opt_method, options={"maxiter": maxiter}, tol=tol,
+    )
 
     return minlogL
 
@@ -471,7 +473,8 @@ def determine_search_interval(
         elem,
         nsearches,
         nelemsamples_search,
-        method,
+        alpha0,
+        opt_method,
         maxiter):
 
     allelemsamples = generate_element_sample(elem,
@@ -484,11 +487,14 @@ def determine_search_interval(
         elemsamples = allelemsamples[
             search * nelemsamples_search: (search + 1) * nelemsamples_search]
 
-        res_min = minimise_logL_alphaNP(elem, elemsamples,
-            alpha0=0, maxiter=maxiter, method=method)
+        res_min = minimise_logL_alphaNP(
+            elem=elem, 
+            elemsamples=elemsamples,
+            alpha0=alpha0, 
+            maxiter=maxiter, 
+            opt_method=opt_method
+        )
         
-        print(res_min)
-
         if res_min.success:
             best_alpha_list.append(res_min.x[0])
 
@@ -591,6 +597,7 @@ def sample_alphaNP_fit(
         nsigmas: int = 2,
         maxiter: int = 1000,
         plot_output: bool = False,
+        alpha0=0.,
         mphivar: bool = False,
         opt_method: str = "Powell",
         x0: int = 0):
@@ -642,13 +649,14 @@ def sample_alphaNP_fit(
         
         elem._update_Xcoeffs(x)
 
-        best_alpha, sig_best_alpha = determine_search_interval(
-            elem,
-            nsearches,
-            nelemsamples_search,
+        _, _ = determine_search_interval(
+            elem=elem,
+            nsearches=nsearches,
+            nelemsamples_search=nelemsamples_search,
+            alpha0=alpha0,
             maxiter=maxiter,
-            method=opt_method,
-            )
+            opt_method=opt_method,
+        )
 
         res_exp = perform_experiments(
             elem,
