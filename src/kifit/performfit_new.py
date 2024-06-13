@@ -677,7 +677,7 @@ def sample_alphaNP_fit(
         "nalphasamples_exp": nalphasamples_exp,
     }
 
-    dict_path = path / "optimization_results.json"
+    dict_path = path / "optimization_config.json"
     dict_path.write_text(json.dumps(output_results, indent=4))
 
     mc_output = [res_list, nsigmas]
