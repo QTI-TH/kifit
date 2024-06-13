@@ -50,7 +50,7 @@ fit_colour2 = 'limegreen'
 ###############################################################################
 
 
-def plot_linfit(elem, magnifac=1, resmagnifac=1):
+def plot_linfit(elem, magnifac=1, resmagnifac=1, plot_path=None):
     """
     Plot, King plot data and output of linear regression and orthogonal distance
     regression. Use to check linear fit.
@@ -59,6 +59,9 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1):
     Output: plot saved in plots directory with name linfit + elem.
 
     """
+
+    if plot_path is None:
+        plot_path = _plot_path
 
     betas_odr, sig_betas_odr, kperp1s, ph1s, sig_kperp1s, sig_ph1s = perform_odr(
         elem.mu_norm_isotope_shifts_in,
@@ -164,7 +167,7 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1):
     ax3.set_ylabel(r"Lin. Reg. Resid.")
 
     plt.tight_layout()
-    plt.savefig(_plot_path + "/linfit_" + elem.id + ".png")
+    plt.savefig(plot_path / f"linfit_{elem.id}.png")
 
     return fig, ax1, ax2, ax3
 
@@ -186,13 +189,20 @@ def plot_mc_output(alphalist, delchisqlist,
         xlabel=r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
         ylabel=r"$\Delta \chi^2$",
         plotname=None,
-        xlims=[None, None], ylims=[None, None], minll=0):
+        xlims=[None, None], 
+        ylims=[None, None], 
+        minll=0,
+        plot_path=None,
+    ):
     """
     plot 2-dimensional scatter plot showing the likelihood associated with the
     parameter values given in alphalist.
     The resulting plot is saved in plots directory under plotname.
 
     """
+    if plot_path is None:
+        plot_path = _plot_path
+
     fig, ax = plt.subplots()
 
     nsamples = len(alphalist)  # NEW
@@ -213,19 +223,22 @@ def plot_mc_output(alphalist, delchisqlist,
     ax.set_ylim(ylims[0], ylims[1])
     plt.legend(loc='upper center')
     plt.title(rf"{len(alphalist)} samples")
-    plt.savefig(_plot_path + "/mc_output_" + plotname + ".png")
+    plt.savefig(plot_path / f"mc_output_{plotname}.png")
     plt.close()
 
     return ax
 
 
-def plot_final_mc_output(elem, alphas, delchisqs, delchisqcrit,
+def plot_final_mc_output(
+        elem, alphas, delchisqs, delchisqcrit,
         bestalphapt=None, sigbestalphapt=None,
         lb=None, siglb=None, ub=None, sigub=None,
         nsigmas=2, xind=0,
         xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
         plotname="mc_result", plotitle=None,
-        xlims=[None, None], ylims=[None, None], show=False):
+        xlims=[None, None], ylims=[None, None], 
+        show=False, plot_path=None,
+    ):
     """
     Plot 2-dimensional scatter plot showing the likelihood associated with the
     parameter values given in alphalist. If the lists were computed for multiple
@@ -233,6 +246,9 @@ def plot_final_mc_output(elem, alphas, delchisqs, delchisqcrit,
     The resulting plot is saved in plots directory under plotname.
 
     """
+    if plot_path is None:
+        plot_path = _plot_path
+
     fig, ax = plt.subplots()
 
     nexps = len(alphas)
@@ -282,8 +298,7 @@ def plot_final_mc_output(elem, alphas, delchisqs, delchisqcrit,
     ax.set_ylim(2 * errorbarpos, ymax)
 
     plt.legend(loc='upper center')
-    plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + "_x" + str(xind)
-        + ".png")
+    plt.savefig(plot_path / f"{plotname}_{elem.id}_x{str(xind)}.png")
     plt.close()
 
     return fig, ax
@@ -292,7 +307,8 @@ def plot_final_mc_output(elem, alphas, delchisqs, delchisqcrit,
 def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     plotname="alphaNP_ll", plotitle=None,
     xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
-        xlims=[None, None], ylims=[None, None]):
+    xlims=[None, None], ylims=[None, None], plot_path=None
+):
     """
     Plot 2-dimensional scatter plot showing the likelihood associated with the
     parameter values given in alphalist. If the lists were computed for multiple
@@ -300,6 +316,9 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     The resulting plot is saved in plots directory under alphaNP_ll + elem.
 
     """
+
+    if plot_path is None:
+        plot_path = _plot_path
 
     nsigmas = mc_output[1]
 
@@ -361,8 +380,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     ax.set_ylim(2 * errorbarpos, ymax)
 
     plt.legend(loc='upper center')
-    plt.savefig(_plot_path + "/" + plotname + "_" + elem.id + "_x" + str(xind)
-        + ".png")
+    plt.savefig(plot_path / f"{plotname}_{elem.id}_x{str(xind)}.png")
     plt.close()
 
     return fig, ax
@@ -663,6 +681,7 @@ def plot_mphi_alphaNP(
     showallowedfitpts=False,
     showbestdetbounds=False,
     showalldetbounds=False,
+    plot_path = None,
 ):
     """
     Plot the most stringent nsigmas-bounds on both positive and negative
@@ -672,6 +691,9 @@ def plot_mphi_alphaNP(
     shown.
 
     """
+    if plot_path is None:
+        plot_path = _plot_path
+
     # x-vectors
     nsigmas = mc_output[1]
     # alphas = mc_output[0].T[0]
@@ -847,23 +869,13 @@ def plot_mphi_alphaNP(
         prettyplotname = plotname + "_"
 
     fig1.savefig(
-        _plot_path
-        + "/mphi_abs_alphaNP_"
-        + elem.id
-        + "_"
-        + prettyplotname
-        + str(len(alphas[0]))
-        + "_fit_samples.png"
+        plot_path / 
+        f"mphi_abs_alphaNP_{elem.id}_{prettyplotname}{str(len(alphas[0]))}_fit_samples.png"
     )
 
     fig2.savefig(
-        _plot_path
-        + "/mphi_alphaNP_"
-        + elem.id
-        + "_"
-        + prettyplotname
-        + str(len(alphas[0]))
-        + "_fit_samples.png"
+        plot_path /
+        f"mphi_alphaNP_{elem.id}_{prettyplotname}{str(len(alphas[0]))}_fit_samples.png"
     )
 
     plt.close()
