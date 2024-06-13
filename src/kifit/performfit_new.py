@@ -668,7 +668,7 @@ def sample_alphaNP_fit(
         
         elem._update_Xcoeffs(x)
 
-        _, _ = determine_search_interval(
+        alpha_optimizer, sig_alpha_optimizer = determine_search_interval(
             elem=elem,
             nsearches=nsearches,
             nelemsamples_search=nelemsamples_search,
@@ -706,6 +706,8 @@ def sample_alphaNP_fit(
         "mphivar": mphivar,
         "nelemsamples_exp": nelemsamples_exp,
         "nalphasamples_exp": nalphasamples_exp,
+        "alpha_optimizer": alpha_optimizer,
+        "sig_alpha_optimizer": sig_alpha_optimizer,
     }
 
     dict_path = _output_path / "optimization_config.json"
@@ -719,8 +721,14 @@ def sample_alphaNP_fit(
 # DETERMINANT METHODS
 
 def sample_alphaNP_det(
-    elem, dim, nsamples, mphivar=False, gkp=True, outputdataname="alphaNP_det",
-    x0=0
+    elem, 
+    output_filename,
+    dim, 
+    nsamples,
+    mphivar=False, 
+    gkp=True, 
+    outputdataname="alphaNP_det",
+    x0=0, 
 ):
     """
     Get a set of nsamples samples of alphaNP by varying the masses and isotope
@@ -749,8 +757,9 @@ def sample_alphaNP_det(
     else:
         method_tag = "NMGKP"
 
-    file_path = (_output_path + "/" + outputdataname + "_" + elem.id + "_"
-        + str(dim) + "-dim_" + method_tag + "_" + str(nsamples) + "_samples.pdf")
+    _output_path, _ = generate_path(output_filename)
+
+    file_path = _output_path / f"{outputdataname}_{elem.id}_{str(dim)}dim_{method_tag}_{str(nsamples)}_samples.pdf"
 
     if os.path.exists(file_path) and elem.id != "Ca_testdata":
         print()
