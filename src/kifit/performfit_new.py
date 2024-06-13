@@ -1,8 +1,8 @@
 import os
 import json
+import logging 
 import datetime
 from pathlib import Path
-
 from typing import List
 
 import numpy as np
@@ -15,17 +15,19 @@ from scipy.optimize import minimize
 
 from tqdm import tqdm
 
+logging.basicConfig(level=logging.INFO)
 
-_output_data_path = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "output_data")
-)
-
-if not os.path.exists(_output_data_path):
-    os.makedirs(_output_data_path)
-
+def generate_path(pathname:str):
+    output_path = Path("results") / pathname
+    if not output_path.exists():
+        output_path.mkdir(parents=True)
+    # path where to save plots
+    plots_path = output_path / f"plots"
+    if not plots_path.exists():
+        plots_path.mkdir(parents=True)
+    return output_path, plots_path
 
 np.random.seed(1)
-
 
 def linfit(p, x):
     return p[0] * x + p[1]
@@ -475,7 +477,9 @@ def determine_search_interval(
         nelemsamples_search,
         alpha0,
         opt_method,
-        maxiter):
+        maxiter,
+        verbose,
+    ):
 
     allelemsamples = generate_element_sample(elem,
         nsearches * nelemsamples_search)
@@ -483,7 +487,9 @@ def determine_search_interval(
     best_alpha_list = []
 
     for search in range(nsearches):
-        print(f"Iterative search {search + 1}/{nsearches}")
+        if verbose:
+            logging.info(f"Iterative search {search + 1}/{nsearches}")
+            
         elemsamples = allelemsamples[
             search * nelemsamples_search: (search + 1) * nelemsamples_search]
 
@@ -517,13 +523,16 @@ def determine_search_interval(
 def perform_experiments(
         elem,
         delchisqcrit,
-        nexps: int = 100,
-        nelemsamples_exp: int = 100,
-        nalphasamples_exp: int = 100,
-        nblocks: int = 10,
-        nsigmas: int = 2,
-        plot_output: bool = False,
-        xind=0):
+        nexps,
+        nelemsamples_exp,
+        nalphasamples_exp,
+        nblocks,
+        nsigmas,
+        plot_output,
+        verbose,
+        plots_path,
+        xind=0,
+    ):
 
     from kifit.plotfit import plot_mc_output, plot_final_mc_output
 
@@ -540,7 +549,8 @@ def perform_experiments(
     delchisqs_exps = []
 
     for exp in range(nexps):
-        print(f"Running experiment {exp+1}/{nexps}")
+        if verbose:
+            logging.info(f"Running experiment {exp+1}/{nexps}")
         # collect data for a single experiment
         alphasamples = allalphasamples[
             exp * nalphasamples_exp: (exp + 1) * nalphasamples_exp]
@@ -556,8 +566,13 @@ def perform_experiments(
         delchisqlist = get_delchisq(lls, minll=minll_1)
 
         if plot_output:
-            plot_mc_output(alphas, delchisqlist,
-                plotname=f"m1_exp_{exp}", minll=minll_1)
+            plot_mc_output(
+                alphalist=alphas, 
+                delchisqlist=delchisqlist,
+                plotname=f"m1_exp_{exp}", 
+                minll=minll_1,
+                plot_path=plots_path,
+            )
 
         delchisqs_exps.append(delchisqlist)
 
@@ -576,7 +591,7 @@ def perform_experiments(
             delchisqcrit,
             bestalphapt=best_alpha_pts, sigbestalphapt=sig_alpha_pts,
             lb=LB, siglb=sig_LB, ub=UB, sigub=sig_UB,
-            nsigmas=nsigmas, xind=xind)
+            nsigmas=nsigmas, xind=xind, plot_path=plots_path)
 
     return [
         np.array(alphas_exps), np.array(delchisqs_exps),
@@ -588,6 +603,7 @@ def perform_experiments(
 
 def sample_alphaNP_fit(
         elem,
+        output_filename: str,
         nsearches: int = 10,
         nelemsamples_search: int = 100,
         nexps: int = 100,
@@ -600,7 +616,9 @@ def sample_alphaNP_fit(
         alpha0=0.,
         mphivar: bool = False,
         opt_method: str = "Powell",
-        x0: int = 0):
+        x0: int = 0,
+        verbose: bool = True,
+    ):
     """
     Get a set of nsamples_search samples of elem by varying the masses and isotope
     shifts according to the means and standard deviations given in the input
@@ -616,10 +634,8 @@ def sample_alphaNP_fit(
     for elem.
 
     """
-    # output folder
-    now = datetime.datetime.now()
-    path = Path("results") / now.strftime("%Y-%m-%d_%H-%M-%S")
-    path.mkdir(parents=True)
+
+    _output_path, _plots_path = generate_path(output_filename) 
 
     # saving utils
     result_filenames = [
@@ -644,8 +660,9 @@ def sample_alphaNP_fit(
 
     for x in x_range:
         # path where to save results for mass index x
-        index_path = path / f"x{x}"
-        index_path.mkdir(parents=True)
+        index_path = _output_path / f"x{x}"
+        if not index_path.exists():
+            index_path.mkdir(parents=True)
         
         elem._update_Xcoeffs(x)
 
@@ -656,18 +673,22 @@ def sample_alphaNP_fit(
             alpha0=alpha0,
             maxiter=maxiter,
             opt_method=opt_method,
+            verbose=verbose,
         )
 
         res_exp = perform_experiments(
-            elem,
-            delchisqcrit,
+            elem=elem,
+            delchisqcrit=delchisqcrit,
             nexps=nexps,
             nelemsamples_exp=nelemsamples_exp,
             nalphasamples_exp=nalphasamples_exp,
             nblocks=nblocks,
             nsigmas=nsigmas,
             plot_output=plot_output,
-            xind=x)
+            xind=x,
+            verbose=verbose,
+            plots_path=_plots_path,
+        )
         
         for i, res in enumerate(res_exp):
             np.save(arr=res, file=index_path/result_filenames[i])
@@ -685,7 +706,7 @@ def sample_alphaNP_fit(
         "nalphasamples_exp": nalphasamples_exp,
     }
 
-    dict_path = path / "optimization_config.json"
+    dict_path = _output_path / "optimization_config.json"
     dict_path.write_text(json.dumps(output_results, indent=4))
 
     mc_output = [res_list, nsigmas]
@@ -726,7 +747,7 @@ def sample_alphaNP_det(
     else:
         method_tag = "NMGKP"
 
-    file_path = (_output_data_path + "/" + outputdataname + "_" + elem.id + "_"
+    file_path = (_output_path + "/" + outputdataname + "_" + elem.id + "_"
         + str(dim) + "-dim_" + method_tag + "_" + str(nsamples) + "_samples.pdf")
 
     if os.path.exists(file_path) and elem.id != "Ca_testdata":
