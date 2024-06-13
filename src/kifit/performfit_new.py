@@ -1,4 +1,8 @@
 import os
+import json
+import datetime
+from pathlib import Path
+
 from typing import List
 
 import numpy as np
@@ -398,7 +402,7 @@ def logL_alphaNP(alphaNP, elem, elemsamples):
 
 
 def minimise_logL_alphaNP(elem, elemsamples,
-        alpha0=0, tol=1e-9, maxiter=1000, method="Nelder-Mead"):
+        alpha0=0, tol=1e-9, maxiter=100, method="BFGS"):
 
     minlogL = minimize(logL_alphaNP, x0=alpha0,
         args=(elem, elemsamples),
@@ -467,7 +471,7 @@ def determine_search_interval(
         elem,
         nsearches,
         nelemsamples_search,
-        alpha0,
+        method,
         maxiter):
 
     allelemsamples = generate_element_sample(elem,
@@ -476,12 +480,14 @@ def determine_search_interval(
     best_alpha_list = []
 
     for search in range(nsearches):
-
+        print(f"Iterative search {search + 1}/{nsearches}")
         elemsamples = allelemsamples[
             search * nelemsamples_search: (search + 1) * nelemsamples_search]
 
         res_min = minimise_logL_alphaNP(elem, elemsamples,
-            alpha0=0, maxiter=maxiter)
+            alpha0=0, maxiter=maxiter, method=method)
+        
+        print(res_min)
 
         if res_min.success:
             best_alpha_list.append(res_min.x[0])
@@ -528,6 +534,7 @@ def perform_experiments(
     delchisqs_exps = []
 
     for exp in range(nexps):
+        print(f"Running experiment {exp+1}/{nexps}")
         # collect data for a single experiment
         alphasamples = allalphasamples[
             exp * nalphasamples_exp: (exp + 1) * nalphasamples_exp]
@@ -585,6 +592,7 @@ def sample_alphaNP_fit(
         maxiter: int = 1000,
         plot_output: bool = False,
         mphivar: bool = False,
+        opt_method: str = "Powell",
         x0: int = 0):
     """
     Get a set of nsamples_search samples of elem by varying the masses and isotope
@@ -601,6 +609,23 @@ def sample_alphaNP_fit(
     for elem.
 
     """
+    # output folder
+    now = datetime.datetime.now()
+    path = Path("results") / now.strftime("%Y-%m-%d_%H-%M-%S")
+    path.mkdir(parents=True)
+
+    # saving utils
+    result_filenames = [
+        "alpha_experiments",
+        "delchisq_experiments",
+        "delchisq_crit",
+        "best_alpha_pts",
+        "sig_alpha_pts",
+        "LB", "sig_LB",
+        "UB", "sig_UB",
+        "x_ind",
+    ]
+
     if mphivar:
         x_range = tqdm(range(len(elem.Xcoeff_data)))
     else:
@@ -611,14 +636,19 @@ def sample_alphaNP_fit(
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas, dof=1)
 
     for x in x_range:
+        # path where to save results for mass index x
+        index_path = path / f"x{x}"
+        index_path.mkdir(parents=True)
+        
         elem._update_Xcoeffs(x)
 
         best_alpha, sig_best_alpha = determine_search_interval(
             elem,
             nsearches,
             nelemsamples_search,
-            alpha0=0,
-            maxiter=maxiter)
+            maxiter=maxiter,
+            method=opt_method,
+            )
 
         res_exp = perform_experiments(
             elem,
@@ -630,8 +660,25 @@ def sample_alphaNP_fit(
             nsigmas=nsigmas,
             plot_output=plot_output,
             xind=x)
+        
+        for i, res in enumerate(res_exp):
+            np.save(arr=res, file=index_path/result_filenames[i])
 
         res_list.append(res_exp)
+
+    output_results = {
+        "nsigmas": nsigmas,
+        "optimizer": opt_method,
+        "maxiter": maxiter,
+        "nsearches": nsearches,
+        "nexps": nexps,
+        "mphivar": mphivar,
+        "nelemsamples_exp": nelemsamples_exp,
+        "nalphasamples_exp": nalphasamples_exp,
+    }
+
+    dict_path = path / "optimization_results.json"
+    dict_path.write_text(json.dumps(output_results, indent=4))
 
     mc_output = [res_list, nsigmas]
 
