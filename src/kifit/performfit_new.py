@@ -706,6 +706,7 @@ def sample_alphaNP_fit(
         "mphivar": mphivar,
         "nelemsamples_exp": nelemsamples_exp,
         "nalphasamples_exp": nalphasamples_exp,
+        "nelemsamples_search": nelemsamples_search,
         "alpha_optimizer": alpha_optimizer,
         "sig_alpha_optimizer": sig_alpha_optimizer,
     }
