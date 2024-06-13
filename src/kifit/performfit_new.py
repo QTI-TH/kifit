@@ -13,6 +13,8 @@ from scipy.special import binom
 from scipy.stats import chi2, linregress, multivariate_normal
 from scipy.optimize import minimize
 
+import cma
+
 from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO)
