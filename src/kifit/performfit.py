@@ -286,7 +286,6 @@ def choLL(absd, covmat, lam=0):
     logdet = 2 * np.sum(np.log(np.diag(chol_covmat)))
 
     return 0.5 * (logdet + absd_covinv_absd)
-
 #
 #
 # def choLL(absd, covmat, lam=0):
@@ -302,7 +301,25 @@ def choLL(absd, covmat, lam=0):
 #
 
 
-def get_llist(absdsamples, nelemsamples):
+def spectraLL(absd, covmat, lam=0):
+    """
+    For a given sample of absd, with the covariance matrix covmat, compute the
+    log-likelihood using the spectral decomposition of covmat.
+    """
+    covmat += lam * np.eye(covmat.shape[0])
+    eigenvalues, eigenvectors = np.linalg.eigh(covmat)
+
+    inv_eigenvalues = 1.0 / eigenvalues
+    covinv = eigenvectors @ np.diag(inv_eigenvalues) @ eigenvectors.T
+
+    absd_covinv_absd = absd.dot(covinv).dot(absd)
+
+    logdet = np.sum(np.log(eigenvalues))
+
+    return 0.5 * (logdet + absd_covinv_absd)
+
+
+def get_llist(absdsamples, nelemsamples, cov_decomp_method="cholesky"):
     """
     For a fixed alphaNP value, get ll for the nelemsamples samples of the input
     parameters.
@@ -312,11 +329,16 @@ def get_llist(absdsamples, nelemsamples):
     # print("absdsamples.shape", np.array(absdsamples).shape)
     cov_absd = np.cov(np.array(absdsamples), rowvar=False)
 
+    if cov_decomp_method == "cholesky":
+        LL = choLL
+    elif cov_decomp_method == "spectral":
+        LL = spectraLL
+
     # print("cov.shape", cov_absd.shape)
 
     llist = []
     for s in range(nelemsamples):
-        llist.append(choLL(absdsamples[s], cov_absd))
+        llist.append(LL(absdsamples[s], cov_absd))
 
         # print("absd shape ", (absdsamples[s] @ absdsamples[s]).shape)
 
@@ -525,7 +547,8 @@ def get_bestalphaNP_and_bounds(
     return (best_alpha_pts, sig_alpha_pts, LB, sig_LB, UB, sig_UB)
 
 
-def compute_ll(elem, alphasamples, nelemsamples, scalefactor: float = .1):
+def compute_ll(elem, alphasamples, nelemsamples,
+        elementsamples=None, cov_decomp_method="cholesky"):
     """
     Generate alphaNP list for element ``elem`` according to ``parameters_samples``.
 
@@ -539,9 +562,18 @@ def compute_ll(elem, alphasamples, nelemsamples, scalefactor: float = .1):
     Return:
         List[float], List[float]: alphaNP samples and list of associated log likelihood.
     """
+    #
+    # # sampling input parameters
+    # elemsamples = generate_element_sample(elem, nelemsamples)
+    #
 
-    # sampling input parameters
-    elemsamples = generate_element_sample(elem, nelemsamples)
+    if elementsamples is None:
+        print("generating element sample")
+        elemsamples = generate_element_sample(elem, nelemsamples)
+
+    else:
+        print("using same element samples")
+        elemsamples = elementsamples
 
     # sampling fit parameters
     nalphasamples = len(alphasamples)
@@ -562,7 +594,9 @@ def compute_ll(elem, alphasamples, nelemsamples, scalefactor: float = .1):
             absdsamples_alpha.append(elem.absd)
 
         alphalist.append(np.ones(nelemsamples) * alphasamples[s])
-        llist.append(get_llist(np.array(absdsamples_alpha), nelemsamples))
+        # llist.append(get_llist(np.array(absdsamples_alpha), nelemsamples))
+        llist.append(get_llist(np.array(absdsamples_alpha), nelemsamples,
+            cov_decomp_method))
 
     # return elem.dnorm * np.array(alphalist), elem.dnorm * np.array(llist)
     return np.array(alphalist).flatten(), np.array(llist).flatten()

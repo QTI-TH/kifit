@@ -26,8 +26,8 @@ scalefactor = 0.3
 # sig_new_alpha_fraction = 0.12
 
 
-gkp_dims = []
-nmgkp_dims = []
+gkp_dims = [3]
+nmgkp_dims = [3]
 
 mc_output = sample_alphaNP_fit(
     ca,

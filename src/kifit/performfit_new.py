@@ -244,7 +244,25 @@ def choLL(absd, covmat, lam=0):
 #
 
 
-def get_llist(absdsamples, nelemsamples):
+def spectraLL(absd, covmat, lam=0):
+    """
+    For a given sample of absd, with the covariance matrix covmat, compute the
+    log-likelihood using the spectral decomposition of covmat.
+    """
+    covmat += lam * np.eye(covmat.shape[0])
+    eigenvalues, eigenvectors = np.linalg.eigh(covmat)
+
+    inv_eigenvalues = 1.0 / eigenvalues
+    covinv = eigenvectors @ np.diag(inv_eigenvalues) @ eigenvectors.T
+
+    absd_covinv_absd = absd.dot(covinv).dot(absd)
+
+    logdet = np.sum(np.log(eigenvalues))
+
+    return 0.5 * (logdet + absd_covinv_absd)
+
+
+def get_llist(absdsamples, nelemsamples, cov_decomp_method="cholesky"):
     """
     For a fixed alphaNP value, get ll for the nelemsamples samples of the input
     parameters.
@@ -253,9 +271,14 @@ def get_llist(absdsamples, nelemsamples):
     # compute covariance matrix for fixed alpha value
     cov_absd = np.cov(np.array(absdsamples), rowvar=False)
 
+    if cov_decomp_method == "cholesky":
+        LL = choLL
+    elif cov_decomp_method == "spectral":
+        LL = spectraLL
+
     llist = []
     for s in range(nelemsamples):
-        llist.append(choLL(absdsamples[s], cov_absd))
+        llist.append(LL(absdsamples[s], cov_absd))
 
     return np.array(llist)
 
@@ -335,7 +358,8 @@ def get_bestalphaNP_and_bounds(
     return (best_alpha_pts, sig_alpha_pts, LB, sig_LB, UB, sig_UB)
 
 
-def compute_ll(elem, alphasamples, nelemsamples, scalefactor: float = .1):
+def compute_ll(elem, alphasamples, nelemsamples,
+        elementsamples=None, cov_decomp_method="cholesky"):
     """
     Generate alphaNP list for element ``elem`` according to ``parameters_samples``.
 
@@ -350,8 +374,13 @@ def compute_ll(elem, alphasamples, nelemsamples, scalefactor: float = .1):
         List[float], List[float]: alphaNP samples and list of associated log likelihood.
     """
 
-    # sampling input parameters
-    elemsamples = generate_element_sample(elem, nelemsamples)
+    if elementsamples is None:
+        print("generating element sample")
+        elemsamples = generate_element_sample(elem, nelemsamples)
+
+    else:
+        print("using same element samples")
+        elemsamples = elementsamples
 
     # sampling fit parameters
     nalphasamples = len(alphasamples)
@@ -371,7 +400,8 @@ def compute_ll(elem, alphasamples, nelemsamples, scalefactor: float = .1):
             absdsamples_alpha.append(elem.absd)
 
         alphalist.append(np.ones(nelemsamples) * alphasamples[s])
-        llist.append(get_llist(np.array(absdsamples_alpha), nelemsamples))
+        llist.append(get_llist(np.array(absdsamples_alpha), nelemsamples,
+            cov_decomp_method))
 
     # return elem.dnorm * np.array(alphalist), elem.dnorm * np.array(llist)
     return np.array(alphalist).flatten(), np.array(llist).flatten()
@@ -475,13 +505,14 @@ def determine_search_interval(
 
     best_alpha_list = []
 
-    for search in range(nsearches):
+    print("scipy minimisation")
+    for search in tqdm(range(nsearches)):
 
         elemsamples = allelemsamples[
             search * nelemsamples_search: (search + 1) * nelemsamples_search]
 
         res_min = minimise_logL_alphaNP(elem, elemsamples,
-            alpha0=0, maxiter=maxiter)
+            alpha0=alpha0, maxiter=maxiter)
 
         if res_min.success:
             best_alpha_list.append(res_min.x[0])
@@ -527,7 +558,8 @@ def perform_experiments(
 
     delchisqs_exps = []
 
-    for exp in range(nexps):
+    print("performing experiments")
+    for exp in tqdm(range(nexps)):
         # collect data for a single experiment
         alphasamples = allalphasamples[
             exp * nalphasamples_exp: (exp + 1) * nalphasamples_exp]
@@ -662,9 +694,13 @@ def sample_alphaNP_det(
     print()
     print(
         """Using the %s-dimensional %sGeneralised King Plot to compute
-    alphaNP for %s samples. mphi is %svaried."""
-        % (dim, "" if gkp else "No-Mass ", nsamples, ("" if mphivar else "not "))
-    )
+    alphaNP for %s samples. mphi is %svaried. %s"""
+        % (
+            dim,
+            "" if gkp else "No-Mass ",
+            nsamples,
+            ("" if mphivar else "not "),
+            ("" if mphivar else "(mphi=" + str(elem.mphi) + ")")))
 
     if gkp:
         method_tag = "GKP"
@@ -672,7 +708,7 @@ def sample_alphaNP_det(
         method_tag = "NMGKP"
 
     file_path = (_output_data_path + "/" + outputdataname + "_" + elem.id + "_"
-        + str(dim) + "-dim_" + method_tag + "_" + str(nsamples) + "_samples.pdf")
+        + str(dim) + "-dim_" + method_tag + "_" + str(nsamples) + "_samples.txt")
 
     if os.path.exists(file_path) and elem.id != "Ca_testdata":
         print()
@@ -680,15 +716,22 @@ def sample_alphaNP_det(
         print()
 
         # preallocate
+
+        ## vals.shape suggests that mphi is always varied?
         if gkp:
             vals = np.zeros(
                 (len(elem.mphis), 2 * int(binom(elem.ntransitions, dim - 1)))
             )
+            print("gkp preallocation")
+            print("vals.shape", vals.shape)
 
         else:
             vals = np.zeros((len(elem.mphis), 2 * int(binom(elem.ntransitions, dim))))
+            print("nmgkp preallocation")
+            print("vals.shape", vals.shape)
 
         vals = np.loadtxt(file_path, delimiter=",")  # [x][2*perm]
+        print("vals.shape", vals.shape)
         alphaNPs = vals[:, : int((vals.shape[1]) / 2)]
         sigalphaNPs = vals[:, int((vals.shape[1]) / 2):]
 
@@ -769,6 +812,8 @@ def sample_alphaNP_det(
 
         alphaNPs = np.math.factorial(dim - 2) * np.array(alphaNPs)
         sigalphaNPs = np.math.factorial(dim - 2) * np.array(sigalphaNPs)
+
+        print("saving vals of shape", (np.c_[alphaNPs, sigalphaNPs]).shape)
 
         np.savetxt(file_path, np.c_[alphaNPs, sigalphaNPs], delimiter=",")
 

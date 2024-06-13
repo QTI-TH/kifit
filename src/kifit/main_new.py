@@ -12,22 +12,24 @@ print(elem.sig_m_ap_in / elem.m_ap_in)
 
 plot_linfit(elem, resmagnifac=1)
 
+gkp_dims = [3, 4]
+nmgkp_dims = [3, 4]
+elem.check_det_dims(gkp_dims, nmgkp_dims)
+
+
+# elem.alphaNP_GKP(ainds=[0, 1, 2], iinds=[0, 1])
 num_samples_det = 100
 
-num_searches = 10
+num_searches = 5
 num_elemsamples_search = 100  # 200
 
-num_experiments = 100
+num_experiments = 5
 num_elemsamples_experiment = 100
 num_alphasamples_experiment = 100
 num_blocks = 1
 
 # search hyper-parameters
 max_iter = 100
-
-
-gkp_dims = []
-nmgkp_dims = []
 
 mc_output = sample_alphaNP_fit(
     elem,
@@ -43,4 +45,8 @@ mc_output = sample_alphaNP_fit(
     x0=0,
 )
 
-plot_alphaNP_ll(elem, mc_output, xind=0, xlims=[-5e-8, 0])
+plot_alphaNP_ll(elem, mc_output,
+    xind=0,
+    gkpdims=gkp_dims, nmgkpdims=nmgkp_dims,
+    ndetsamples=num_samples_det,
+    showalldetbounds=True, showbestdetbounds=True)
