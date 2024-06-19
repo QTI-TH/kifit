@@ -137,3 +137,7 @@ tmp/
 
 # Mac
 .DS_Store
+
+
+# ignore images
+.png
