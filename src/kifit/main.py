@@ -3,14 +3,14 @@ from kifit.performfit import sample_alphaNP_fit
 from kifit.plotfit import plot_linfit, plot_alphaNP_ll, plot_mphi_alphaNP
 
 ca = Elem.get('Ybmin')
-print(ca.get_dimensions)
-print()
-print("relative uncertainties")
-print(ca.sig_nu / ca.nu)
-print(ca.sig_m_a_in / ca.m_a_in)
-print(ca.sig_m_ap_in / ca.m_ap_in)
+# print(ca.get_dimensions)
+# print()
+# print("relative uncertainties")
+# print(ca.sig_nu / ca.nu)
+# print(ca.sig_m_a_in / ca.m_a_in)
+# print(ca.sig_m_ap_in / ca.m_ap_in)
 
-plot_linfit(ca, resmagnifac=1)
+# plot_linfit(ca, resmagnifac=1)
 
 num_samples_det = 100
 num_elemsamples_search = 100  # 200

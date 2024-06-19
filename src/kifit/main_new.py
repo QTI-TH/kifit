@@ -11,14 +11,14 @@ num_samples_det = 100
 num_searches = 10
 num_elemsamples_search = 100  # 200
 
-num_experiments = 10
+num_experiments = 100
 num_elemsamples_experiment = 100
 num_alphasamples_experiment = 100
 num_blocks = 1
 
 # search hyper-parameters
 max_iter = 1000
-opt_method = "Powell"
+opt_method = "differential_evolution"
 
 # define output folder's name
 output_filename = f"{datafile}_{opt_method}_{num_searches}searches_{num_experiments}nexps_{num_elemsamples_search}es_{num_elemsamples_experiment}ee_{num_alphasamples_experiment}ae"

@@ -11,9 +11,11 @@ from scipy.linalg import cho_factor, cho_solve
 from scipy.odr import ODR, Model, RealData
 from scipy.special import binom
 from scipy.stats import chi2, linregress, multivariate_normal
-from scipy.optimize import minimize
-
-import cma
+from scipy.optimize import (
+    minimize,
+    dual_annealing,
+    differential_evolution,
+)
 
 from tqdm import tqdm
 
@@ -29,7 +31,7 @@ def generate_path(pathname:str):
         plots_path.mkdir(parents=True)
     return output_path, plots_path
 
-np.random.seed(1)
+np.random.seed(27)
 
 def linfit(p, x):
     return p[0] * x + p[1]
@@ -409,10 +411,21 @@ def minimise_logL_alphaNP(
         elem, elemsamples, alpha0, maxiter, opt_method, tol=1e-12
     ):
 
-    minlogL = minimize(
-        logL_alphaNP, x0=alpha0, args=(elem, elemsamples),
-        method=opt_method, options={"maxiter": maxiter}, tol=tol,
-    )
+    if opt_method == "annealing":
+        minlogL = dual_annealing(
+            logL_alphaNP, bounds=[(-1e-4, 1e-4)], args=(elem, elemsamples), maxiter=maxiter,
+        )
+
+    elif opt_method == "differential_evolution":
+        minlogL = differential_evolution(
+            logL_alphaNP, bounds=[(-1e-4, 1e-4)], args=(elem, elemsamples), maxiter=maxiter,
+        )
+
+    else:
+        minlogL = minimize(
+            logL_alphaNP, x0=alpha0, args=(elem, elemsamples),
+            method=opt_method, options={"maxiter": maxiter}, tol=tol,
+        )
 
     return minlogL
 
