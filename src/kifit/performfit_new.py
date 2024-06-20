@@ -11,7 +11,11 @@ from scipy.linalg import cho_factor, cho_solve
 from scipy.odr import ODR, Model, RealData
 from scipy.special import binom
 from scipy.stats import chi2, linregress, multivariate_normal
-from scipy.optimize import minimize
+from scipy.optimize import (
+    minimize,
+    dual_annealing,
+    differential_evolution,
+)
 
 from tqdm import tqdm
 
@@ -27,7 +31,7 @@ def generate_path(pathname:str):
         plots_path.mkdir(parents=True)
     return output_path, plots_path
 
-np.random.seed(1)
+np.random.seed(27)
 
 def linfit(p, x):
     return p[0] * x + p[1]
@@ -407,10 +411,21 @@ def minimise_logL_alphaNP(
         elem, elemsamples, alpha0, maxiter, opt_method, tol=1e-12
     ):
 
-    minlogL = minimize(
-        logL_alphaNP, x0=alpha0, args=(elem, elemsamples),
-        method=opt_method, options={"maxiter": maxiter}, tol=tol,
-    )
+    if opt_method == "annealing":
+        minlogL = dual_annealing(
+            logL_alphaNP, bounds=[(-1e-4, 1e-4)], args=(elem, elemsamples), maxiter=maxiter,
+        )
+
+    elif opt_method == "differential_evolution":
+        minlogL = differential_evolution(
+            logL_alphaNP, bounds=[(-1e-4, 1e-4)], args=(elem, elemsamples), maxiter=maxiter,
+        )
+
+    else:
+        minlogL = minimize(
+            logL_alphaNP, x0=alpha0, args=(elem, elemsamples),
+            method=opt_method, options={"maxiter": maxiter}, tol=tol,
+        )
 
     return minlogL
 
@@ -666,7 +681,7 @@ def sample_alphaNP_fit(
         
         elem._update_Xcoeffs(x)
 
-        _, _ = determine_search_interval(
+        alpha_optimizer, sig_alpha_optimizer = determine_search_interval(
             elem=elem,
             nsearches=nsearches,
             nelemsamples_search=nelemsamples_search,
@@ -704,6 +719,9 @@ def sample_alphaNP_fit(
         "mphivar": mphivar,
         "nelemsamples_exp": nelemsamples_exp,
         "nalphasamples_exp": nalphasamples_exp,
+        "nelemsamples_search": nelemsamples_search,
+        "alpha_optimizer": alpha_optimizer,
+        "sig_alpha_optimizer": sig_alpha_optimizer,
     }
 
     dict_path = _output_path / "optimization_config.json"
@@ -717,8 +735,14 @@ def sample_alphaNP_fit(
 # DETERMINANT METHODS
 
 def sample_alphaNP_det(
-    elem, dim, nsamples, mphivar=False, gkp=True, outputdataname="alphaNP_det",
-    x0=0
+    elem, 
+    output_filename,
+    dim, 
+    nsamples,
+    mphivar=False, 
+    gkp=True, 
+    outputdataname="alphaNP_det",
+    x0=0, 
 ):
     """
     Get a set of nsamples samples of alphaNP by varying the masses and isotope
@@ -747,8 +771,9 @@ def sample_alphaNP_det(
     else:
         method_tag = "NMGKP"
 
-    file_path = (_output_path + "/" + outputdataname + "_" + elem.id + "_"
-        + str(dim) + "-dim_" + method_tag + "_" + str(nsamples) + "_samples.pdf")
+    _output_path, _ = generate_path(output_filename)
+
+    file_path = _output_path / f"{outputdataname}_{elem.id}_{str(dim)}dim_{method_tag}_{str(nsamples)}_samples.pdf"
 
     if os.path.exists(file_path) and elem.id != "Ca_testdata":
         print()

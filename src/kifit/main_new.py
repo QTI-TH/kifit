@@ -7,8 +7,21 @@ from kifit.plotfit import plot_linfit, plot_alphaNP_ll
 datafile = "Ybmin"
 elem = Elem.get(datafile)
 
+num_samples_det = 100
+num_searches = 10
+num_elemsamples_search = 100  # 200
+
+num_experiments = 100
+num_elemsamples_experiment = 100
+num_alphasamples_experiment = 100
+num_blocks = 1
+
+# search hyper-parameters
+max_iter = 1000
+opt_method = "differential_evolution"
+
 # define output folder's name
-output_filename = f"{datafile}_output"
+output_filename = f"{datafile}_{opt_method}_{num_searches}searches_{num_experiments}nexps_{num_elemsamples_search}es_{num_elemsamples_experiment}ee_{num_alphasamples_experiment}ae"
 _, plot_path = generate_path(output_filename)
 
 # some initial prints
@@ -18,20 +31,8 @@ print("relative uncertainties")
 print(elem.sig_nu / elem.nu)
 print(elem.sig_m_a_in / elem.m_a_in)
 print(elem.sig_m_ap_in / elem.m_ap_in)
+
 plot_linfit(elem, resmagnifac=1, plot_path=plot_path)
-
-
-num_samples_det = 100
-num_searches = 10
-num_elemsamples_search = 100  # 200
-
-num_experiments = 10
-num_elemsamples_experiment = 100
-num_alphasamples_experiment = 100
-num_blocks = 1
-
-# search hyper-parameters
-max_iter = 100
 
 
 gkp_dims = []
@@ -49,7 +50,7 @@ mc_output = sample_alphaNP_fit(
     maxiter=max_iter,
     mphivar=False,
     plot_output=True,
-    opt_method="Powell",
+    opt_method=opt_method,
     x0=0,
 )
 
