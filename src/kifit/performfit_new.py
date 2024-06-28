@@ -1,4 +1,8 @@
 import os
+import json
+import logging 
+import datetime
+from pathlib import Path
 from typing import List
 
 import numpy as np
@@ -7,22 +11,33 @@ from scipy.linalg import cho_factor, cho_solve
 from scipy.odr import ODR, Model, RealData
 from scipy.special import binom
 from scipy.stats import chi2, linregress, multivariate_normal
-from scipy.optimize import minimize
+
+from scipy.optimize import (
+    minimize,
+    dual_annealing,
+    differential_evolution,
+  
 from itertools import product, combinations
-
-from tqdm import tqdm
-
 
 _output_data_path = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "output_data")
 )
 
-if not os.path.exists(_output_data_path):
-    os.makedirs(_output_data_path)
+from tqdm import tqdm
 
+logging.basicConfig(level=logging.INFO)
 
-np.random.seed(1)
+def generate_path(pathname:str):
+    output_path = Path("results") / pathname
+    if not output_path.exists():
+        output_path.mkdir(parents=True)
+    # path where to save plots
+    plots_path = output_path / f"plots"
+    if not plots_path.exists():
+        plots_path.mkdir(parents=True)
+    return output_path, plots_path
 
+np.random.seed(27)
 
 def linfit(p, x):
     return p[0] * x + p[1]
@@ -428,12 +443,25 @@ def logL_alphaNP(alphaNP, elem, elemsamples):
     return np.percentile(lls, 10)
 
 
-def minimise_logL_alphaNP(elem, elemsamples,
-        alpha0=0, tol=1e-9, maxiter=1000, method="Nelder-Mead"):
+def minimise_logL_alphaNP(
+        elem, elemsamples, alpha0, maxiter, opt_method, tol=1e-12
+    ):
 
-    minlogL = minimize(logL_alphaNP, x0=alpha0,
-        args=(elem, elemsamples),
-        method=method, options={"maxiter": maxiter})
+    if opt_method == "annealing":
+        minlogL = dual_annealing(
+            logL_alphaNP, bounds=[(-1e-4, 1e-4)], args=(elem, elemsamples), maxiter=maxiter,
+        )
+
+    elif opt_method == "differential_evolution":
+        minlogL = differential_evolution(
+            logL_alphaNP, bounds=[(-1e-4, 1e-4)], args=(elem, elemsamples), maxiter=maxiter,
+        )
+
+    else:
+        minlogL = minimize(
+            logL_alphaNP, x0=alpha0, args=(elem, elemsamples),
+            method=opt_method, options={"maxiter": maxiter}, tol=tol,
+        )
 
     return minlogL
 
@@ -499,7 +527,10 @@ def determine_search_interval(
         nsearches,
         nelemsamples_search,
         alpha0,
-        maxiter):
+        opt_method,
+        maxiter,
+        verbose,
+    ):
 
     allelemsamples = generate_element_sample(elem,
         nsearches * nelemsamples_search)
@@ -508,13 +539,20 @@ def determine_search_interval(
 
     print("scipy minimisation")
     for search in tqdm(range(nsearches)):
-
+        if verbose:
+            logging.info(f"Iterative search {search + 1}/{nsearches}")
+            
         elemsamples = allelemsamples[
             search * nelemsamples_search: (search + 1) * nelemsamples_search]
 
-        res_min = minimise_logL_alphaNP(elem, elemsamples,
-            alpha0=alpha0, maxiter=maxiter)
-
+        res_min = minimise_logL_alphaNP(
+            elem=elem, 
+            elemsamples=elemsamples,
+            alpha0=alpha0, 
+            maxiter=maxiter, 
+            opt_method=opt_method
+        )
+        
         if res_min.success:
             best_alpha_list.append(res_min.x[0])
 
@@ -537,13 +575,16 @@ def determine_search_interval(
 def perform_experiments(
         elem,
         delchisqcrit,
-        nexps: int = 100,
-        nelemsamples_exp: int = 100,
-        nalphasamples_exp: int = 100,
-        nblocks: int = 10,
-        nsigmas: int = 2,
-        plot_output: bool = False,
-        xind=0):
+        nexps,
+        nelemsamples_exp,
+        nalphasamples_exp,
+        nblocks,
+        nsigmas,
+        plot_output,
+        verbose,
+        plots_path,
+        xind=0,
+    ):
 
     from kifit.plotfit import plot_mc_output, plot_final_mc_output
 
@@ -559,8 +600,10 @@ def perform_experiments(
 
     delchisqs_exps = []
 
-    print("performing experiments")
-    for exp in tqdm(range(nexps)):
+    for exp in range(nexps):
+        if verbose:
+            logging.info(f"Running experiment {exp+1}/{nexps}")
+  
         # collect data for a single experiment
         alphasamples = allalphasamples[
             exp * nalphasamples_exp: (exp + 1) * nalphasamples_exp]
@@ -576,8 +619,13 @@ def perform_experiments(
         delchisqlist = get_delchisq(lls, minll=minll_1)
 
         if plot_output:
-            plot_mc_output(alphas, delchisqlist,
-                plotname=f"exp_{exp}", minll=minll_1)
+            plot_mc_output(
+                alphalist=alphas, 
+                delchisqlist=delchisqlist,
+                plotname=f"exp_{exp}", 
+                minll=minll_1,
+                plot_path=plots_path,
+            )
 
         delchisqs_exps.append(delchisqlist)
 
@@ -596,7 +644,7 @@ def perform_experiments(
             delchisqcrit,
             bestalphapt=best_alpha_pts, sigbestalphapt=sig_alpha_pts,
             lb=LB, siglb=sig_LB, ub=UB, sigub=sig_UB,
-            nsigmas=nsigmas, xind=xind)
+            nsigmas=nsigmas, xind=xind, plot_path=plots_path)
 
     return [
         np.array(alphas_exps), np.array(delchisqs_exps),
@@ -608,6 +656,7 @@ def perform_experiments(
 
 def sample_alphaNP_fit(
         elem,
+        output_filename: str,
         nsearches: int = 10,
         nelemsamples_search: int = 100,
         nexps: int = 100,
@@ -617,8 +666,12 @@ def sample_alphaNP_fit(
         nsigmas: int = 2,
         maxiter: int = 1000,
         plot_output: bool = False,
+        alpha0=0.,
         mphivar: bool = False,
-        x0: int = 0):
+        opt_method: str = "Powell",
+        x0: int = 0,
+        verbose: bool = True,
+    ):
     """
     Get a set of nsamples_search samples of elem by varying the masses and isotope
     shifts according to the means and standard deviations given in the input
@@ -634,6 +687,21 @@ def sample_alphaNP_fit(
     for elem.
 
     """
+
+    _output_path, _plots_path = generate_path(output_filename) 
+
+    # saving utils
+    result_filenames = [
+        "alpha_experiments",
+        "delchisq_experiments",
+        "delchisq_crit",
+        "best_alpha_pts",
+        "sig_alpha_pts",
+        "LB", "sig_LB",
+        "UB", "sig_UB",
+        "x_ind",
+    ]
+
     if mphivar:
         x_range = tqdm(range(len(elem.Xcoeff_data)))
     else:
@@ -644,27 +712,58 @@ def sample_alphaNP_fit(
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas, dof=1)
 
     for x in x_range:
+        # path where to save results for mass index x
+        index_path = _output_path / f"x{x}"
+        if not index_path.exists():
+            index_path.mkdir(parents=True)
+        
         elem._update_Xcoeffs(x)
 
-        best_alpha, sig_best_alpha = determine_search_interval(
-            elem,
-            nsearches,
-            nelemsamples_search,
-            alpha0=0,
-            maxiter=maxiter)
+        alpha_optimizer, sig_alpha_optimizer = determine_search_interval(
+            elem=elem,
+            nsearches=nsearches,
+            nelemsamples_search=nelemsamples_search,
+            alpha0=alpha0,
+            maxiter=maxiter,
+            opt_method=opt_method,
+            verbose=verbose,
+        )
 
         res_exp = perform_experiments(
-            elem,
-            delchisqcrit,
+            elem=elem,
+            delchisqcrit=delchisqcrit,
             nexps=nexps,
             nelemsamples_exp=nelemsamples_exp,
             nalphasamples_exp=nalphasamples_exp,
             nblocks=nblocks,
             nsigmas=nsigmas,
             plot_output=plot_output,
-            xind=x)
+            xind=x,
+            verbose=verbose,
+            plots_path=_plots_path,
+        )
+        
+        for i, res in enumerate(res_exp):
+            np.save(arr=res, file=index_path/result_filenames[i])
 
         res_list.append(res_exp)
+
+    output_results = {
+        "nsigmas": nsigmas,
+        "optimizer": opt_method,
+        "maxiter": maxiter,
+        "nsearches": nsearches,
+        "nexps": nexps,
+        "mphivar": mphivar,
+        "nelemsamples_exp": nelemsamples_exp,
+        "nalphasamples_exp": nalphasamples_exp,
+        "nelemsamples_search": nelemsamples_search,
+        "alpha_optimizer": alpha_optimizer,
+        "sig_alpha_optimizer": sig_alpha_optimizer,
+    }
+
+    dict_path = _output_path / "optimization_config.json"
+    dict_path.write_text(json.dumps(output_results, indent=4))
 
     mc_output = [res_list, nsigmas]
 
@@ -674,7 +773,12 @@ def sample_alphaNP_fit(
 # DETERMINANT METHODS
 
 def sample_alphaNP_det(
-    elem, dim, nsamples, mphivar=False, gkp=True,
+    elem, 
+    output_filename,
+    dim, 
+    nsamples,
+    mphivar=False, 
+    gkp=True, 
     outputdataname="alphaNP_det",
     x0=0
 ):
@@ -709,18 +813,15 @@ def sample_alphaNP_det(
         method_tag = "GKP"
     else:
         method_tag = "NMGKP"
+    
+    mphi_tag = ("mphivar" if mphivar else ("x" + str(int(x0)))) 
 
-    file_path_tail = (outputdataname + "_" + elem.id + "_"
-        + str(dim) + "-dim_" + method_tag + "_" + str(nsamples) + "_samples_"
-        + ("mphivar" if mphivar else ("x" + str(int(x0)))) + ".txt")
+    _output_path, _ = generate_path(output_filename)
 
+    file_path_tail = f"{outputdataname}_{elem.id}_{str(dim)}dim_{method_tag}_{str(nsamples)}_samples_{mphi_tag}.txt"
+   
     file_path = (_output_data_path + "/" + file_path_tail)
     sig_file_path = (_output_data_path + "/sig" + file_path_tail)
-
-    #
-    # file_path = (_output_data_path + "/" + outputdataname + "_" + elem.id + "_"
-    #     + str(dim) + "-dim_" + method_tag + "_" + str(nsamples) + "_samples_"
-    #     + ("mphivar" if mphivar else ("x" + str(int(x0)))) + ".txt")
 
     if (os.path.exists(file_path) and os.path.exists(sig_file_path)
             and elem.id != "Ca_testdata"):
