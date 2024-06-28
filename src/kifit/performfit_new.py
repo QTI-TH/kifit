@@ -8,6 +8,7 @@ from scipy.odr import ODR, Model, RealData
 from scipy.special import binom
 from scipy.stats import chi2, linregress, multivariate_normal
 from scipy.optimize import minimize
+from itertools import product, combinations
 
 from tqdm import tqdm
 
@@ -375,11 +376,11 @@ def compute_ll(elem, alphasamples, nelemsamples,
     """
 
     if elementsamples is None:
-        print("generating element sample")
+        # print("generating element sample")
         elemsamples = generate_element_sample(elem, nelemsamples)
 
     else:
-        print("using same element samples")
+        print("reusing element samples")
         elemsamples = elementsamples
 
     # sampling fit parameters
@@ -576,7 +577,7 @@ def perform_experiments(
 
         if plot_output:
             plot_mc_output(alphas, delchisqlist,
-                plotname=f"m1_exp_{exp}", minll=minll_1)
+                plotname=f"exp_{exp}", minll=minll_1)
 
         delchisqs_exps.append(delchisqlist)
 
@@ -673,7 +674,8 @@ def sample_alphaNP_fit(
 # DETERMINANT METHODS
 
 def sample_alphaNP_det(
-    elem, dim, nsamples, mphivar=False, gkp=True, outputdataname="alphaNP_det",
+    elem, dim, nsamples, mphivar=False, gkp=True,
+    outputdataname="alphaNP_det",
     x0=0
 ):
     """
@@ -700,40 +702,52 @@ def sample_alphaNP_det(
             "" if gkp else "No-Mass ",
             nsamples,
             ("" if mphivar else "not "),
-            ("" if mphivar else "(mphi=" + str(elem.mphi) + ")")))
+            ("" if mphivar
+                else "(mphi=" + str(elem.mphi) + ", x0=" + str(elem.x) + ")")))
 
     if gkp:
         method_tag = "GKP"
     else:
         method_tag = "NMGKP"
 
-    file_path = (_output_data_path + "/" + outputdataname + "_" + elem.id + "_"
-        + str(dim) + "-dim_" + method_tag + "_" + str(nsamples) + "_samples.txt")
+    file_path_tail = (outputdataname + "_" + elem.id + "_"
+        + str(dim) + "-dim_" + method_tag + "_" + str(nsamples) + "_samples_"
+        + ("mphivar" if mphivar else ("x" + str(int(x0)))) + ".txt")
 
-    if os.path.exists(file_path) and elem.id != "Ca_testdata":
+    file_path = (_output_data_path + "/" + file_path_tail)
+    sig_file_path = (_output_data_path + "/sig" + file_path_tail)
+
+    #
+    # file_path = (_output_data_path + "/" + outputdataname + "_" + elem.id + "_"
+    #     + str(dim) + "-dim_" + method_tag + "_" + str(nsamples) + "_samples_"
+    #     + ("mphivar" if mphivar else ("x" + str(int(x0)))) + ".txt")
+
+    if (os.path.exists(file_path) and os.path.exists(sig_file_path)
+            and elem.id != "Ca_testdata"):
         print()
         print("Loading alphaNP and sigalphaNP values from {}".format(file_path))
         print()
 
-        # preallocate
-
-        ## vals.shape suggests that mphi is always varied?
         if gkp:
-            vals = np.zeros(
-                (len(elem.mphis), 2 * int(binom(elem.ntransitions, dim - 1)))
-            )
-            print("gkp preallocation")
-            print("vals.shape", vals.shape)
+            lenp = len(list(
+                product(
+                    combinations(elem.range_a, dim),
+                    combinations(elem.range_i, dim - 1))))
 
         else:
-            vals = np.zeros((len(elem.mphis), 2 * int(binom(elem.ntransitions, dim))))
-            print("nmgkp preallocation")
-            print("vals.shape", vals.shape)
+            lenp = len(list(
+                product(
+                    combinations(elem.range_a, dim),
+                    combinations(elem.range_i, dim))))
 
-        vals = np.loadtxt(file_path, delimiter=",")  # [x][2*perm]
-        print("vals.shape", vals.shape)
-        alphaNPs = vals[:, : int((vals.shape[1]) / 2)]
-        sigalphaNPs = vals[:, int((vals.shape[1]) / 2):]
+        if mphivar:
+            lenx = len(elem.mphis)
+        else:
+            lenx = 1
+
+        alphaNPs = np.loadtxt(file_path, delimiter=",").reshape(lenx, lenp)
+        sigalphaNPs = np.loadtxt(sig_file_path, delimiter=",").reshape(lenx, lenp)
+        # [x][perm]
 
     else:
         print()
@@ -813,9 +827,8 @@ def sample_alphaNP_det(
         alphaNPs = np.math.factorial(dim - 2) * np.array(alphaNPs)
         sigalphaNPs = np.math.factorial(dim - 2) * np.array(sigalphaNPs)
 
-        print("saving vals of shape", (np.c_[alphaNPs, sigalphaNPs]).shape)
-
-        np.savetxt(file_path, np.c_[alphaNPs, sigalphaNPs], delimiter=",")
+        np.savetxt(file_path, alphaNPs, delimiter=",")
+        np.savetxt(sig_file_path, sigalphaNPs, delimiter=",")
 
     return alphaNPs, sigalphaNPs
 
@@ -846,6 +859,8 @@ def get_minpos_maxneg_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
     """
     Determine smallest positive and largest negative values for the bound on
     alphaNP at the desired confidence level.
+
+    all vectors have dimensions [x][perm]
 
     """
     alphaNP_UBs, alphaNP_LBs = get_all_alphaNP_bounds(

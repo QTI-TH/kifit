@@ -317,12 +317,16 @@ def plot_vlines_for_alphaNP_det_bounds(
     else:
         method_tag = "NMGKP"
 
-    alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples, mphivar=True, gkp=gkp)
+    alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples, mphivar=False, gkp=gkp)
+    print("alphas.shape", alphas.shape)
+    print("sigalphas.shape", sigalphas.shape)
 
     if showalldetbounds:
         alphaNP_UBs, alphaNP_LBs = get_all_alphaNP_bounds(
             alphas, sigalphas, nsigmas=nsigmas
         )
+
+        print("alphaNP_UBs.shape", alphaNP_UBs.shape)
 
         for p in range(alphas.shape[1]):
             # if p == 0:
@@ -331,16 +335,16 @@ def plot_vlines_for_alphaNP_det_bounds(
             #     scatterlabel = None
 
             ax.scatter(
-                (alphaNP_UBs.T)[p],
-                scatterpos * np.ones(len((alphaNP_UBs.T)[p])),
+                # alphaNP_UBs[p], scatterpos,
+                (alphaNP_UBs.T)[p], scatterpos * np.ones(len((alphaNP_UBs.T)[p])),
                 s=0.5,
                 # label=scatterlabel,
                 color=scattercolour
             )
 
             ax.scatter(
-                (alphaNP_LBs.T)[p],
-                scatterpos * np.ones(len((alphaNP_LBs.T)[p])),
+                # alphaNP_LBs[p], scatterpos,
+                (alphaNP_LBs.T)[p], scatterpos * np.ones(len((alphaNP_LBs.T)[p])),
                 s=0.5,
                 color=scattercolour,
             )
@@ -351,15 +355,13 @@ def plot_vlines_for_alphaNP_det_bounds(
 
     if showbestdetbounds:
         ax.scatter(
-            minpos_alphas,
-            scatterpos * np.ones(len(minpos_alphas)),
+            minpos_alphas, scatterpos * np.ones(len(minpos_alphas)),
             s=6,
             color=scattercolour,
             label=elem.id + ", dim " + str(dim) + " " + method_tag + " best",
         )
         ax.scatter(
-            maxneg_alphas,
-            scatterpos * np.ones(len(maxneg_alphas)),
+            maxneg_alphas, scatterpos * np.ones(len(maxneg_alphas)),
             s=6,
             color=scattercolour)
 

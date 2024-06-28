@@ -162,14 +162,15 @@ class Elem:
 
         """
         self.mphis = self.Xcoeff_data[:, 0]
-        self.mphi = self.Xcoeff_data[0, 0]
-        self.Xvec = self.Xcoeff_data[0, 1:]
+        self.x = 0
+        self.mphi = self.Xcoeff_data[self.x, 0]
+        self.Xvec = self.Xcoeff_data[self.x, 1:]
 
-        if self.sig_Xcoeff_data[0, 0] != self.mphi:
+        if self.sig_Xcoeff_data[self.x, 0] != self.mphi:
             raise ValueError("""Mediator masses mphi do not match in files with
             X-coefficients and their uncertainties.""")
         else:
-            self.sig_Xvec = self.sig_Xcoeff_data[0, 1:]
+            self.sig_Xvec = self.sig_Xcoeff_data[self.x, 1:]
 
     def _init_MC(self):
         """
@@ -255,6 +256,7 @@ class Elem:
         if (x < 0 or len(self.Xcoeff_data) - 1 < x):
             raise IndexError(f"Index {x} not within permitted range for x.")
 
+        self.x = x
         self.mphi = self.Xcoeff_data[x, 0]
         self.Xvec = self.Xcoeff_data[x, 1:]
 

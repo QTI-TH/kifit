@@ -23,9 +23,9 @@ num_samples_det = 100
 num_searches = 5
 num_elemsamples_search = 100  # 200
 
-num_experiments = 5
-num_elemsamples_experiment = 100
-num_alphasamples_experiment = 100
+num_experiments = 1  #5
+num_elemsamples_experiment = 10  #100
+num_alphasamples_experiment = 10  #100
 num_blocks = 1
 
 # search hyper-parameters
