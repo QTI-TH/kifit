@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import BSpline, interp1d, splrep
 from scipy.optimize import curve_fit
 
-from kifit.performfit import (
+from kifit.performfit_new import (
     get_all_alphaNP_bounds,
     get_confint,
     get_delchisq,
@@ -304,7 +304,96 @@ def plot_final_mc_output(
     return fig, ax
 
 
+def plot_vlines_for_alphaNP_det_bounds(
+    ax,
+    scatterpos,
+    elem,
+    dimindex,
+    dim,
+    nsamples,
+    nsigmas,
+    minpos,
+    maxneg,
+    gkp=True,
+    showbestdetbounds=False,
+    showalldetbounds=False,
+    scattercolour='k'
+):
+    """
+    Plot GKP/NMGKP bounds for one dimension dim.
+
+    """
+
+    print("minpos", minpos)
+    print("maxneg", maxneg)
+    if gkp:
+        method_tag = "GKP"
+
+    else:
+        method_tag = "NMGKP"
+
+    alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples, mphivar=False, gkp=gkp)
+    print("alphas.shape", alphas.shape)
+    print("sigalphas.shape", sigalphas.shape)
+
+    if showalldetbounds:
+        alphaNP_UBs, alphaNP_LBs = get_all_alphaNP_bounds(
+            alphas, sigalphas, nsigmas=nsigmas
+        )
+
+        print("alphaNP_UBs.shape", alphaNP_UBs.shape)
+
+        for p in range(alphas.shape[1]):
+            # if p == 0:
+            #     scatterlabel = elem.id + ", dim " + str(dim) + " " + method_tag
+            # else:
+            #     scatterlabel = None
+
+            ax.scatter(
+                # alphaNP_UBs[p], scatterpos,
+                (alphaNP_UBs.T)[p], scatterpos * np.ones(len((alphaNP_UBs.T)[p])),
+                s=0.5,
+                # label=scatterlabel,
+                color=scattercolour
+            )
+
+            ax.scatter(
+                # alphaNP_LBs[p], scatterpos,
+                (alphaNP_LBs.T)[p], scatterpos * np.ones(len((alphaNP_LBs.T)[p])),
+                s=0.5,
+                color=scattercolour,
+            )
+
+    minpos_alphas, maxneg_alphas = get_minpos_maxneg_alphaNP_bounds(
+        alphas, sigalphas, nsigmas
+    )
+
+    if showbestdetbounds:
+        ax.scatter(
+            minpos_alphas, scatterpos * np.ones(len(minpos_alphas)),
+            s=6,
+            color=scattercolour,
+            label=elem.id + ", dim " + str(dim) + " " + method_tag + " best",
+        )
+        ax.scatter(
+            maxneg_alphas, scatterpos * np.ones(len(maxneg_alphas)),
+            s=6,
+            color=scattercolour)
+
+    if dimindex == 0:
+        minpos = minpos_alphas
+        maxneg = maxneg_alphas
+
+    else:
+        minpos = np.fmin(minpos, minpos_alphas)
+        maxneg = np.fmax(maxneg, maxneg_alphas)
+
+    return ax, minpos, maxneg
+
+
 def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
+    gkpdims=[], nmgkpdims=[], ndetsamples=100,
+    showalldetbounds=False, showbestdetbounds=True,
     plotname="alphaNP_ll", plotitle=None,
     xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
     xlims=[None, None], ylims=[None, None], plot_path=None
@@ -335,6 +424,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas)
 
     fig, ax = plt.subplots()
+
     ax.scatter(alphas, delchisqs, s=1, c="b")
 
     nblocks = len(alphas)
@@ -371,6 +461,8 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     ax.set_ylim(ylims[0], ylims[1])
 
     errorbarpos = - (ymax - ymin) / 10
+    scatterpos = errorbarpos / 2
+
     ax.errorbar(bestalphapt, errorbarpos, xerr=sigbestalphapt, color="red")
     ax.scatter(bestalphapt, errorbarpos,
         color="orange", marker="*",
@@ -379,12 +471,54 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
 
     ax.set_ylim(2 * errorbarpos, ymax)
 
+    minpos = np.array([])
+    maxneg = np.array([])
+
+    for d, dim in enumerate(gkpdims):
+        alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples,
+            mphivar=False, gkp=True)
+
+        ax, minpos, maxneg = plot_vlines_for_alphaNP_det_bounds(
+            ax,
+            scatterpos,
+            elem,
+            d,
+            dim,
+            ndetsamples,
+            nsigmas,
+            minpos,
+            maxneg,
+            gkp=True,
+            showbestdetbounds=showbestdetbounds,
+            showalldetbounds=showalldetbounds,
+            scattercolour='purple'
+        )
+
+    for d, dim in enumerate(gkpdims):
+        alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples,
+            mphivar=False, gkp=False)
+
+        ax, minpos, maxneg = plot_vlines_for_alphaNP_det_bounds(
+            ax,
+            scatterpos,
+            elem,
+            d,
+            dim,
+            ndetsamples,
+            nsigmas,
+            minpos,
+            maxneg,
+            gkp=False,
+            showbestdetbounds=showbestdetbounds,
+            showalldetbounds=showalldetbounds,
+            scattercolour='k'
+        )
+
     plt.legend(loc='upper center')
     plt.savefig(plot_path / f"{plotname}_{elem.id}_x{str(xind)}.png")
     plt.close()
 
     return fig, ax
-
 
     # fig, ax = plt.subplots()
     # ax.scatter(alphalist[x], delchisqlist_x, s=1, c="b")

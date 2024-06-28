@@ -1,8 +1,5 @@
 USE_CACHE = True
 
-# use lru_cache ?
-
-
 def cached_fct(old_func):
     """
     Decorate functions to cache return value.

@@ -162,14 +162,15 @@ class Elem:
 
         """
         self.mphis = self.Xcoeff_data[:, 0]
-        self.mphi = self.Xcoeff_data[0, 0]
-        self.Xvec = self.Xcoeff_data[0, 1:]
+        self.x = 0
+        self.mphi = self.Xcoeff_data[self.x, 0]
+        self.Xvec = self.Xcoeff_data[self.x, 1:]
 
-        if self.sig_Xcoeff_data[0, 0] != self.mphi:
+        if self.sig_Xcoeff_data[self.x, 0] != self.mphi:
             raise ValueError("""Mediator masses mphi do not match in files with
             X-coefficients and their uncertainties.""")
         else:
-            self.sig_Xvec = self.sig_Xcoeff_data[0, 1:]
+            self.sig_Xvec = self.sig_Xcoeff_data[self.x, 1:]
 
     def _init_MC(self):
         """
@@ -255,6 +256,7 @@ class Elem:
         if (x < 0 or len(self.Xcoeff_data) - 1 < x):
             raise IndexError(f"Index {x} not within permitted range for x.")
 
+        self.x = x
         self.mphi = self.Xcoeff_data[x, 0]
         self.Xvec = self.Xcoeff_data[x, 1:]
 
@@ -370,6 +372,35 @@ class Elem:
         """
         return (self.nisotopepairs, self.ntransitions), self.nu_in
 
+
+    def check_det_dims(self, gkpdims=[], nmgkpdims=[]):
+        """
+        Check whether Generalised King Plots (No-Mass Generalised King Plots) of
+        dimensions gkpdims (nmgkpdims) can be constructed from data of element.
+
+        """
+        for dim in gkpdims:
+            if dim < 3:
+                raise ValueError("""Generalised King Plot formula is only valid
+                for dim >=3.""")
+            if dim > self.nisotopepairs or dim > self.ntransitions + 1:
+                raise ValueError("""dim is larger than dimension of provided
+                data.""")
+            else:
+                print(f"GKP dimension {dim} is valid.")
+
+        for dim in nmgkpdims:
+            if dim < 3:
+                raise ValueError("""No-Mass Generalised King Plot formula is
+                only valid for dim >=3.""")
+            if dim > self.nisotopepairs or dim > self.ntransitions:
+                raise ValueError("""dim is larger than dimension of provided
+                data.""")
+            else:
+                print(f"Parsed NMGKP dimension {dim} is valid.")
+
+        return (self.nisotopepairs, self.ntransitions)
+
     @cached_fct_property
     def means_input_params(self):
         """
@@ -479,7 +510,6 @@ class Elem:
         # return np.divide(self.nu_in.T, self.muvec_in).T
         return np.divide(self.nu_in.T, self.muvec_in).T
 
-
     @cached_fct_property
     def mu_norm_isotope_shifts(self):
         """
@@ -491,7 +521,6 @@ class Elem:
 
         """
         return np.divide(self.nu.T, self.muvec).T
-
 
     @cached_fct_property
     def sig_mu_norm_isotope_shifts_in(self):
@@ -665,7 +694,6 @@ class Elem:
         """
         return np.sqrt(np.diag(self.dmat @ self.dmat.T))
 
-    @cached_fct
     def alphaNP_GKP(self, ainds=[0, 1, 2], iinds=[0, 1]):
         """
         Returns value for alphaNP computed using the Generalised King plot
@@ -743,8 +771,6 @@ class Elem:
 
         return alphaNP
 
-
-    @cached_fct
     def alphaNP_GKP_part(self, dim):
         """
         Prepares the ingredients needed for the computation of alphaNP using the
