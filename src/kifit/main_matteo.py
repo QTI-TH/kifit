@@ -12,7 +12,7 @@ print(element_collection[0].alphaNP_init)
 print(element_collection[0].sig_alphaNP_init)
 
 num_samples_det = 100
-num_searches = 5
+num_searches = 4
 num_elemsamples_search = 100 
 
 num_experiments = 2

@@ -441,7 +441,7 @@ def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection):
     # take on the two lists length
     nelemsamples = len(elemsamples_collection[0])
 
-    lls = np.zeros(nelemsamples)
+    loss = np.zeros(nelemsamples)
 
     # loop over elements in the collection
     for i, elem in enumerate(elem_collection):
@@ -450,9 +450,11 @@ def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection):
         for s in range(nelemsamples):
             elem._update_elem_params(elemsamples_collection[i][s])
             absdsamples.append(elem.absd)
-        lls += get_llist(np.array(absdsamples), nelemsamples)
+        lls = get_llist(np.array(absdsamples), nelemsamples)
+        delchisq = get_delchisq(lls)
+        loss += delchisq
     
-    return np.percentile(lls, 10)
+    return np.percentile(loss, 10)
 
 
 def minimise_logL_alphaNP(
@@ -479,7 +481,7 @@ def minimise_logL_alphaNP(
         minlogL = minimize(
             logL_alphaNP, 
             x0=0, 
-            bounds=[(-1e-7, 1e-7)],
+            bounds=[(-1e-6, 1e-6)],
             args=(elem_collection, elemsamples_collection),
             method=opt_method, options={"maxiter": maxiter}, 
             tol=tol,
