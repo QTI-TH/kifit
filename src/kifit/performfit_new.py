@@ -4,6 +4,11 @@ import logging
 import datetime
 from pathlib import Path
 from typing import List
+from itertools import (
+    product, 
+    combinations, 
+    groupby
+)
 
 import numpy as np
 
@@ -16,8 +21,9 @@ from scipy.optimize import (
     minimize,
     dual_annealing,
     differential_evolution,
-  
-from itertools import product, combinations
+)
+
+from kifit.loadelems import Elem
 
 _output_data_path = os.path.abspath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "output_data")
@@ -423,44 +429,63 @@ def compute_ll(elem, alphasamples, nelemsamples,
     return np.array(alphalist).flatten(), np.array(llist).flatten()
 
 
-def logL_alphaNP(alphaNP, elem, elemsamples):
+def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection):
     # elem = args[0]
     # elemsamples = args[1]
 
-    fitparams = elem.means_fit_params
-    fitparams[-1] = alphaNP
+    fitparams_collection = []
+    for elem in elem_collection:
+        fitparams = elem.means_fit_params
+        fitparams[-1] = alphaNP
+        fitparams_collection.append(fitparams)
 
     elem._update_fit_params(fitparams)
 
-    absdsamples = []
-    nelemsamples = len(elemsamples)
+    # take on the two lists length
+    nelemsamples = len(elemsamples_collection[0])
 
-    for s in range(nelemsamples):
-        elem._update_elem_params(elemsamples[s])
-        absdsamples.append(elem.absd)
-    lls = get_llist(np.array(absdsamples), nelemsamples)
+    lls = np.zeros(nelemsamples)
 
+    # loop over elements in the collection
+    for i, elem in enumerate(elem_collection):
+        # for each element compute LL independently
+        absdsamples = []
+        for s in range(nelemsamples):
+            elem._update_elem_params(elemsamples_collection[i][s])
+            absdsamples.append(elem.absd)
+        lls += get_llist(np.array(absdsamples), nelemsamples)
+    print(lls)
+    
     return np.percentile(lls, 10)
 
 
 def minimise_logL_alphaNP(
-        elem, elemsamples, alpha0, maxiter, opt_method, tol=1e-12
+        elem_collection, elemsamples_collection, alpha0, maxiter, opt_method, tol=1e-12
     ):
 
     if opt_method == "annealing":
         minlogL = dual_annealing(
-            logL_alphaNP, bounds=[(-1e-4, 1e-4)], args=(elem, elemsamples), maxiter=maxiter,
+            logL_alphaNP, 
+            bounds=[(-1e-4, 1e-4)], 
+            args=(elem_collection, elemsamples_collection), 
+            maxiter=maxiter,
         )
 
     elif opt_method == "differential_evolution":
         minlogL = differential_evolution(
-            logL_alphaNP, bounds=[(-1e-4, 1e-4)], args=(elem, elemsamples), maxiter=maxiter,
+            logL_alphaNP, 
+            bounds=[(-1e-4, 1e-4)], 
+            args=(elem_collection, elemsamples_collection), 
+            maxiter=maxiter,
         )
 
     else:
         minlogL = minimize(
-            logL_alphaNP, x0=alpha0, args=(elem, elemsamples),
-            method=opt_method, options={"maxiter": maxiter}, tol=tol,
+            logL_alphaNP, 
+            x0=alpha0, 
+            args=(elem_collection, elemsamples_collection),
+            method=opt_method, options={"maxiter": maxiter}, 
+            tol=tol,
         )
 
     return minlogL
@@ -523,7 +548,7 @@ def get_confint(alphas, delchisqs, delchisqcrit):
 
 
 def determine_search_interval(
-        elem,
+        elem_collection,
         nsearches,
         nelemsamples_search,
         alpha0,
@@ -532,8 +557,15 @@ def determine_search_interval(
         verbose,
     ):
 
-    allelemsamples = generate_element_sample(elem,
-        nsearches * nelemsamples_search)
+    # sampling `nsamples` new elements for each element in the collections
+    allelemsamples = []
+    for elem in elem_collection:
+        allelemsamples.append(
+            generate_element_sample(
+                elem,
+                nsearches * nelemsamples_search
+            )
+        )
 
     best_alpha_list = []
 
@@ -541,13 +573,18 @@ def determine_search_interval(
     for search in tqdm(range(nsearches)):
         if verbose:
             logging.info(f"Iterative search {search + 1}/{nsearches}")
-            
-        elemsamples = allelemsamples[
-            search * nelemsamples_search: (search + 1) * nelemsamples_search]
+        
+        elemsamples_collection = []
+        for i in range(len(allelemsamples)):
+            elemsamples_collection.append(
+                allelemsamples[i][
+                    search * nelemsamples_search: (search + 1) * nelemsamples_search
+                ]
+            )
 
         res_min = minimise_logL_alphaNP(
-            elem=elem, 
-            elemsamples=elemsamples,
+            elem_collection=elem_collection, 
+            elemsamples_collection=elemsamples_collection,
             alpha0=alpha0, 
             maxiter=maxiter, 
             opt_method=opt_method
@@ -655,7 +692,7 @@ def perform_experiments(
 
 
 def sample_alphaNP_fit(
-        elem,
+        elem_collection: list[Elem],
         output_filename: str,
         nsearches: int = 10,
         nelemsamples_search: int = 100,
@@ -702,8 +739,19 @@ def sample_alphaNP_fit(
         "x_ind",
     ]
 
+    # check the Xcoeff are the same
+    first_list = np.round(np.asarray(elem_collection[0].Xcoeff_data).T[0], decimals=7)
+    for elem in elem_collection:
+        new_list = np.round(np.asarray(elem.Xcoeff_data).T[0], decimals=7)
+        if (new_list != first_list).any():
+            raise ValueError(
+                "Please prepare data with same mphi values for all the elements in the collection."
+            )
+    logging.info("All elements respect the initialization requirements.")
+
+
     if mphivar:
-        x_range = tqdm(range(len(elem.Xcoeff_data)))
+        x_range = range(len(elem_collection[0].Xcoeff_data))
     else:
         x_range = [x0]
 
@@ -717,10 +765,11 @@ def sample_alphaNP_fit(
         if not index_path.exists():
             index_path.mkdir(parents=True)
         
-        elem._update_Xcoeffs(x)
+        for elem in elem_collection:
+            elem._update_Xcoeffs(x)
 
         alpha_optimizer, sig_alpha_optimizer = determine_search_interval(
-            elem=elem,
+            elem_collection=elem_collection,
             nsearches=nsearches,
             nelemsamples_search=nelemsamples_search,
             alpha0=alpha0,

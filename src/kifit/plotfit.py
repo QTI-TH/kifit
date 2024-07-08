@@ -314,6 +314,7 @@ def plot_vlines_for_alphaNP_det_bounds(
     nsigmas,
     minpos,
     maxneg,
+    output_filename,
     gkp=True,
     showbestdetbounds=False,
     showalldetbounds=False,
@@ -332,7 +333,14 @@ def plot_vlines_for_alphaNP_det_bounds(
     else:
         method_tag = "NMGKP"
 
-    alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples, mphivar=False, gkp=gkp)
+    alphas, sigalphas = sample_alphaNP_det(
+        elem, 
+        output_filename,
+        dim, 
+        nsamples, 
+        mphivar=False, 
+        gkp=gkp
+    )
     print("alphas.shape", alphas.shape)
     print("sigalphas.shape", sigalphas.shape)
 
@@ -391,12 +399,12 @@ def plot_vlines_for_alphaNP_det_bounds(
     return ax, minpos, maxneg
 
 
-def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
+def plot_alphaNP_ll(elem, output_filename, mc_output, nsigmas: int = 2, xind: int = 0,
     gkpdims=[], nmgkpdims=[], ndetsamples=100,
     showalldetbounds=False, showbestdetbounds=True,
     plotname="alphaNP_ll", plotitle=None,
     xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
-    xlims=[None, None], ylims=[None, None], plot_path=None
+    xlims=[None, None], ylims=[None, None], plot_path=None,
 ):
     """
     Plot 2-dimensional scatter plot showing the likelihood associated with the
@@ -475,8 +483,14 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     maxneg = np.array([])
 
     for d, dim in enumerate(gkpdims):
-        alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples,
-            mphivar=False, gkp=True)
+        alphas, sigalphas = sample_alphaNP_det(
+            elem, 
+            output_filename,
+            dim, 
+            nsamples, 
+            mphivar=False, 
+            gkp=True
+        )
 
         ax, minpos, maxneg = plot_vlines_for_alphaNP_det_bounds(
             ax,
@@ -488,6 +502,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
             nsigmas,
             minpos,
             maxneg,
+            output_filename,
             gkp=True,
             showbestdetbounds=showbestdetbounds,
             showalldetbounds=showalldetbounds,
@@ -495,8 +510,14 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
         )
 
     for d, dim in enumerate(gkpdims):
-        alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples,
-            mphivar=False, gkp=False)
+        alphas, sigalphas = sample_alphaNP_det(
+            elem, 
+            output_filename,
+            dim, 
+            nsamples,
+            mphivar=False, 
+            gkp=False
+        )
 
         ax, minpos, maxneg = plot_vlines_for_alphaNP_det_bounds(
             ax,
@@ -508,6 +529,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
             nsigmas,
             minpos,
             maxneg,
+            output_filename,
             gkp=False,
             showbestdetbounds=showbestdetbounds,
             showalldetbounds=showalldetbounds,
@@ -515,7 +537,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
         )
 
     plt.legend(loc='upper center')
-    plt.savefig(plot_path / f"{plotname}_{elem.id}_x{str(xind)}.png")
+    plt.savefig(f"{plot_path}/{plotname}_{elem.id}_x{str(xind)}.png")
     plt.close()
 
     return fig, ax
