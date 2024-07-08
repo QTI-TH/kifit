@@ -433,13 +433,10 @@ def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection):
     # elem = args[0]
     # elemsamples = args[1]
 
-    fitparams_collection = []
     for elem in elem_collection:
         fitparams = elem.means_fit_params
         fitparams[-1] = alphaNP
-        fitparams_collection.append(fitparams)
-
-    elem._update_fit_params(fitparams)
+        elem._update_fit_params(fitparams)
 
     # take on the two lists length
     nelemsamples = len(elemsamples_collection[0])
@@ -454,7 +451,6 @@ def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection):
             elem._update_elem_params(elemsamples_collection[i][s])
             absdsamples.append(elem.absd)
         lls += get_llist(np.array(absdsamples), nelemsamples)
-    print(lls)
     
     return np.percentile(lls, 10)
 
@@ -482,7 +478,8 @@ def minimise_logL_alphaNP(
     else:
         minlogL = minimize(
             logL_alphaNP, 
-            x0=alpha0, 
+            x0=0, 
+            bounds=[(-1e-7, 1e-7)],
             args=(elem_collection, elemsamples_collection),
             method=opt_method, options={"maxiter": maxiter}, 
             tol=tol,
@@ -598,6 +595,8 @@ def determine_search_interval(
     best_alpha = np.median(best_alpha_list)
     # print("median", best_alpha)
     # print("average", np.average(best_alpha_list))
+
+    print("EXTREMES", max(best_alpha_list), min(best_alpha_list))
 
     sig_best_alpha = max(best_alpha_list) - min(best_alpha_list)
 
