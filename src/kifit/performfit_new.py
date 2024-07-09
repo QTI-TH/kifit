@@ -371,6 +371,8 @@ def get_bestalphaNP_and_bounds(
     lowbounds_exps = lowbounds_exps[~np.isnan(lowbounds_exps)]
     upperbounds_exps = upperbounds_exps[~np.isnan(upperbounds_exps)]
 
+    print(f"CHECK: {lowbounds_exps}, {upperbounds_exps}")
+
     LB, UB, sig_LB, sig_UB = blocking_bounds(
         lowbounds_exps, upperbounds_exps, nblocks=nblocks,
         plot_output=plot_output)
@@ -451,7 +453,7 @@ def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection):
             elem._update_elem_params(elemsamples_collection[i][s])
             absdsamples.append(elem.absd)
         lls = get_llist(np.array(absdsamples), nelemsamples)
-        delchisq = get_delchisq(lls)
+        delchisq = get_delchisq(lls, minll=np.percentile(lls, 10))
         loss += delchisq
     
     return np.percentile(loss, 10)
@@ -592,6 +594,8 @@ def determine_search_interval(
         if res_min.success:
             best_alpha_list.append(res_min.x[0])
 
+        print(f"res_min: {res_min}")
+
         # print("best alpha search " + str(search) + ": ", res_min.x[0])
 
     best_alpha = np.median(best_alpha_list)
@@ -667,8 +671,9 @@ def perform_experiments(
 
         delchisqs_exps.append(delchisqlist)
 
-    confints_exps = np.array([get_confint(alphas_exps[s], delchisqs_exps[s],
-        delchisqcrit) for s in range(nexps)])
+    confints_exps = np.array(
+        [get_confint(alphas_exps[s], delchisqs_exps[s], delchisqcrit) for s in range(nexps)]
+    )
 
     (best_alpha_pts, sig_alpha_pts,
         LB, sig_LB, UB, sig_UB) = \
