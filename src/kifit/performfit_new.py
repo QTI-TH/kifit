@@ -445,11 +445,17 @@ def compute_ll(
                 elem._update_fit_params(fitparamsamples_collection[i][s])
                 absdsamples_alpha.append(elem.absd)
 
-            # we need alpha values only once
-            if i == 0:
-                alphalist.append(np.ones(nelemsamples) * alphasamples[s])
-            
-            lls += get_llist(np.array(absdsamples_alpha), nelemsamples, cov_decomp_method)
+        # we need alpha values only once
+        if i == 0:
+            alphalist.append(np.ones(nelemsamples) * alphasamples[s])
+        
+        print(len(lls), len(absdsamples_alpha))
+
+        this_lls = get_llist(np.array(absdsamples_alpha), nelemsamples, cov_decomp_method)
+        print(len(this_lls))
+        exit()
+
+        lls += get_llist(np.array(absdsamples_alpha), nelemsamples, cov_decomp_method)
 
         # return elem.dnorm * np.array(alphalist), elem.dnorm * np.array(llist)
     return np.array(alphalist).flatten(), lls
@@ -666,11 +672,7 @@ def perform_experiments(
     # shuffle the sample
     np.random.shuffle(allalphasamples)
 
-    alphas_exps = []
-    lls_exps = []
-    bestalphas_exps = []
-
-    delchisqs_exps = []
+    alphas_exps, lls_exps, bestalphas_exps, delchisqs_exps = [], [], [], []
 
     for exp in range(nexps):
         if verbose:

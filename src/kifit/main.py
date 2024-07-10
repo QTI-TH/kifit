@@ -25,8 +25,6 @@ def main(args):
         f"_{args.num_alphasamples_exp}ae"
     )
     
-    _, plot_path = generate_path(output_filename)
-
     mc_output = sample_alphaNP_fit(
         element_collection,
         output_filename=output_filename,
@@ -35,7 +33,7 @@ def main(args):
         nexps=args.num_experiments,
         nelemsamples_exp=args.num_elemsamples_exp,
         nalphasamples_exp=args.num_alphasamples_exp,
-        nblocks=args.num_blocks,
+        block_size=args.block_size,
         maxiter=args.maxiter,
         mphivar=False,
         plot_output=True,
@@ -100,10 +98,10 @@ if __name__ == "__main__":
         help="# generated alpha NP during each final experiment",
     )
     parser.add_argument(
-        "--num_blocks",
-        default=100, 
+        "--block_size",
+        default=10, 
         type=int, 
-        help="# blocks used to perform the blocking method, which returns the bounds estimation",
+        help="Size of the blocks used to perform the blocking method, which returns the bounds estimation",
     )
     parser.add_argument(
         "--num_samples_det",
