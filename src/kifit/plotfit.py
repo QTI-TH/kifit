@@ -40,6 +40,7 @@ gkp_colour = 'purple'
 nmgkp_colour = 'darkgreen'
 det_colour = "royalblue"
 
+
 ###############################################################################
 
 
@@ -304,6 +305,7 @@ def plot_final_mc_output(
     plt.legend(loc='upper center')
     plt.savefig(os.path.join(plot_path,
         f"{plotname}_{elem_collection_stringname}_x{str(xind)}.png"))
+
     plt.close()
 
     return fig, ax
