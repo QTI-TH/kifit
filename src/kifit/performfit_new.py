@@ -18,10 +18,6 @@ from itertools import product, combinations
 
 from tqdm import tqdm
 
-# _output_data_path = os.path.abspath(
-#     os.path.join(os.path.dirname(os.path.abspath(__file__)), "output_data")
-# )
-#
 logging.basicConfig(level=logging.INFO)
 
 np.random.seed(1)
@@ -33,18 +29,21 @@ def generate_path():
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "results"))
 
     if not os.path.exists(output_path):
+        print("Creating file at ", output_path)
         os.mkdir(output_path)
 
     # path where to save data
     outputdata_path = os.path.join(output_path, "output_data")
 
     if not os.path.exists(outputdata_path):
+        print("Creating file at ", outputdata_path)
         os.mkdir(outputdata_path)
 
     # path where to save plots
     plot_path = os.path.join(output_path, "plots")
 
     if not os.path.exists(plot_path):
+        print("Creating file at ", plot_path)
         os.mkdir(plot_path)
 
     return outputdata_path, plot_path
@@ -390,17 +389,11 @@ def get_bestalphaNP_and_bounds(
 
     np.alltrue(lb_nans == ub_nans)
 
-    print("len lowbounds_exps", len(lowbounds_exps))
-    print("len upperbounds_exps", len(upperbounds_exps))
-
-    print("lowbounds_exps", lowbounds_exps)
-    print("upperbounds_exps", upperbounds_exps)
-
     lowbounds_exps = lowbounds_exps[~np.isnan(lowbounds_exps)]
     upperbounds_exps = upperbounds_exps[~np.isnan(upperbounds_exps)]
 
-    print("len lowbounds_exps", len(lowbounds_exps))
-    print("len upperbounds_exps", len(upperbounds_exps))
+    if len(lowbounds_exps) == 0 or len(upperbounds_exps) == 0:
+        return (best_alpha_pts, sig_alpha_pts, np.nan, np.nan, np.nan, np.nan)
 
     LB, UB, sig_LB, sig_UB = blocking_bounds(
         lowbounds_exps, upperbounds_exps, block_size=block_size,
@@ -619,7 +612,7 @@ def perform_experiments(
         nsigmas,
         plot_output,
         verbose,
-        plots_path,
+        plot_path,
         xind=0,
         min_percentile=1):
 
@@ -661,7 +654,7 @@ def perform_experiments(
                 delchisqlist=delchisqlist,
                 plotname=f"exp_{exp}",
                 minll=minll_1,
-                plot_path=plots_path,
+                plot_path=plot_path,
             )
 
         delchisqs_exps.append(delchisqlist)
@@ -681,7 +674,7 @@ def perform_experiments(
             delchisqcrit,
             bestalphapt=best_alpha_pts, sigbestalphapt=sig_alpha_pts,
             lb=LB, siglb=sig_LB, ub=UB, sigub=sig_UB,
-            nsigmas=nsigmas, xind=xind, plot_path=plots_path)
+            nsigmas=nsigmas, xind=xind, plot_path=plot_path)
 
     return [
         alphas_exps, delchisqs_exps,
@@ -797,7 +790,7 @@ def sample_alphaNP_fit(
                 plot_output=plot_output,
                 xind=x,
                 verbose=verbose,
-                plots_path=_plot_path,
+                plot_path=_plot_path,
             )
 
             res_list_x.append(res_exps)

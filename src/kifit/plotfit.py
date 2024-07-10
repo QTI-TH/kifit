@@ -21,16 +21,6 @@ from kifit.performfit_new import (
     sample_alphaNP_det,
 )
 
-# import pandas as pd
-
-
-# _plot_path = os.path.abspath(
-#     os.path.join(os.path.dirname(os.path.abspath(__file__)), "plots")
-# )
-#
-# if not os.path.exists(_plot_path):
-#     os.makedirs(_plot_path)
-
 ###############################################################################
 
 default_colour = [
@@ -888,8 +878,7 @@ def plot_mphi_alphaNP(
 
     """
     if plot_path is None:
-        _, _plot_path = generate_path()
-        plot_path = _plot_path
+        _, plot_path = generate_path()
 
     # x-vectors
     nsigmas = mc_output[1]
