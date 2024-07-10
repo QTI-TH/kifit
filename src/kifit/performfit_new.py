@@ -1,8 +1,6 @@
 import os
 import json
-import logging 
-import datetime
-from pathlib import Path
+import logging
 from typing import List
 from itertools import (
     product, 
@@ -22,13 +20,11 @@ from scipy.optimize import (
     differential_evolution,
 )
 
-from kifit.loadelems import Elem
 
-_output_data_path = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "output_data")
-)
+from itertools import product, combinations
 
 from tqdm import tqdm
+from kifit.loadelems import Elem
 
 logging.basicConfig(level=logging.INFO)
 
@@ -97,7 +93,6 @@ def blocking_bounds(lbs: List[float], ubs: List[float], block_size: int,
     #         nblocks. Here {len(lbs)} is not multiple of {nblocks}.")
     #
 
-    # begin NEW  ##############################################################
     if block_size > len(lbs):
         block_size = len(lbs)
         print(f"Reducing block size to {len(lbs)} since not enough samples "
@@ -106,7 +101,6 @@ def blocking_bounds(lbs: List[float], ubs: List[float], block_size: int,
 
     nblocks = int(len(lbs) / block_size)
 
-    # end NEW  ################################################################
 
     # parametric bootstrap
     lb_min, ub_max, lb_val, ub_val, sig_lb, sig_ub = [], [], [], [], [], []
@@ -486,7 +480,7 @@ def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection, min_percentil
         delchisq = get_delchisq(lls, min_percentile)
         loss += delchisq
     
-    return np.percentile(loss, 10)
+    return np.percentile(lls, min_percentile)
 
 
 def minimise_logL_alphaNP(
@@ -607,6 +601,7 @@ def determine_search_interval(
 
     print("scipy minimisation")
     for search in tqdm(range(nsearches)):
+
         if verbose:
             logging.info(f"Iterative search {search + 1}/{nsearches}")
         
@@ -626,7 +621,7 @@ def determine_search_interval(
             opt_method=opt_method,
             min_percentile=min_percentile,
         )
-        
+
         if res_min.success:
             best_alpha_list.append(res_min.x[0])
 
@@ -674,10 +669,10 @@ def perform_experiments(
 
     alphas_exps, lls_exps, bestalphas_exps, delchisqs_exps = [], [], [], []
 
-    for exp in range(nexps):
-        if verbose:
-            logging.info(f"Running experiment {exp+1}/{nexps}")
-  
+    for exp in tqdm(range(nexps)):
+        # if verbose:
+        #    logging.info(f"Running experiment {exp+1}/{nexps}")
+
         # collect data for a single experiment
         alphasamples = allalphasamples[
             exp * nalphasamples_exp: (exp + 1) * nalphasamples_exp]
@@ -789,8 +784,7 @@ def sample_alphaNP_fit(
         "sig_alpha_pts",
         "LB", "sig_LB",
         "UB", "sig_UB",
-        "x_ind",
-    ]
+        "x_ind"]
 
     # check the Xcoeff are the same
     first_list = np.round(np.asarray(elem_collection[0].Xcoeff_data).T[0], decimals=7)
