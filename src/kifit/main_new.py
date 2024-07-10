@@ -16,22 +16,22 @@ num_samples_det = 100
 num_searches = 10
 num_elemsamples_search = 100  # 200
 
-num_experiments = 5
+num_experiments = 12
 num_elemsamples_experiment = 100
 num_alphasamples_experiment = 100
-num_blocks = 1
+block_size = 2
 
 # search hyper-parameters
 max_iter = 1000
-opt_method = "Powell"
+opt_method = "differential_evolution"
 
 # define output folder's name
 
 # some initial prints
-# elem.print_dimensions
-# elem.print_relative_uncertainties
+elem.print_dimensions
+elem.print_relative_uncertainties
 
-# plot_linfit(elem, resmagnifac=1)
+plot_linfit(elem, resmagnifac=1)
 
 mc_output = sample_alphaNP_fit(
     elem,
@@ -40,13 +40,13 @@ mc_output = sample_alphaNP_fit(
     nexps=num_experiments,
     nelemsamples_exp=num_elemsamples_experiment,
     nalphasamples_exp=num_alphasamples_experiment,
-    nblocks=num_blocks,
+    block_size=block_size,
     maxiter=max_iter,
     mphivar=False,
     plot_output=True,
     opt_method=opt_method,
     x0=0,
-    # min_percentile=1,
+    min_percentile=1,
 )
 
 plot_alphaNP_ll(elem, mc_output,
@@ -54,4 +54,3 @@ plot_alphaNP_ll(elem, mc_output,
     gkpdims=gkp_dims, nmgkpdims=nmgkp_dims,
     ndetsamples=num_samples_det,
     showalldetbounds=True, showbestdetbounds=True)
-

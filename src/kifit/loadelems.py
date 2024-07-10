@@ -372,6 +372,35 @@ class Elem:
         """
         return (self.nisotopepairs, self.ntransitions), self.nu_in
 
+    @cached_fct_property
+    def print_dimensions(self):
+        """
+        Pretty print element data dimensions.
+
+        """
+        print()
+        print(f"Loaded element {self.id} has {self.nisotopepairs} isotope pairs"
+            + f" and {self.ntransitions} transitions.")
+        print()
+
+        return 0
+
+    @cached_fct_property
+    def print_relative_uncertainties(self):
+        """
+        Pretty print relative uncertainties on transition and mass measurements.
+
+        """
+        print()
+        print(f"Relative experimental uncertainties of {self.id} data:")
+        print("sig[nu] / nu:     ")
+        print(self.sig_nu_in / self.nu_in)
+        print()
+        print("sig[m_a] / m_a:   ", self.sig_m_a_in / self.m_a_in)
+        print("sig[m_ap] / m_ap: ", self.sig_m_ap_in / self.m_ap_in)
+        print()
+
+        return 0
 
     def check_det_dims(self, gkpdims=[], nmgkpdims=[]):
         """
@@ -394,8 +423,12 @@ class Elem:
                 raise ValueError("""No-Mass Generalised King Plot formula is
                 only valid for dim >=3.""")
             if dim > self.nisotopepairs or dim > self.ntransitions:
-                raise ValueError("""dim is larger than dimension of provided
-                data.""")
+                print("nisotopepairs", self.nisotopepairs)
+                print("ntransitions", self.ntransitions)
+                print("dim", dim)
+
+                raise ValueError(
+                    """dim is larger than dimension of provided data.""")
             else:
                 print(f"Parsed NMGKP dimension {dim} is valid.")
 
@@ -796,11 +829,10 @@ class Elem:
 
         """
         if dim < 3:
-            raise ValueError("""Generalised King Plot formula is only valid for
-            dim >=3.""")
+            raise ValueError(
+                """Generalised King Plot formula is only valid for dim >=3.""")
         if dim > self.nisotopepairs or dim > self.ntransitions + 1:
-            raise ValueError("""dim is larger than dimension of provided
-            data.""")
+            raise ValueError("""dim is larger than dimension of provided data.""")
 
         voldatlist = []
         vol1st = []
@@ -884,6 +916,8 @@ class Elem:
             raise ValueError("""No-Mass Generalised King Plot formula is only
             valid for dim >=3.""")
         if dim > self.nisotopepairs or dim > self.ntransitions:
+            print("nisotopepairs", self.nisotopepairs)
+            print("ntransitions", self.ntransitions)
             raise ValueError("""dim is larger than dimension of provided
             data.""")
 
