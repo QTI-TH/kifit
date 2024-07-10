@@ -6,6 +6,7 @@ from scipy.interpolate import BSpline, interp1d, splrep
 from scipy.optimize import curve_fit
 
 from kifit.performfit_new import (
+    generate_path,
     get_all_alphaNP_bounds,
     get_confint,
     get_delchisq,
@@ -20,16 +21,6 @@ from kifit.performfit_new import (
     sample_alphaNP_det,
 )
 
-# import pandas as pd
-
-
-_plot_path = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "plots")
-)
-
-if not os.path.exists(_plot_path):
-    os.makedirs(_plot_path)
-
 ###############################################################################
 
 default_colour = [
@@ -43,9 +34,10 @@ default_colour = [
     "#17becf",
 ]
 
-det_colour = "#1f77b4"
-fit_colour = "#2ca02c"
-fit_colour2 = 'limegreen'
+fit_colour = 'C0'
+fit_scatter_colour = 'b'
+gkp_colour = 'purple'
+nmgkp_colour = 'darkgreen'
 
 ###############################################################################
 
@@ -61,6 +53,7 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1, plot_path=None):
     """
 
     if plot_path is None:
+        _, _plot_path = generate_path()
         plot_path = _plot_path
 
     betas_odr, sig_betas_odr, kperp1s, ph1s, sig_kperp1s, sig_ph1s = perform_odr(
@@ -167,13 +160,19 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1, plot_path=None):
     ax3.set_ylabel(r"Lin. Reg. Resid.")
 
     plt.tight_layout()
-    plt.savefig(plot_path / f"linfit_{elem.id}.png")
+    plt.savefig(os.path.join(plot_path, f"linfit_{elem.id}.png"))
 
     return fig, ax1, ax2, ax3
 
 
-def blocking_plot(nblocks, estimations, uncertainties, label="", filename="blocking"):
+def blocking_plot(nblocks, estimations, uncertainties, label="",
+        filename="blocking", plot_path=None):
     """Plot the blocking iterative estimation of the given list of variables."""
+
+    if plot_path is None:
+        _, _plot_path = generate_path()
+        plot_path = _plot_path
+
     plt.figure(figsize=(6, 6 * 6 / 8))
     plt.errorbar(np.arange(1, nblocks + 1, 1), estimations, yerr=uncertainties,
         label=label, color="blue", alpha=0.6)
@@ -181,7 +180,7 @@ def blocking_plot(nblocks, estimations, uncertainties, label="", filename="block
     plt.grid(True)
     plt.xlabel("Blocks")
     plt.ylabel("Estimation")
-    plt.savefig(f"plots/{filename}.png")
+    plt.savefig(os.path.join(plot_path, f"{filename}.png"))
 
 
 def plot_mc_output(alphalist, delchisqlist,
@@ -189,11 +188,10 @@ def plot_mc_output(alphalist, delchisqlist,
         xlabel=r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
         ylabel=r"$\Delta \chi^2$",
         plotname=None,
-        xlims=[None, None], 
-        ylims=[None, None], 
+        xlims=[None, None],
+        ylims=[None, None],
         minll=0,
-        plot_path=None,
-    ):
+        plot_path=None):
     """
     plot 2-dimensional scatter plot showing the likelihood associated with the
     parameter values given in alphalist.
@@ -201,13 +199,14 @@ def plot_mc_output(alphalist, delchisqlist,
 
     """
     if plot_path is None:
+        _, _plot_path = generate_path()
         plot_path = _plot_path
 
     fig, ax = plt.subplots()
 
     nsamples = len(alphalist)  # NEW
 
-    ax.scatter(alphalist, delchisqlist, s=1, alpha=0.5, color="royalblue")
+    ax.scatter(alphalist, delchisqlist, s=1, alpha=0.5, color=fit_colour)
 
     smalll_indices = np.argsort(delchisqlist)  # NEW
     small_alphas = np.array([alphalist[ll] for ll in smalll_indices[: int(nsamples * .1)]])  # NEW
@@ -223,7 +222,7 @@ def plot_mc_output(alphalist, delchisqlist,
     ax.set_ylim(ylims[0], ylims[1])
     plt.legend(loc='upper center')
     plt.title(rf"{len(alphalist)} samples")
-    plt.savefig(plot_path / f"mc_output_{plotname}.png")
+    plt.savefig(os.path.join(plot_path, f"mc_output_{plotname}.png"))
     plt.close()
 
     return ax
@@ -236,9 +235,8 @@ def plot_final_mc_output(
         nsigmas=2, xind=0,
         xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
         plotname="mc_result", plotitle=None,
-        xlims=[None, None], ylims=[None, None], 
-        show=False, plot_path=None,
-    ):
+        xlims=[None, None], ylims=[None, None],
+        show=False, plot_path=None):
     """
     Plot 2-dimensional scatter plot showing the likelihood associated with the
     parameter values given in alphalist. If the lists were computed for multiple
@@ -247,6 +245,7 @@ def plot_final_mc_output(
 
     """
     if plot_path is None:
+        _, _plot_path = generate_path()
         plot_path = _plot_path
 
     fig, ax = plt.subplots()
@@ -258,21 +257,21 @@ def plot_final_mc_output(
     #     np.max(np.array(alphas)), 100000)
     #
     if lb is not None and ub is not None:
-        ax.axvspan(lb, ub, alpha=.5, color="darkgreen",
+        ax.axvspan(lb, ub, alpha=.5, color=fit_colour,
         label=f"{nsigmas}" + r"$\sigma$ confidence interval")
 
     if siglb is not None and sigub is not None:
-        ax.axvspan(lb - siglb, lb + siglb, alpha=.2, color="darkgreen")
-        ax.axvspan(ub - sigub, ub + sigub, alpha=.2, color="darkgreen")
+        ax.axvspan(lb - siglb, lb + siglb, alpha=.2, color=fit_colour)  # "darkgreen")
+        ax.axvspan(ub - sigub, ub + sigub, alpha=.2, color=fit_colour)  # "darkgreen")
 
     ax.axhline(y=delchisqcrit, color="orange", lw=1, ls="--")
 
     for exp in range(nexps):
         ax.scatter(alphas[exp], delchisqs[exp],
-            s=1, alpha=0.5, color='royalblue')
+            s=1, alpha=0.5, color=fit_colour)  # 'royalblue')
 
         ax.scatter(alphas[exp][np.argmin(delchisqs[exp])],
-            np.min(delchisqs[exp]), color='royalblue')
+            np.min(delchisqs[exp]), color=fit_colour)  # 'royalblue')
 
     if plotitle is None:
         plotitle = elem.id + ", " + str(nsamples) + " samples, x=" + str(xind)
@@ -298,19 +297,20 @@ def plot_final_mc_output(
     ax.set_ylim(2 * errorbarpos, ymax)
 
     plt.legend(loc='upper center')
-    plt.savefig(plot_path / f"{plotname}_{elem.id}_x{str(xind)}.png")
+    plt.savefig(os.path.join(plot_path,
+        f"{plotname}_{elem.id}_x{str(xind)}.png"))
     plt.close()
 
     return fig, ax
 
 
-def plot_vlines_for_alphaNP_det_bounds(
+def scatter_alphaNP_det_bounds(
     ax,
     scatterpos,
     elem,
     dimindex,
     dim,
-    nsamples,
+    ndetsamples,
     nsigmas,
     minpos,
     maxneg,
@@ -332,16 +332,13 @@ def plot_vlines_for_alphaNP_det_bounds(
     else:
         method_tag = "NMGKP"
 
-    alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples, mphivar=False, gkp=gkp)
-    print("alphas.shape", alphas.shape)
-    print("sigalphas.shape", sigalphas.shape)
+    alphas, sigalphas = sample_alphaNP_det(elem, dim, ndetsamples,
+        mphivar=False, gkp=gkp)
 
     if showalldetbounds:
         alphaNP_UBs, alphaNP_LBs = get_all_alphaNP_bounds(
             alphas, sigalphas, nsigmas=nsigmas
         )
-
-        print("alphaNP_UBs.shape", alphaNP_UBs.shape)
 
         for p in range(alphas.shape[1]):
             # if p == 0:
@@ -369,6 +366,8 @@ def plot_vlines_for_alphaNP_det_bounds(
     )
 
     if showbestdetbounds:
+        print("showbestdetbounds")
+        print("scattercolour", scattercolour)
         ax.scatter(
             minpos_alphas, scatterpos * np.ones(len(minpos_alphas)),
             s=6,
@@ -391,6 +390,25 @@ def plot_vlines_for_alphaNP_det_bounds(
     return ax, minpos, maxneg
 
 
+def plot_vlines_det_bounds(
+    ax,
+    minpos,
+    maxneg,
+    nsigmas,
+    method_tag,
+    gkp=True,
+    vlinecolour=gkp_colour,
+):
+    """
+    On alphaNP vs. logL plot, plot best GKP / NMGKP bounds.
+
+    """
+    ax.axvspan(maxneg, minpos, alpha=.5, color=vlinecolour,
+        label=f"{nsigmas}" + r"$\sigma$" + method_tag)
+
+    return ax, minpos, maxneg
+
+
 def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     gkpdims=[], nmgkpdims=[], ndetsamples=100,
     showalldetbounds=False, showbestdetbounds=True,
@@ -405,8 +423,8 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     The resulting plot is saved in plots directory under alphaNP_ll + elem.
 
     """
-
     if plot_path is None:
+        _, _plot_path = generate_path()
         plot_path = _plot_path
 
     nsigmas = mc_output[1]
@@ -425,7 +443,7 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
 
     fig, ax = plt.subplots()
 
-    ax.scatter(alphas, delchisqs, s=1, c="b")
+    ax.scatter(alphas, delchisqs, s=1, c=fit_scatter_colour)
 
     nblocks = len(alphas)
     nsamples = len(alphas[0])
@@ -434,21 +452,25 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     #     np.max(np.array(alphas)), 100000)
 
     if lb is not None and ub is not None:
-        ax.axvspan(lb, ub, alpha=.5, color="darkgreen",
+        ax.axvspan(lb, ub, alpha=.5, color=fit_colour,
         label=f"{nsigmas}" + r"$\sigma$ confidence interval")
 
     if siglb is not None and sigub is not None:
-        ax.axvspan(lb - siglb, lb + siglb, alpha=.2, color="darkgreen")
-        ax.axvspan(ub - sigub, ub + sigub, alpha=.2, color="darkgreen")
+        print("lb   ", lb)
+        print("ub   ", ub)
+        print("siglb", siglb)
+        print("sigub", sigub)
+        ax.axvspan(lb - siglb, lb + siglb, alpha=.2, color=fit_colour)
+        ax.axvspan(ub - sigub, ub + sigub, alpha=.2, color=fit_colour)
 
     ax.axhline(y=delchisqcrit, color="orange", lw=1, ls="--")
 
     for block in range(nblocks):
         ax.scatter(alphas[block], delchisqs[block],
-            s=1, alpha=0.5, color="royalblue")
+            s=1, alpha=0.5, color=fit_colour)
 
         ax.scatter(alphas[block][np.argmin(delchisqs[block])],
-            np.min(delchisqs[block]), color='royalblue')
+            np.min(delchisqs[block]), color=fit_scatter_colour)
 
     (ymin, ymax) = ax.get_ylim()
 
@@ -463,6 +485,9 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     errorbarpos = - (ymax - ymin) / 10
     scatterpos = errorbarpos / 2
 
+    print("errorbarpos", errorbarpos)
+    print("scatterpos", scatterpos)
+
     ax.errorbar(bestalphapt, errorbarpos, xerr=sigbestalphapt, color="red")
     ax.scatter(bestalphapt, errorbarpos,
         color="orange", marker="*",
@@ -475,10 +500,10 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     maxneg = np.array([])
 
     for d, dim in enumerate(gkpdims):
-        alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples,
+        alphas, sigalphas = sample_alphaNP_det(elem, dim, ndetsamples,
             mphivar=False, gkp=True)
 
-        ax, minpos, maxneg = plot_vlines_for_alphaNP_det_bounds(
+        ax, minpos, maxneg = scatter_alphaNP_det_bounds(
             ax,
             scatterpos,
             elem,
@@ -491,14 +516,23 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
             gkp=True,
             showbestdetbounds=showbestdetbounds,
             showalldetbounds=showalldetbounds,
-            scattercolour='purple'
+            scattercolour=gkp_colour
         )
 
-    for d, dim in enumerate(gkpdims):
-        alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples,
+    ax, minpos, maxneg = plot_vlines_det_bounds(
+        ax,
+        minpos,
+        maxneg,
+        nsigmas=nsigmas,
+        method_tag=f"dim {dim} GKP",
+        gkp=True,
+        vlinecolour=gkp_colour)
+
+    for d, dim in enumerate(nmgkpdims):
+        alphas, sigalphas = sample_alphaNP_det(elem, dim, ndetsamples,
             mphivar=False, gkp=False)
 
-        ax, minpos, maxneg = plot_vlines_for_alphaNP_det_bounds(
+        ax, minpos, maxneg = scatter_alphaNP_det_bounds(
             ax,
             scatterpos,
             elem,
@@ -511,11 +545,25 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
             gkp=False,
             showbestdetbounds=showbestdetbounds,
             showalldetbounds=showalldetbounds,
-            scattercolour='k'
+            scattercolour=nmgkp_colour
         )
 
+    ax, minpos, maxneg = plot_vlines_det_bounds(
+        ax,
+        minpos,
+        maxneg,
+        nsigmas=nsigmas,
+        method_tag=f"dim {dim} NMGKP",
+        gkp=False,
+        vlinecolour=nmgkp_colour)
+
     plt.legend(loc='upper center')
-    plt.savefig(plot_path / f"{plotname}_{elem.id}_x{str(xind)}.png")
+
+    print("Saving alphaNP-logL plot in ", str(os.path.join(plot_path,
+        f"{plotname}_{elem.id}_x{str(xind)}.png")))
+    plt.savefig(os.path.join(plot_path,
+        f"{plotname}_{elem.id}_x{str(xind)}.png"))
+
     plt.close()
 
     return fig, ax
@@ -570,7 +618,7 @@ def plot_mphi_alphaNP_det_bound(
     minpos,
     maxneg,
     gkp=True,
-    showbestdetbounds=False,
+    showbestdetbounds=True,
     showalldetbounds=False,
 ):
     """
@@ -585,7 +633,6 @@ def plot_mphi_alphaNP_det_bound(
 
     else:
         method_tag = "NMGKP"
-
     alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples, mphivar=True, gkp=gkp)
 
     if showalldetbounds:
@@ -639,18 +686,22 @@ def plot_mphi_alphaNP_det_bound(
         ax1.scatter(
             elem.mphis,
             np.nanmax(minpos_alphas, -maxneg_alphas, axis=1),
-            s=6,
+            s=3,
             color=default_colour[dimindex],
             label=elem.id + ", dim " + str(dim) + " " + method_tag + "_best",
         )
         ax2.scatter(
             elem.mphis,
             minpos_alphas,
-            s=6,
+            s=3,
             color=default_colour[dimindex],
             label=elem.id + ", dim " + str(dim) + " " + method_tag + "_best",
         )
-        ax2.scatter(elem.mphis, maxneg_alphas, s=6, color=default_colour[dimindex])
+        ax2.scatter(
+            elem.mphis,
+            maxneg_alphas,
+            s=3,
+            color=default_colour[dimindex])
 
     if dimindex == 0:
         minpos = minpos_alphas
@@ -685,7 +736,8 @@ def plot_mphi_alphaNP_fit_bound(ax1, ax2, elem,
         color=fit_colour)
     ax1.plot(elem.mphis,
         np.max(np.array([np.abs(lb) + 2 * siglb, np.abs(ub) + 2 * sigub]), axis=0),
-        ls='--', color=fit_colour2, label=r"$2\sigma$ uncertainty on fit bound")
+        ls='--', color=fit_colour, alpha=.2,
+        label=r"$2\sigma$ uncertainty on fit bound")
 
     # mphi vs alphaNP
     ax2.scatter(elem.mphis, bestalphas_parabola, color='orange', marker="*",
@@ -696,11 +748,11 @@ def plot_mphi_alphaNP_fit_bound(ax1, ax2, elem,
     # ax2.errorbar(elem.mphis, bestalphas_pts, yerr=sigbestalphas_pts, ecolor='k')
 
     ax2.plot(elem.mphis, ub, color=fit_colour)
-    ax2.plot(elem.mphis, ub + sigub, ls='--', color=fit_colour2,
+    ax2.plot(elem.mphis, ub + sigub, ls='--', color=fit_colour, alpha=.2,
         label=r"$2\sigma$ uncertainty on fit bound")
 
     ax2.plot(elem.mphis, lb, color=fit_colour)
-    ax2.plot(elem.mphis, lb - siglb, ls='--', color=fit_colour2)
+    ax2.plot(elem.mphis, lb - siglb, ls='--', color=fit_colour, alpha=.2)
 
     print("ub", ub)
     print("lb", lb)
@@ -815,7 +867,7 @@ def plot_mphi_alphaNP(
     showallowedfitpts=False,
     showbestdetbounds=False,
     showalldetbounds=False,
-    plot_path = None,
+    plot_path=None
 ):
     """
     Plot the most stringent nsigmas-bounds on both positive and negative
@@ -826,7 +878,7 @@ def plot_mphi_alphaNP(
 
     """
     if plot_path is None:
-        plot_path = _plot_path
+        _, plot_path = generate_path()
 
     # x-vectors
     nsigmas = mc_output[1]
@@ -1002,15 +1054,11 @@ def plot_mphi_alphaNP(
     else:
         prettyplotname = plotname + "_"
 
-    fig1.savefig(
-        plot_path / 
-        f"mphi_abs_alphaNP_{elem.id}_{prettyplotname}{str(len(alphas[0]))}_fit_samples.png"
-    )
+    fig1.savefig(os.path.join(plot_path,
+        f"mphi_abs_alphaNP_{elem.id}_{prettyplotname}{str(len(alphas[0]))}_fit_samples.png"))
 
-    fig2.savefig(
-        plot_path /
-        f"mphi_alphaNP_{elem.id}_{prettyplotname}{str(len(alphas[0]))}_fit_samples.png"
-    )
+    fig2.savefig(os.path.join(plot_path,
+        f"mphi_alphaNP_{elem.id}_{prettyplotname}{str(len(alphas[0]))}_fit_samples.png"))
 
     plt.close()
 
