@@ -627,7 +627,8 @@ def determine_search_interval(
     # print("sig_best_alpha", sig_best_alpha)
     # print("std_best_alpha", np.std(best_alpha_list))
 
-    elem.set_alphaNP_init(best_alpha, sig_best_alpha)
+    for elem in elem_collection:
+        elem.set_alphaNP_init(best_alpha, sig_best_alpha)
 
     return best_alpha, sig_best_alpha
 
@@ -648,6 +649,7 @@ def perform_experiments(
     ):
 
     from kifit.plotfit import plot_mc_output, plot_final_mc_output
+
 
     # we can use one of the elements as reference, since alphaNP is shared
     allalphasamples = generate_alphaNP_sample(
