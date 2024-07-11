@@ -422,7 +422,8 @@ def compute_ll(
     elemsamples_collection, fitparamsamples_collection = [], []
     for elem in elem_collection:
         elemsamples_collection.append(generate_element_sample(elem, nelemsamples))
-        # same intercept and slope for all, only alphaNP is updated
+        # we are creating a matrix of element params with same fit params but 
+        # different alpha for each simulated element
         fitparamsamples = np.tensordot(np.ones(nalphasamples), elem.means_fit_params, axes=0)
         fitparamsamples[:, -1] = alphasamples
         fitparamsamples_collection.append(fitparamsamples)
@@ -430,29 +431,28 @@ def compute_ll(
     alphalist = []
     lls = np.zeros(int(nalphasamples * nelemsamples))
 
+    # for each element in the collection (e.g. Ca and Yb)
     for i, elem in enumerate(elem_collection):
+        elem_lls = []
+        # for each alpha in the list of generated alphas
         for s in range(nalphasamples):
+            # we collect a list of absd for each generated combination alpha-fitparams
             absdsamples_alpha = []
-
             for t in range(nelemsamples):
                 elem._update_elem_params(elemsamples_collection[i][t])
                 elem._update_fit_params(fitparamsamples_collection[i][s])
                 absdsamples_alpha.append(elem.absd)
 
-        # we need alpha values only once
-        if i == 0:
-            alphalist.append(np.ones(nelemsamples) * alphasamples[s])
+            # we need alpha values only once
+            if i == 0:
+                alphalist.extend(np.ones(nelemsamples) * alphasamples[s])
         
-        print(len(lls), len(absdsamples_alpha))
+            # `nelemsamples` values of logL
+            elem_lls.extend(get_llist(np.array(absdsamples_alpha), nelemsamples, cov_decomp_method))
 
-        this_lls = get_llist(np.array(absdsamples_alpha), nelemsamples, cov_decomp_method)
-        print(len(this_lls))
-        exit()
+        lls += np.asarray(elem_lls)
 
-        lls += get_llist(np.array(absdsamples_alpha), nelemsamples, cov_decomp_method)
-
-        # return elem.dnorm * np.array(alphalist), elem.dnorm * np.array(llist)
-    return np.array(alphalist).flatten(), lls
+    return np.array(alphalist), lls
 
 
 def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection, min_percentile):
@@ -477,8 +477,8 @@ def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection, min_percentil
             elem._update_elem_params(elemsamples_collection[i][s])
             absdsamples.append(elem.absd)
         lls = get_llist(np.array(absdsamples), nelemsamples)
-        delchisq = get_delchisq(lls, min_percentile)
-        loss += delchisq
+        # delchisq = get_delchisq(lls, min_percentile)
+        loss += lls
     
     return np.percentile(lls, min_percentile)
 
@@ -489,8 +489,8 @@ def minimise_logL_alphaNP(
         alpha0, 
         maxiter, 
         opt_method, 
+        min_percentile,
         tol=1e-12,
-        min_percentile=1,
     ):
 
     if opt_method == "annealing":
@@ -513,7 +513,7 @@ def minimise_logL_alphaNP(
         minlogL = minimize(
             logL_alphaNP, 
             x0=0, 
-            bounds=[(-1e-6, 1e-6)],
+            bounds=[(-1e-4, 1e-4)],
             args=(elem_collection, elemsamples_collection, min_percentile),
             method=opt_method, options={"maxiter": maxiter}, 
             tol=tol,
@@ -600,7 +600,7 @@ def determine_search_interval(
     best_alpha_list = []
 
     print("scipy minimisation")
-    for search in tqdm(range(nsearches)):
+    for search in range(nsearches):
 
         if verbose:
             logging.info(f"Iterative search {search + 1}/{nsearches}")
@@ -654,8 +654,9 @@ def perform_experiments(
         plot_output,
         verbose,
         plot_path,
+        min_percentile,
         xind=0,
-        min_percentile=1):
+    ):
 
     from kifit.plotfit import plot_mc_output, plot_final_mc_output
 
@@ -669,9 +670,9 @@ def perform_experiments(
 
     alphas_exps, lls_exps, bestalphas_exps, delchisqs_exps = [], [], [], []
 
-    for exp in tqdm(range(nexps)):
-        # if verbose:
-        #    logging.info(f"Running experiment {exp+1}/{nexps}")
+    for exp in range(nexps):
+        if verbose:
+           logging.info(f"Running experiment {exp+1}/{nexps}")
 
         # collect data for a single experiment
         alphasamples = allalphasamples[
@@ -711,7 +712,7 @@ def perform_experiments(
         elem.set_alphaNP_init(best_alpha_pts, sig_alpha_pts)
 
     if plot_output:
-        plot_final_mc_output(elem, alphas_exps, delchisqs_exps,
+        plot_final_mc_output(elem_collection, alphas_exps, delchisqs_exps,
             delchisqcrit,
             bestalphapt=best_alpha_pts, sigbestalphapt=sig_alpha_pts,
             lb=LB, siglb=sig_LB, ub=UB, sigub=sig_UB,
@@ -742,7 +743,7 @@ def sample_alphaNP_fit(
         mphivar: bool = False,
         opt_method: str = "Powell",
         x0: int = 0,
-        min_percentile: int = 1,
+        min_percentile: int = 10,
         verbose: bool = True):
     """
     Get a set of nsamples_search samples of elem by varying the masses and isotope
@@ -847,6 +848,7 @@ def sample_alphaNP_fit(
                 xind=x,
                 verbose=verbose,
                 plot_path=_plot_path,
+                min_percentile=min_percentile,
             )
 
             res_list_x.append(res_exps)

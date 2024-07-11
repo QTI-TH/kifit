@@ -20,9 +20,6 @@ def main(args):
 
     output_filename = (
         f"{args.outputfile_name}_{args.optimization_method}"
-        f"_{args.num_searches}searches_{args.num_experiments}nexps"
-        f"_{args.num_elemsamples_search}es_{args.num_elemsamples_exp}ee"
-        f"_{args.num_alphasamples_exp}ae"
     )
     
     mc_output = sample_alphaNP_fit(
@@ -38,6 +35,7 @@ def main(args):
         mphivar=False,
         plot_output=True,
         opt_method=args.optimization_method,
+        min_percentile=args.min_percentile,
         x0=0,
     )
 
@@ -108,6 +106,12 @@ if __name__ == "__main__":
         default=100, 
         type=int, 
         help="# generated samples executing determinant method",
+    )
+    parser.add_argument(
+        "--min_percentile",
+        default=10, 
+        type=float, 
+        help="Min percentile value used to compute a robust estimation of min(logL)",
     )
 
     args = parser.parse_args()
