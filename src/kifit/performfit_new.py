@@ -401,6 +401,7 @@ def compute_ll(
         elem_collection, 
         alphasamples, 
         nelemsamples,
+        min_percentile,
         cov_decomp_method="cholesky"
     ):
     """
@@ -417,47 +418,34 @@ def compute_ll(
         List[float], List[float]: alphaNP samples and list of associated log likelihood.
     """
 
-    nalphasamples = len(alphasamples)
-
-    elemsamples_collection, fitparamsamples_collection = [], []
+    elemsamples_collection = []
     for elem in elem_collection:
         elemsamples_collection.append(generate_element_sample(elem, nelemsamples))
-        # we are creating a matrix of element params with same fit params but 
-        # different alpha for each simulated element
-        fitparamsamples = np.tensordot(np.ones(nalphasamples), elem.means_fit_params, axes=0)
-        fitparamsamples[:, -1] = alphasamples
-        fitparamsamples_collection.append(fitparamsamples)
 
-    alphalist = []
-    lls = np.zeros(int(nalphasamples * nelemsamples))
+    lls = []
 
-    # for each element in the collection (e.g. Ca and Yb)
-    for i, elem in enumerate(elem_collection):
-        elem_lls = []
-        # for each alpha in the list of generated alphas
-        for s in range(nalphasamples):
-            # we collect a list of absd for each generated combination alpha-fitparams
-            absdsamples_alpha = []
-            for t in range(nelemsamples):
-                elem._update_elem_params(elemsamples_collection[i][t])
-                elem._update_fit_params(fitparamsamples_collection[i][s])
-                absdsamples_alpha.append(elem.absd)
+    # for each alpha in the list of generated alphas
+    for s in range(len(alphasamples)):
+        # we collect a list of absd for each generated combination alpha-fitparams
+        lls.append(logL_alphaNP(
+                alphaNP=alphasamples[s],
+                elem_collection=elem_collection,
+                elemsamples_collection=elemsamples_collection,
+                min_percentile=min_percentile,
+            )
+        )
 
-            # we need alpha values only once
-            if i == 0:
-                alphalist.extend(np.ones(nelemsamples) * alphasamples[s])
-        
-            # `nelemsamples` values of logL
-            elem_lls.extend(get_llist(np.array(absdsamples_alpha), nelemsamples, cov_decomp_method))
-
-        lls += np.asarray(elem_lls)
-
-    return np.array(alphalist), lls
+    return np.array(alphasamples), np.array(lls)
 
 
 def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection, min_percentile):
-    # elem = args[0]
-    # elemsamples = args[1]
+    """
+    Compute logL given:
+        1. alpha value
+        2. elem_collection
+        3. elemsamples for each element in the collection
+        4. min_percentile
+    """
 
     for elem in elem_collection:
         fitparams = elem.means_fit_params
@@ -477,10 +465,11 @@ def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection, min_percentil
             elem._update_elem_params(elemsamples_collection[i][s])
             absdsamples.append(elem.absd)
         lls = get_llist(np.array(absdsamples), nelemsamples)
-        # delchisq = get_delchisq(lls, min_percentile)
-        loss += lls
+        delchisq = get_delchisq(lls, min_percentile)
+
+        loss += delchisq
     
-    return np.percentile(lls, min_percentile)
+    return np.percentile(loss, min_percentile)
 
 
 def minimise_logL_alphaNP(
@@ -513,7 +502,7 @@ def minimise_logL_alphaNP(
         minlogL = minimize(
             logL_alphaNP, 
             x0=0, 
-            bounds=[(-1e-4, 1e-4)],
+            bounds=[(-1e-6, 1e-6)],
             args=(elem_collection, elemsamples_collection, min_percentile),
             method=opt_method, options={"maxiter": maxiter}, 
             tol=tol,
@@ -676,10 +665,13 @@ def perform_experiments(
 
         # collect data for a single experiment
         alphasamples = allalphasamples[
-            exp * nalphasamples_exp: (exp + 1) * nalphasamples_exp]
+            exp * nalphasamples_exp: (exp + 1) * nalphasamples_exp
+        ]
 
         # compute alphas and LLs for this experiment
-        alphas, lls = compute_ll(elem_collection, alphasamples, nelemsamples_exp)
+        alphas, lls = compute_ll(
+            elem_collection, alphasamples, nelemsamples_exp, min_percentile,
+        )
 
         alphas_exps.append(alphas)
         bestalphas_exps.append(alphas[np.argmin(lls)])
