@@ -782,9 +782,9 @@ def sample_alphaNP_fit(
         "x_ind"]
 
     # check the Xcoeff are the same
-    first_list = np.round(np.asarray(elem_collection[0].Xcoeff_data).T[0], decimals=7)
+    first_list = np.round(np.asarray(elem_collection[0].Xcoeff_data).T[0], decimals=4)
     for elem in elem_collection:
-        new_list = np.round(np.asarray(elem.Xcoeff_data).T[0], decimals=7)
+        new_list = np.round(np.asarray(elem.Xcoeff_data).T[0], decimals=4)
         if (new_list != first_list).any():
             raise ValueError(
                 "Please prepare data with same mphi values for all the elements in the collection."
