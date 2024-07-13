@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import BSpline, interp1d, splrep
 from scipy.optimize import curve_fit
 
-from kifit.performfit_new import (
+from kifit.performfit import (
     generate_path,
     get_all_alphaNP_bounds,
     get_confint,

@@ -1,5 +1,5 @@
 from kifit.loadelems import Elem
-from kifit.performfit_new import sample_alphaNP_det
+from kifit.performfit import sample_alphaNP_det
 from kifit.plotfit import plot_linfit, plot_alphaNP_ll, plot_mphi_alphaNP
 
 elem = Elem.get('Ybmin')

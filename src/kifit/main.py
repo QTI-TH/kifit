@@ -2,7 +2,7 @@ import argparse
 
 import datetime
 from kifit.loadelems import Elem
-from kifit.performfit_new import sample_alphaNP_fit, generate_path
+from kifit.performfit import sample_alphaNP_fit, generate_path
 from kifit.plotfit import plot_linfit, plot_alphaNP_ll
 
 # Define a custom argument type for a list of strings
@@ -36,7 +36,7 @@ def main(args):
         plot_output=True,
         opt_method=args.optimization_method,
         min_percentile=args.min_percentile,
-        x0=0,
+        x0=args.x0,
     )
 
 
@@ -109,9 +109,15 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--min_percentile",
-        default=10, 
+        default=1, 
         type=float, 
         help="Min percentile value used to compute a robust estimation of min(logL)",
+    )
+    parser.add_argument(
+        "--x0",
+        default=0, 
+        type=int, 
+        help="Target mphi index",
     )
 
     args = parser.parse_args()

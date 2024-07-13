@@ -8,6 +8,6 @@ python3 main.py --elements_list "Yb_PTB_2024,Ca_WT_Aarhus_PTB_2024" \
                 --maxiter 100 --num_searches 10 --num_elemsamples_search 100 \
                 --num_experiments 5  --block_size  10\
                 --num_alphasamples_exp 100 --num_elemsamples_exp 100 \
-                --num_samples_det 100
+                --num_samples_det 100 --x0 7
                      
                      
