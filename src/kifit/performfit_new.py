@@ -397,7 +397,7 @@ def get_bestalphaNP_and_bounds(
     return (best_alpha_pts, sig_alpha_pts, LB, sig_LB, UB, sig_UB)
 
 
-def compute_ll(
+def compute_ll_experiments(
         elem_collection, 
         alphasamples, 
         nelemsamples,
@@ -595,7 +595,7 @@ def determine_search_interval(
             logging.info(f"Iterative search {search + 1}/{nsearches}")
         
         elemsamples_collection = []
-        for i in range(len(allelemsamples)):
+        for i in range(len(elem_collection)):
             elemsamples_collection.append(
                 allelemsamples[i][
                     search * nelemsamples_search: (search + 1) * nelemsamples_search
@@ -671,7 +671,7 @@ def perform_experiments(
         ]
 
         # compute alphas and LLs for this experiment
-        alphas, lls = compute_ll(
+        alphas, lls = compute_ll_experiments(
             elem_collection, alphasamples, nelemsamples_exp, min_percentile,
         )
 
@@ -737,7 +737,7 @@ def sample_alphaNP_fit(
         mphivar: bool = False,
         opt_method: str = "Powell",
         x0: int = 0,
-        min_percentile: int = 10,
+        min_percentile: int = 1,
         verbose: bool = True):
     """
     Get a set of nsamples_search samples of elem by varying the masses and isotope
@@ -764,10 +764,11 @@ def sample_alphaNP_fit(
 
     mc_output_path = os.path.join(
         _outputdata_path, (
-            f"{output_filename}_{opt_method}_"
+              f"{output_filename}_{opt_method}_"
             + f"{nsearches}searches_{nelemsamples_search}es-search_"
             + f"{nexps}exps_{nelemsamples_exp}es-exp_{nalphasamples_exp}as-exp_"
             + f"maxiter{maxiter}_"
+            + f"blocksize{block_size}"
         )
     )
 
