@@ -2,7 +2,7 @@ from kifit.loadelems import Elem
 from kifit.performfit import sample_alphaNP_fit
 from kifit.plotfit import plot_linfit, plot_alphaNP_ll, plot_mphi_alphaNP
 
-ca = Elem.get('Ybmin')
+ca = Elem.get('Ybmin5')
 # print(ca.get_dimensions)
 # print()
 # print("relative uncertainties")

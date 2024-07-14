@@ -1,9 +1,10 @@
 from kifit.loadelems import Elem
 from kifit.performfit_new import sample_alphaNP_fit, generate_path
-from kifit.plotfit import plot_linfit, plot_alphaNP_ll
+from kifit.plotfit import plot_linfit, plot_alphaNP_ll, plot_mphi_alphaNP
 
 # load element data
-datafile = "Camin"
+datafile = "Yb_PTB_2024"
+
 elem = Elem.get(datafile)
 
 gkp_dims = [3]
@@ -19,7 +20,7 @@ num_elemsamples_search = 100  # 200
 num_experiments = 12
 num_elemsamples_experiment = 100
 num_alphasamples_experiment = 100
-block_size = 2
+block_size = 10
 
 # search hyper-parameters
 max_iter = 1000
@@ -54,3 +55,6 @@ plot_alphaNP_ll(elem, mc_output,
     gkpdims=gkp_dims, nmgkpdims=nmgkp_dims,
     ndetsamples=num_samples_det,
     showalldetbounds=True, showbestdetbounds=True)
+
+# plot_mphi_alphaNP(elem, mc_output, gkp_dims, nmgkp_dims, num_samples_det,
+#     showalldetbounds=True, showallowedfitpts=True)

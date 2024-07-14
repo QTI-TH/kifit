@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
+
 from scipy.interpolate import BSpline, interp1d, splrep
 from scipy.optimize import curve_fit
 
@@ -39,6 +40,7 @@ fit_scatter_colour = 'b'
 gkp_colour = 'purple'
 nmgkp_colour = 'darkgreen'
 
+markerlist = ['o', 'v', '^', '<', '>', 's', 'D']  # maybe cycle?
 ###############################################################################
 
 
@@ -366,13 +368,13 @@ def scatter_alphaNP_det_bounds(
     )
 
     if showbestdetbounds:
-        print("showbestdetbounds")
-        print("scattercolour", scattercolour)
         ax.scatter(
             minpos_alphas, scatterpos * np.ones(len(minpos_alphas)),
-            s=6,
+            s=6, marker=markerlist[dim - 3],
             color=scattercolour,
-            label=elem.id + ", dim " + str(dim) + " " + method_tag + " best",
+            label=(elem.id + ", dim " + str(dim) + " " + method_tag + " best: "
+                + r"$\alpha_{\mathrm{NP}}$: "
+                + f"[{max(maxneg_alphas):.4e}, {min(minpos_alphas):.4e}]"),
         )
         ax.scatter(
             maxneg_alphas, scatterpos * np.ones(len(maxneg_alphas)),
@@ -404,7 +406,9 @@ def plot_vlines_det_bounds(
 
     """
     ax.axvspan(maxneg, minpos, alpha=.5, color=vlinecolour,
-        label=f"{nsigmas}" + r"$\sigma$" + method_tag)
+        label=f"{nsigmas}" + r"$\sigma$ " + method_tag
+        + r". best $\alpha_{\mathrm{NP}}$: "
+        + f"[{max(maxneg):.4e}, {min(minpos):.4e}]", lw=1)
 
     return ax, minpos, maxneg
 
@@ -519,14 +523,22 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
             scattercolour=gkp_colour
         )
 
-    ax, minpos, maxneg = plot_vlines_det_bounds(
-        ax,
-        minpos,
-        maxneg,
-        nsigmas=nsigmas,
-        method_tag=f"dim {dim} GKP",
-        gkp=True,
-        vlinecolour=gkp_colour)
+    if len(gkpdims) > 0:
+
+        if len(gkpdims) > 1:
+            meth_tag = " (" + ", ".join(str(gd) for gd in gkpdims) + ")-dim GKP"
+
+        else:
+            meth_tag = f"{gkpdims[0]}-dim GKP"
+
+        ax, minpos, maxneg = plot_vlines_det_bounds(
+            ax,
+            minpos,
+            maxneg,
+            nsigmas=nsigmas,
+            method_tag=meth_tag,
+            gkp=True,
+            vlinecolour=gkp_colour)
 
     for d, dim in enumerate(nmgkpdims):
         alphas, sigalphas = sample_alphaNP_det(elem, dim, ndetsamples,
@@ -548,14 +560,22 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
             scattercolour=nmgkp_colour
         )
 
-    ax, minpos, maxneg = plot_vlines_det_bounds(
-        ax,
-        minpos,
-        maxneg,
-        nsigmas=nsigmas,
-        method_tag=f"dim {dim} NMGKP",
-        gkp=False,
-        vlinecolour=nmgkp_colour)
+    if len(nmgkpdims) > 0:
+
+        if len(nmgkpdims) > 1:
+            meth_tag = (
+                " (" + ", ".join(str(nmd) for nmd in nmgkpdims) + ")-dim NMGKP")
+        else:
+            meth_tag = f"{nmgkpdims[0]}-dim NMGKP"
+
+        ax, minpos, maxneg = plot_vlines_det_bounds(
+            ax,
+            minpos,
+            maxneg,
+            nsigmas=nsigmas,
+            method_tag=meth_tag,
+            gkp=False,
+            vlinecolour=nmgkp_colour)
 
     plt.legend(loc='upper center')
 

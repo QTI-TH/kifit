@@ -85,7 +85,8 @@ def blocking_bounds(lbs: List[float], ubs: List[float], block_size: int,
     #         nblocks. Here {len(lbs)} is not multiple of {nblocks}.")
     #
 
-    # begin NEW  ##############################################################
+    print("len(lbs)", len(lbs))
+
     if block_size > len(lbs):
         block_size = len(lbs)
         print(f"Reducing block size to {len(lbs)} since not enough samples "
@@ -93,8 +94,6 @@ def blocking_bounds(lbs: List[float], ubs: List[float], block_size: int,
             "sig[LB] and sig[UB] cannot be computed in this case.")
 
     nblocks = int(len(lbs) / block_size)
-
-    # end NEW  ################################################################
 
     # parametric bootstrap
     lb_min, ub_max, lb_val, ub_val, sig_lb, sig_ub = [], [], [], [], [], []
@@ -407,7 +406,8 @@ def get_bestalphaNP_and_bounds(
 def compute_ll(elem, alphasamples, nelemsamples,
         elementsamples=None, cov_decomp_method="cholesky"):
     """
-    Generate alphaNP list for element ``elem`` according to ``parameters_samples``.
+    Generate alphaNP list for element ``elem`` for `alphasamples`.
+    elementsamples are generated internally if not passed as argument.
 
     Args:
         elem (Elem): target element.
@@ -454,6 +454,11 @@ def compute_ll(elem, alphasamples, nelemsamples,
 
 
 def logL_alphaNP(alphaNP, elem, elemsamples, min_percentile):
+    """
+    Compute logL for a fixed value `alphaNP` value and set of `elemsamples`.
+
+    """
+
     # elem = args[0]
     # elemsamples = args[1]
 
