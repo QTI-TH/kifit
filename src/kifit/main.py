@@ -3,7 +3,7 @@ import argparse
 import datetime
 from kifit.loadelems import Elem
 from kifit.performfit import sample_alphaNP_fit, generate_path
-from kifit.plotfit import plot_linfit, plot_alphaNP_ll
+from kifit.plotfit import plot_linfit, plot_alphaNP_ll # , plot_mphi_alphaNP
 
 # Define a custom argument type for a list of strings
 def list_of_strings(arg):
@@ -13,6 +13,11 @@ def list_of_strings(arg):
 def main(args):
     """Determine alphaNP bounds given elements data."""
     # define output folder's name
+
+    if args.mphivar == "true":
+        mphivar = True
+    else:
+        mphivar = False
 
     element_collection = []
     for elem in args.elements_list:
@@ -32,12 +37,13 @@ def main(args):
         nalphasamples_exp=args.num_alphasamples_exp,
         block_size=args.block_size,
         maxiter=args.maxiter,
-        mphivar=False,
+        mphivar=mphivar,
         plot_output=True,
         opt_method=args.optimization_method,
         min_percentile=args.min_percentile,
         x0=args.x0,
     )
+
 
 
 if __name__ == "__main__":
@@ -119,6 +125,11 @@ if __name__ == "__main__":
         type=int, 
         help="Target mphi index",
     )
-
+    parser.add_argument(
+        "--mphivar",
+        default="false", 
+        type=str, 
+        help="If true, a loop is performed over all the mphi values in the datafile",
+    )
     args = parser.parse_args()
     main(args)

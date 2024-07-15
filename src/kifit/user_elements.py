@@ -14,5 +14,7 @@ user_elems = [
     "best_YB_Kyoto_MIT_GSI_2022",
     "best_YB_Kyoto_MIT_GSI_PTB_2024",
     "worst_Yb_Kyoto_MIT_GSI_2022",
-    "worst_Yb_Kyoto_MIT_GSI_PTB_2024"
+    "worst_Yb_Kyoto_MIT_GSI_PTB_2024",
+    "DataCa",
+    "DataYb",
 ]
