@@ -25,10 +25,12 @@ from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO)
 
-def generate_path():
+def generate_path(outputfile_name):
+
+    results_path = outputfile_name
 
     output_path = os.path.abspath(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "results"))
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), results_path))
 
     if not os.path.exists(output_path):
         print("Creating file at ", output_path)
@@ -756,19 +758,8 @@ def sample_alphaNP_fit(
             "min_percentile must be a positive number in (0, 100], "
             + f"not {min_percentile}.")
 
-    _outputdata_path, _plot_path = generate_path()
+    _outputdata_path, _plot_path = generate_path(output_filename)
 
-    mc_output_path = os.path.join(
-        _outputdata_path, (
-              f"{output_filename}_{opt_method}_"
-            + f"{nsearches}searches_{nelemsamples_search}es-search_"
-            + f"{nexps}exps_{nelemsamples_exp}es-exp_{nalphasamples_exp}as-exp_"
-            + f"maxiter{maxiter}_"
-            + f"blocksize{block_size}_"
-            + f"x0{x0}_" 
-            + f"mphivar{mphivar}"
-        )
-    )
 
     result_keys = [
         "alpha_experiments",
@@ -802,13 +793,14 @@ def sample_alphaNP_fit(
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas, dof=1)
 
     for x in x_range:
+        
+        mc_output_path_x = f"{_outputdata_path}/x{x}"
         res_list_x = []
-        mc_output_path_x = mc_output_path + f"x{x}.json"
 
         if os.path.exists(mc_output_path_x):
             print(f"Loading fit results for x={x} from ", mc_output_path_x)
 
-            with open(mc_output_path_x) as json_file:
+            with open(f"{mc_output_path_x}/fit_results.json") as json_file:
                 res = json.load(json_file)
                 res_x = []
 
@@ -818,6 +810,8 @@ def sample_alphaNP_fit(
                 res_list_x.append(res_x)
 
         else:
+            os.makedirs(mc_output_path_x, exist_ok=True)
+
             for elem in elem_collection:
                 elem._update_Xcoeffs(x)
 
@@ -853,16 +847,16 @@ def sample_alphaNP_fit(
 
             for i, res in enumerate(res_exps):
                 if i == 0 or i == 1:
-                    for exp, res_exp in enumerate(res):
-                        if isinstance(res_exp, np.ndarray):
-                            res_exp = res_exp.tolist()
-                        res_dict_x[result_keys[i]].append(res_exp)
-
+                    continue
                 else:
                     res_dict_x[result_keys[i]] = res
+            
+            # save big arrays
+            np.save(arr=res_exps[0], file=f"{mc_output_path_x}/alphas_exps")
+            np.save(arr=res_exps[1], file=f"{mc_output_path_x}/delchisq_exps")
 
-            with open(mc_output_path_x, 'w') as json_file:
-                json.dump(res_dict_x, json_file)
+            with open(f"{mc_output_path_x}/fit_results.json", 'w') as json_file:
+                json.dump(res_dict_x, json_file, indent=4)
 
         mc_output = [res_list_x, nsigmas]
 

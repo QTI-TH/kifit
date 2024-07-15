@@ -1,4 +1,6 @@
 import argparse
+import json
+import os
 
 import datetime
 from kifit.loadelems import Elem
@@ -14,27 +16,34 @@ def main(args):
     """Determine alphaNP bounds given elements data."""
     # define output folder's name
 
+    output_directory = f'results/{args.outputfile_name}_{args.optimization_method}_{args.random_seed}s'
+
+    os.makedirs(output_directory, exist_ok=True)
+
+    # dumping all the arguments into a json file
+    with open(f'{output_directory}/kifit_config.json', 'w') as json_file:
+        json.dump(vars(args), json_file, indent=4)
+
     if args.mphivar == "true":
         mphivar = True
     else:
         mphivar = False
 
+    # constructing the collection of elements
     element_collection = []
     for elem in args.elements_list:
         element_collection.append(Elem.get(str(elem)))
 
-    output_filename = (
-        f"{args.outputfile_name}_{args.optimization_method}"
-    )
 
     gkp_dims = [3]
     nmgkp_dims = []
+
 
     # -------------- Fit
 
     mc_output = sample_alphaNP_fit(
         element_collection,
-        output_filename=output_filename,
+        output_filename=output_directory,
         nsearches=args.num_searches,
         nelemsamples_search=args.num_elemsamples_search,
         nexps=args.num_experiments,
