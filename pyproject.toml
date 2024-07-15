@@ -1,0 +1,54 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "kifit"
+version = "0.0.1"
+description = "Searching for New Physics with (Non-)Linear King Plots"
+authors = ["Fiona Kirk and Matteo Robbiati"]
+readme = "README.md"
+packages = [{ include = "kifit", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+numpy = "^1.26.4"
+matplotlib = "^3.9.1"
+scipy = "^1.14.0"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+ipython = "^7.34"
+pdbpp = "^0.10.3"
+
+[tool.poetry.group.benchmark.dependencies]
+pytest = "^7.1.2"
+pylint = "^2.17"
+pytest-cov = "^3.0.0"
+pytest-env = "^0.8.1"
+pytest-benchmark = { version = "^4.0.0", extras = ["histogram"] }
+
+[tool.poe.tasks]
+bench = "pytest benchmarks/"
+test = "pytest"
+lint = "pylint src/**/*.py -E"
+lint-warnings = "pylint src/**/*.py --exit-zero"
+
+[tool.pytest.ini_options]
+testpaths = ['tests/', 'benchmarks/']
+python_files = ['test_*.py', 'bench_*.py']
+python_classes = ['Test*', 'Benchmark*']
+python_functions = ['test_*', 'bench_*']
+addopts = [
+  "--benchmark-warmup=on",
+  "--benchmark-warmup-iterations=100000",
+  "--benchmark-disable-gc",
+  "--benchmark-histogram=bench-hists/bench",
+  '--cov=qiboml',
+  '--cov-append',
+  '--cov-report=xml',
+  '--cov-report=html',
+  '--durations=60',
+]
