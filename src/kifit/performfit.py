@@ -25,9 +25,6 @@ from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO)
 
-np.random.seed(1)
-
-
 def generate_path():
 
     output_path = os.path.abspath(
@@ -482,7 +479,7 @@ def minimise_logL_alphaNP(
     if opt_method == "annealing":
         minlogL = dual_annealing(
             logL_alphaNP, 
-            bounds=[(-1e-4, 1e-4)], 
+            bounds=[(-1e-3, 1e-3)], 
             args=(elem_collection, elemsamples_collection, min_percentile), 
             maxiter=maxiter,
         )
@@ -490,7 +487,7 @@ def minimise_logL_alphaNP(
     elif opt_method == "differential_evolution":
         minlogL = differential_evolution(
             logL_alphaNP, 
-            bounds=[(-1e-4, 1e-4)], 
+            bounds=[(-1e-3, 1e-3)], 
             args=(elem_collection, elemsamples_collection, min_percentile), 
             maxiter=maxiter,
         )
@@ -499,7 +496,7 @@ def minimise_logL_alphaNP(
         minlogL = minimize(
             logL_alphaNP, 
             x0=0, 
-            bounds=[(-1e-6, 1e-6)],
+            bounds=[(-1e-3, 1e-3)],
             args=(elem_collection, elemsamples_collection, min_percentile),
             method=opt_method, options={"maxiter": maxiter}, 
             tol=tol,
@@ -735,7 +732,9 @@ def sample_alphaNP_fit(
         opt_method: str = "Powell",
         x0: int = 0,
         min_percentile: int = 1,
-        verbose: bool = True):
+        verbose: bool = True,
+        random_seed: int = 42,
+    ):
     """
     Get a set of nsamples_search samples of elem by varying the masses and isotope
     shifts according to the means and standard deviations given in the input
@@ -792,6 +791,8 @@ def sample_alphaNP_fit(
             )
     logging.info("All elements respect the initialization requirements.")
 
+    # fix random seed for reproducibility of the experiment
+    np.random.seed(random_seed)
 
     if mphivar:
         x_range = range(len(elem_collection[0].Xcoeff_data))

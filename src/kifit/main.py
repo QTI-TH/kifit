@@ -3,7 +3,7 @@ import argparse
 import datetime
 from kifit.loadelems import Elem
 from kifit.performfit import sample_alphaNP_fit, generate_path
-from kifit.plotfit import plot_linfit, plot_alphaNP_ll # , plot_mphi_alphaNP
+from kifit.plotfit import plot_linfit, plot_alphaNP_ll , plot_mphi_alphaNP
 
 # Define a custom argument type for a list of strings
 def list_of_strings(arg):
@@ -26,7 +26,12 @@ def main(args):
     output_filename = (
         f"{args.outputfile_name}_{args.optimization_method}"
     )
-    
+
+    gkp_dims = [3]
+    nmgkp_dims = []
+
+    # -------------- Fit
+
     mc_output = sample_alphaNP_fit(
         element_collection,
         output_filename=output_filename,
@@ -42,8 +47,31 @@ def main(args):
         opt_method=args.optimization_method,
         min_percentile=args.min_percentile,
         x0=args.x0,
+        random_seed=args.random_seed,
     )
 
+    # ------------- plots
+
+    plot_alphaNP_ll(
+        element_collection[0], 
+        mc_output,
+        xind=0,
+        gkpdims=gkp_dims, 
+        nmgkpdims=nmgkp_dims,
+        ndetsamples=args.num_samples_det,
+        showalldetbounds=True, 
+        showbestdetbounds=True
+    )
+
+    plot_mphi_alphaNP(
+        element_collection[0], 
+        mc_output, 
+        gkp_dims, 
+        nmgkp_dims, 
+        args.num_samples_det,
+        showalldetbounds=True, 
+        showallowedfitpts=True
+    )
 
 
 if __name__ == "__main__":
@@ -130,6 +158,12 @@ if __name__ == "__main__":
         default="false", 
         type=str, 
         help="If true, a loop is performed over all the mphi values in the datafile",
+    )
+    parser.add_argument(
+        "--random_seed",
+        default=42, 
+        type=int, 
+        help="Random generator seed.",
     )
     args = parser.parse_args()
     main(args)
