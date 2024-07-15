@@ -4,6 +4,8 @@
 
 Searching for New Physics with (Non-)Linear King Plots
 
+
+
 # Installation instructions
 
 To install the package run please clone the repository, enter it and type:
@@ -32,3 +34,8 @@ python3 main.py --elements_list "Camin,Ybmin" \
 ```
 
 
+# The code in a diagram
+
+In the following diagram you can find a schematic overview of the `kifit` algorithm.
+
+![image](https://github.com/user-attachments/assets/317d2e44-4f35-4f7d-a648-075a8267f72b)
