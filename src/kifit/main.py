@@ -61,26 +61,26 @@ def main(args):
 
     # ------------- plots
 
-    plot_alphaNP_ll(
-        element_collection[0], 
-        mc_output,
-        xind=0,
-        gkpdims=gkp_dims, 
-        nmgkpdims=nmgkp_dims,
-        ndetsamples=args.num_samples_det,
-        showalldetbounds=True, 
-        showbestdetbounds=True
-    )
+    # plot_alphaNP_ll(
+    #     element_collection[0], 
+    #     mc_output,
+    #     xind=0,
+    #     gkpdims=gkp_dims, 
+    #     nmgkpdims=nmgkp_dims,
+    #     ndetsamples=args.num_samples_det,
+    #     showalldetbounds=True, 
+    #     showbestdetbounds=True
+    # )
 
-    plot_mphi_alphaNP(
-        element_collection[0], 
-        mc_output, 
-        gkp_dims, 
-        nmgkp_dims, 
-        args.num_samples_det,
-        showalldetbounds=True, 
-        showallowedfitpts=True
-    )
+    # plot_mphi_alphaNP(
+    #     element_collection[0], 
+    #     mc_output, 
+    #     gkp_dims, 
+    #     nmgkp_dims, 
+    #     args.num_samples_det,
+    #     showalldetbounds=True, 
+    #     showallowedfitpts=True
+    # )
 
 
 if __name__ == "__main__":

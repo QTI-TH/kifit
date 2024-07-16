@@ -1,5 +1,6 @@
 import os
 import json
+import random
 import logging
 from typing import List
 from itertools import (
@@ -475,30 +476,34 @@ def minimise_logL_alphaNP(
         maxiter, 
         opt_method, 
         min_percentile,
+        bounds,
         tol=1e-12,
     ):
 
     if opt_method == "annealing":
+        logging.info(f"Using dual annealing")
         minlogL = dual_annealing(
             logL_alphaNP, 
-            bounds=[(-1e-3, 1e-3)], 
+            bounds=[bounds], 
             args=(elem_collection, elemsamples_collection, min_percentile), 
             maxiter=maxiter,
         )
 
     elif opt_method == "differential_evolution":
+        logging.info("Using differential evolution algorithm")
         minlogL = differential_evolution(
             logL_alphaNP, 
-            bounds=[(-1e-3, 1e-3)], 
+            bounds=[bounds], 
             args=(elem_collection, elemsamples_collection, min_percentile), 
             maxiter=maxiter,
         )
 
     else:
+        logging.info(f"Using Scipy minimizer {opt_method}")
         minlogL = minimize(
             logL_alphaNP, 
             x0=0, 
-            bounds=[(-1e-3, 1e-3)],
+            bounds=[bounds],
             args=(elem_collection, elemsamples_collection, min_percentile),
             method=opt_method, options={"maxiter": maxiter}, 
             tol=tol,
@@ -584,9 +589,28 @@ def determine_search_interval(
 
     best_alpha_list = []
 
-    print("scipy minimisation")
-    for search in range(nsearches):
+    logging.info(f"Preliminary global optimization to find reasonable bounds")
+    # sample a random part of the element data
+    random_indexes = random.sample(range(nsearches * nelemsamples_search), nelemsamples_search)
+    # build a preliminary collection
+    prelim_elemsamples_collection = []
+    for i, elem in enumerate(elem_collection):
+        prelim_elemsamples_collection.append(allelemsamples[i][random_indexes])
+    
+    prelim_result = minimise_logL_alphaNP(
+        elem_collection=elem_collection,
+        elemsamples_collection=prelim_elemsamples_collection,
+        alpha0=alpha0, 
+        maxiter=maxiter, 
+        opt_method="differential_evolution",
+        min_percentile=min_percentile,        
+        bounds=(-1e-2, 1e-2)
+    )
+    bound_scale = abs(prelim_result.x) * 1000
+    logging.info(f"Foundend best value: {prelim_result.x}, setting bounds to {bound_scale}")
 
+    # start with real search algorithm
+    for search in range(nsearches):
         if verbose:
             logging.info(f"Iterative search {search + 1}/{nsearches}")
         
@@ -605,6 +629,7 @@ def determine_search_interval(
             maxiter=maxiter, 
             opt_method=opt_method,
             min_percentile=min_percentile,
+            bounds=(-bound_scale, bound_scale)
         )
 
         if res_min.success:
