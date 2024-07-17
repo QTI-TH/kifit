@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import BSpline, interp1d, splrep
 from scipy.optimize import curve_fit
 
-from kifit.performfit_new import (
+from kifit.performfit import (
     generate_path,
     get_all_alphaNP_bounds,
     get_confint,
@@ -39,6 +39,8 @@ fit_colour = 'C0'
 fit_scatter_colour = 'b'
 gkp_colour = 'purple'
 nmgkp_colour = 'darkgreen'
+det_colour = "royalblue"
+
 
 markerlist = ['o', 'v', '^', '<', '>', 's', 'D']  # maybe cycle?
 ###############################################################################
@@ -231,7 +233,7 @@ def plot_mc_output(alphalist, delchisqlist,
 
 
 def plot_final_mc_output(
-        elem, alphas, delchisqs, delchisqcrit,
+        elem_collection, alphas, delchisqs, delchisqcrit,
         bestalphapt=None, sigbestalphapt=None,
         lb=None, siglb=None, ub=None, sigub=None,
         nsigmas=2, xind=0,
@@ -249,6 +251,10 @@ def plot_final_mc_output(
     if plot_path is None:
         _, _plot_path = generate_path()
         plot_path = _plot_path
+
+    elem_collection_stringname = ""
+    for elem in elem_collection:
+        elem_collection_stringname += f"{str(elem.id)} "
 
     fig, ax = plt.subplots()
 
@@ -276,7 +282,7 @@ def plot_final_mc_output(
             np.min(delchisqs[exp]), color=fit_colour)  # 'royalblue')
 
     if plotitle is None:
-        plotitle = elem.id + ", " + str(nsamples) + " samples, x=" + str(xind)
+        plotitle = elem_collection_stringname + ", " + str(nsamples) + " samples, x=" + str(xind)
 
     ax.set_title(plotitle)
     ax.set_xlabel(xlabel)
@@ -300,7 +306,8 @@ def plot_final_mc_output(
 
     plt.legend(loc='upper center')
     plt.savefig(os.path.join(plot_path,
-        f"{plotname}_{elem.id}_x{str(xind)}.png"))
+        f"{plotname}_{elem_collection_stringname}_x{str(xind)}.png"))
+
     plt.close()
 
     return fig, ax
