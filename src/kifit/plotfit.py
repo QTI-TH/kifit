@@ -328,6 +328,7 @@ def scatter_alphaNP_det_bounds(
 
     print("minpos", minpos)
     print("maxneg", maxneg)
+
     if gkp:
         method_tag = "GKP"
 
@@ -363,31 +364,47 @@ def scatter_alphaNP_det_bounds(
                 color=scattercolour,
             )
 
-    minpos_alphas, maxneg_alphas = get_minpos_maxneg_alphaNP_bounds(
+    (
+        minpos_UB_alphas, maxneg_LB_alphas, minpos_alphas, maxneg_alphas
+    ) = get_minpos_maxneg_alphaNP_bounds(
         alphas, sigalphas, nsigmas
     )
 
     if showbestdetbounds:
         ax.scatter(
-            minpos_alphas, scatterpos * np.ones(len(minpos_alphas)),
+            minpos_UB_alphas, scatterpos * np.ones(len(minpos_UB_alphas)),
             s=6, marker=markerlist[dim - 3],
             color=scattercolour,
             label=(elem.id + ", dim " + str(dim) + " " + method_tag + " best: "
                 + r"$\alpha_{\mathrm{NP}}$: "
-                + f"[{max(maxneg_alphas):.4e}, {min(minpos_alphas):.4e}]"),
+                + f"[{max(maxneg_LB_alphas):.4e}, {min(minpos_UB_alphas):.4e}]"),
         )
+        print("det UB:    ", minpos_alphas)
+        print("minpos UB  ", minpos_UB_alphas)
+        print("sig det UB:", np.abs(minpos_UB_alphas - minpos_alphas))
+        print("det LB:    ", maxneg_alphas)
+        print("sig det LB:", np.abs(maxneg_LB_alphas - minpos_alphas))
+
+        ax.errorbar(
+            minpos_alphas, scatterpos * np.ones(len(minpos_alphas)),
+            xerr=np.abs(minpos_UB_alphas - minpos_alphas),
+            color=scattercolour)
         ax.scatter(
-            maxneg_alphas, scatterpos * np.ones(len(maxneg_alphas)),
+            maxneg_LB_alphas, scatterpos * np.ones(len(maxneg_LB_alphas)),
             s=6,
+            color=scattercolour)
+        ax.errorbar(
+            maxneg_alphas, scatterpos * np.ones(len(maxneg_alphas)),
+            xerr=np.abs(maxneg_LB_alphas - maxneg_alphas),
             color=scattercolour)
 
     if dimindex == 0:
-        minpos = minpos_alphas
-        maxneg = maxneg_alphas
+        minpos = minpos_UB_alphas
+        maxneg = maxneg_LB_alphas
 
     else:
-        minpos = np.fmin(minpos, minpos_alphas)
-        maxneg = np.fmax(maxneg, maxneg_alphas)
+        minpos = np.fmin(minpos, minpos_UB_alphas)
+        maxneg = np.fmax(maxneg, maxneg_LB_alphas)
 
     return ax, minpos, maxneg
 
@@ -698,38 +715,40 @@ def plot_mphi_alphaNP_det_bound(
                 alpha=0.3,
             )
 
-    minpos_alphas, maxneg_alphas = get_minpos_maxneg_alphaNP_bounds(
+    (
+        minpos_UB_alphas, maxneg_LB_alphas, minpos_alphas, maxneg_alphas
+    ) = get_minpos_maxneg_alphaNP_bounds(
         alphas, sigalphas, nsigmas
     )
 
     if showbestdetbounds:
         ax1.scatter(
             elem.mphis,
-            np.nanmax(minpos_alphas, -maxneg_alphas, axis=1),
+            np.nanmax(minpos_UB_alphas, -maxneg_LB_alphas, axis=1),
             s=3,
             color=default_colour[dimindex],
             label=elem.id + ", dim " + str(dim) + " " + method_tag + "_best",
         )
         ax2.scatter(
             elem.mphis,
-            minpos_alphas,
+            minpos_UB_alphas,
             s=3,
             color=default_colour[dimindex],
             label=elem.id + ", dim " + str(dim) + " " + method_tag + "_best",
         )
         ax2.scatter(
             elem.mphis,
-            maxneg_alphas,
+            maxneg_LB_alphas,
             s=3,
             color=default_colour[dimindex])
 
     if dimindex == 0:
-        minpos = minpos_alphas
-        maxneg = maxneg_alphas
+        minpos = minpos_UB_alphas
+        maxneg = maxneg_LB_alphas
 
     else:
-        minpos = np.fmin(minpos, minpos_alphas)
-        maxneg = np.fmax(maxneg, maxneg_alphas)
+        minpos = np.fmin(minpos, minpos_UB_alphas)
+        maxneg = np.fmax(maxneg, maxneg_LB_alphas)
 
     return ax1, ax2, minpos, maxneg
 

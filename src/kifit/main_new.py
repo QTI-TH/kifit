@@ -3,12 +3,12 @@ from kifit.performfit_new import sample_alphaNP_fit, generate_path
 from kifit.plotfit import plot_linfit, plot_alphaNP_ll, plot_mphi_alphaNP
 
 # load element data
-datafile = "Yb_PTB_2024"
+datafile = "Ybmin5"
 
 elem = Elem.get(datafile)
 
-gkp_dims = [3]
-nmgkp_dims = []
+gkp_dims = [3, 4]
+nmgkp_dims = [3, 4]
 elem.check_det_dims(gkp_dims, nmgkp_dims)
 
 

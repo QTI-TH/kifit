@@ -597,7 +597,7 @@ def determine_search_interval(
     # print("median", best_alpha)
     # print("average", np.average(best_alpha_list))
 
-    sig_best_alpha = 10 * (max(best_alpha_list) - min(best_alpha_list))
+    sig_best_alpha = (max(best_alpha_list) - min(best_alpha_list))
 
     # print("sig_best_alpha", sig_best_alpha)
     # print("std_best_alpha", np.std(best_alpha_list))
@@ -1045,20 +1045,25 @@ def get_minpos_maxneg_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
         alphaNPs, sigalphaNPs, nsigmas=nsigmas
     )
 
-    minpos_args = np.nanargmin(alphaNP_UBs, axis=1)
-    maxneg_args = np.nanargmax(alphaNP_LBs, axis=1)
+    # minpos_args = np.nanargmin(alphaNP_UBs, axis=1)
+    # maxneg_args = np.nanargmax(alphaNP_LBs, axis=1)
+    #
+    #
+    #
+    # minpos = np.array([
+    #     alphaNP_UBs[s, arg] for (s, arg) in enumerate(minpos_args)])
+    # maxneg = np.array([
+    #     alphaNP_LBs[s, arg] for (s, arg) in enumerate(maxneg_args)])
+    #
+    # minpos_alphas = np.array([
+    #     alphaNPs[s, arg] for (s, arg) in enumerate(minpos_args)])
+    # maxneg_alphas = np.array([
+    #     alphaNPs[s, arg] for (s, arg) in enumerate(maxneg_args)])
+    #
+    minpos = np.nanmin(alphaNP_UBs, axis=1)
+    maxneg = np.nanmax(alphaNP_LBs, axis=1)
 
-    minpos = np.array([
-        alphaNP_UBs[s, arg] for (s, arg) in enumerate(minpos_args)])
-    maxneg = np.array([
-        alphaNP_LBs[s, arg] for (s, arg) in enumerate(maxneg_args)])
-
-    minpos_alphas = np.array([
-        alphaNPs[s, arg] for (s, arg) in enumerate(minpos_args)])
-    maxneg_alphas = np.array([
-        alphaNPs[s, arg] for (s, arg) in enumerate(maxneg_args)])
-
-    # minpos = np.nanmin(alphaNP_UBs, axis=1)
-    # maxneg = np.nanmax(alphaNP_LBs, axis=1)
+    minpos_alphas = np.nanmin(alphaNPs, axis=1)
+    maxneg_alphas = np.nanmax(alphaNPs, axis=1)
 
     return minpos, maxneg, minpos_alphas, maxneg_alphas
