@@ -1,0 +1,20 @@
+{
+    "elements_list": [
+        "Yb_Kyoto_MIT_GSI_PTB_2024",
+        "Ca_WT_Aarhus_PTB_2024"
+    ],
+    "outputfile_name": "hyperopt_nelemsamples_2",
+    "optimization_method": "Powell",
+    "maxiter": 1000,
+    "num_searches": 10,
+    "num_elemsamples_search": 100,
+    "num_experiments": 10,
+    "num_elemsamples_exp": 100,
+    "num_alphasamples_exp": 100,
+    "block_size": 5,
+    "num_samples_det": 100,
+    "min_percentile": 1,
+    "x0": 0,
+    "mphivar": "false",
+    "random_seed": 42
+}

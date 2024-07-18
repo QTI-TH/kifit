@@ -1,0 +1,12 @@
+{
+    "alpha_experiments": [],
+    "delchisq_experiments": [],
+    "delchisq_crit": 3.9999999999999973,
+    "best_alpha_pts": -4.647689280288914e-13,
+    "sig_alpha_pts": 1.0717422868585074e-12,
+    "LB": -7.007360330518403e-13,
+    "sig_LB": 0.0,
+    "UB": 9.520390080810762e-13,
+    "sig_UB": 0.0,
+    "x_ind": 0
+}
