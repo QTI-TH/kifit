@@ -1,9 +1,11 @@
 import argparse
+import json
+import os
 
 import datetime
 from kifit.loadelems import Elem
 from kifit.performfit import sample_alphaNP_fit, generate_path
-from kifit.plotfit import plot_linfit, plot_alphaNP_ll # , plot_mphi_alphaNP
+from kifit.plotfit import plot_linfit, plot_alphaNP_ll , plot_mphi_alphaNP
 
 # Define a custom argument type for a list of strings
 def list_of_strings(arg):
@@ -14,22 +16,34 @@ def main(args):
     """Determine alphaNP bounds given elements data."""
     # define output folder's name
 
+    output_directory = f'results/{args.outputfile_name}_{args.optimization_method}_{args.random_seed}s'
+
+    os.makedirs(output_directory, exist_ok=True)
+
+    # dumping all the arguments into a json file
+    with open(f'{output_directory}/kifit_config.json', 'w') as json_file:
+        json.dump(vars(args), json_file, indent=4)
+
     if args.mphivar == "true":
         mphivar = True
     else:
         mphivar = False
 
+    # constructing the collection of elements
     element_collection = []
     for elem in args.elements_list:
         element_collection.append(Elem.get(str(elem)))
 
-    output_filename = (
-        f"{args.outputfile_name}_{args.optimization_method}"
-    )
-    
+
+    gkp_dims = [3]
+    nmgkp_dims = []
+
+
+    # -------------- Fit
+
     mc_output = sample_alphaNP_fit(
         element_collection,
-        output_filename=output_filename,
+        output_filename=output_directory,
         nsearches=args.num_searches,
         nelemsamples_search=args.num_elemsamples_search,
         nexps=args.num_experiments,
@@ -42,8 +56,31 @@ def main(args):
         opt_method=args.optimization_method,
         min_percentile=args.min_percentile,
         x0=args.x0,
+        random_seed=args.random_seed,
     )
 
+    # ------------- plots
+
+    # plot_alphaNP_ll(
+    #     element_collection[0], 
+    #     mc_output,
+    #     xind=0,
+    #     gkpdims=gkp_dims, 
+    #     nmgkpdims=nmgkp_dims,
+    #     ndetsamples=args.num_samples_det,
+    #     showalldetbounds=True, 
+    #     showbestdetbounds=True
+    # )
+
+    # plot_mphi_alphaNP(
+    #     element_collection[0], 
+    #     mc_output, 
+    #     gkp_dims, 
+    #     nmgkp_dims, 
+    #     args.num_samples_det,
+    #     showalldetbounds=True, 
+    #     showallowedfitpts=True
+    # )
 
 
 if __name__ == "__main__":
@@ -130,6 +167,12 @@ if __name__ == "__main__":
         default="false", 
         type=str, 
         help="If true, a loop is performed over all the mphi values in the datafile",
+    )
+    parser.add_argument(
+        "--random_seed",
+        default=42, 
+        type=int, 
+        help="Random generator seed.",
     )
     args = parser.parse_args()
     main(args)

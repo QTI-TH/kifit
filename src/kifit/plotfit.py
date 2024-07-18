@@ -44,7 +44,7 @@ det_colour = "royalblue"
 ###############################################################################
 
 
-def plot_linfit(elem, magnifac=1, resmagnifac=1, plot_path=None):
+def plot_linfit(elem, plot_path, magnifac=1, resmagnifac=1):
     """
     Plot, King plot data and output of linear regression and orthogonal distance
     regression. Use to check linear fit.
@@ -54,9 +54,6 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1, plot_path=None):
 
     """
 
-    if plot_path is None:
-        _, _plot_path = generate_path()
-        plot_path = _plot_path
 
     betas_odr, sig_betas_odr, kperp1s, ph1s, sig_kperp1s, sig_ph1s = perform_odr(
         elem.mu_norm_isotope_shifts_in,
@@ -167,13 +164,10 @@ def plot_linfit(elem, magnifac=1, resmagnifac=1, plot_path=None):
     return fig, ax1, ax2, ax3
 
 
-def blocking_plot(nblocks, estimations, uncertainties, label="",
-        filename="blocking", plot_path=None):
+def blocking_plot(nblocks, estimations, uncertainties, plot_path, label="",
+        filename="blocking"):
     """Plot the blocking iterative estimation of the given list of variables."""
 
-    if plot_path is None:
-        _, _plot_path = generate_path()
-        plot_path = _plot_path
 
     plt.figure(figsize=(6, 6 * 6 / 8))
     plt.errorbar(np.arange(1, nblocks + 1, 1), estimations, yerr=uncertainties,
@@ -185,7 +179,7 @@ def blocking_plot(nblocks, estimations, uncertainties, label="",
     plt.savefig(os.path.join(plot_path, f"{filename}.png"))
 
 
-def plot_mc_output(alphalist, delchisqlist,
+def plot_mc_output(alphalist, delchisqlist, plot_path,
         nsigmas=2,
         xlabel=r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
         ylabel=r"$\Delta \chi^2$",
@@ -193,16 +187,13 @@ def plot_mc_output(alphalist, delchisqlist,
         xlims=[None, None],
         ylims=[None, None],
         minll=0,
-        plot_path=None):
+        ):
     """
     plot 2-dimensional scatter plot showing the likelihood associated with the
     parameter values given in alphalist.
     The resulting plot is saved in plots directory under plotname.
 
     """
-    if plot_path is None:
-        _, _plot_path = generate_path()
-        plot_path = _plot_path
 
     fig, ax = plt.subplots()
 
@@ -231,14 +222,14 @@ def plot_mc_output(alphalist, delchisqlist,
 
 
 def plot_final_mc_output(
-        elem_collection, alphas, delchisqs, delchisqcrit,
+        elem_collection, alphas, delchisqs, delchisqcrit, plot_path,
         bestalphapt=None, sigbestalphapt=None,
         lb=None, siglb=None, ub=None, sigub=None,
         nsigmas=2, xind=0,
         xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
         plotname="mc_result", plotitle=None,
         xlims=[None, None], ylims=[None, None],
-        show=False, plot_path=None):
+        show=False):
     """
     Plot 2-dimensional scatter plot showing the likelihood associated with the
     parameter values given in alphalist. If the lists were computed for multiple
@@ -416,12 +407,12 @@ def plot_vlines_det_bounds(
     return ax, minpos, maxneg
 
 
-def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
+def plot_alphaNP_ll(elem, mc_output, plot_path, nsigmas: int = 2, xind: int = 0,
     gkpdims=[], nmgkpdims=[], ndetsamples=100,
     showalldetbounds=False, showbestdetbounds=True,
     plotname="alphaNP_ll", plotitle=None,
     xlabel=r"$\alpha_{\mathrm{NP}}$", ylabel=r"$\Delta \chi^2$",
-    xlims=[None, None], ylims=[None, None], plot_path=None
+    xlims=[None, None], ylims=[None, None],
 ):
     """
     Plot 2-dimensional scatter plot showing the likelihood associated with the
@@ -430,9 +421,6 @@ def plot_alphaNP_ll(elem, mc_output, nsigmas: int = 2, xind: int = 0,
     The resulting plot is saved in plots directory under alphaNP_ll + elem.
 
     """
-    if plot_path is None:
-        _, _plot_path = generate_path()
-        plot_path = _plot_path
 
     nsigmas = mc_output[1]
 
@@ -725,7 +713,7 @@ def plot_mphi_alphaNP_fit_bound(ax1, ax2, elem,
     bestalphas_parabola, sigbestalphas_parabola,
     bestalphas_pts, sigbestalphas_pts,
     lb, siglb, ub, sigub,
-        plotabs=True, showallowedfitpts=False):
+    plotabs=True, showallowedfitpts=False):
 
     print("sigbestalphas_parabola", sigbestalphas_parabola)
     print("sigbestalphas_pts", sigbestalphas_pts)
@@ -865,6 +853,7 @@ def plot_mphi_alphaNP(
     gkpdims,
     nmgkpdims,
     ndetsamples,
+    plot_path,
     nsigmas=2,
     plotabs=True,
     plotname="", plotitle="",
@@ -874,7 +863,6 @@ def plot_mphi_alphaNP(
     showallowedfitpts=False,
     showbestdetbounds=False,
     showalldetbounds=False,
-    plot_path=None
 ):
     """
     Plot the most stringent nsigmas-bounds on both positive and negative
@@ -884,8 +872,6 @@ def plot_mphi_alphaNP(
     shown.
 
     """
-    if plot_path is None:
-        _, plot_path = generate_path()
 
     # x-vectors
     nsigmas = mc_output[1]

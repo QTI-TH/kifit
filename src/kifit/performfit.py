@@ -1,5 +1,6 @@
 import os
 import json
+import random
 import logging
 from typing import List
 from itertools import (
@@ -25,13 +26,12 @@ from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO)
 
-np.random.seed(1)
+def generate_path(outputfile_name):
 
-
-def generate_path():
+    results_path = outputfile_name
 
     output_path = os.path.abspath(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "results"))
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), results_path))
 
     if not os.path.exists(output_path):
         print("Creating file at ", output_path)
@@ -476,30 +476,34 @@ def minimise_logL_alphaNP(
         maxiter, 
         opt_method, 
         min_percentile,
+        bounds,
         tol=1e-12,
     ):
 
     if opt_method == "annealing":
+        logging.info(f"Using dual annealing")
         minlogL = dual_annealing(
             logL_alphaNP, 
-            bounds=[(-1e-4, 1e-4)], 
+            bounds=[bounds], 
             args=(elem_collection, elemsamples_collection, min_percentile), 
             maxiter=maxiter,
         )
 
     elif opt_method == "differential_evolution":
+        logging.info("Using differential evolution algorithm")
         minlogL = differential_evolution(
             logL_alphaNP, 
-            bounds=[(-1e-4, 1e-4)], 
+            bounds=[bounds], 
             args=(elem_collection, elemsamples_collection, min_percentile), 
             maxiter=maxiter,
         )
 
     else:
+        logging.info(f"Using Scipy minimizer {opt_method}")
         minlogL = minimize(
             logL_alphaNP, 
             x0=0, 
-            bounds=[(-1e-6, 1e-6)],
+            bounds=[bounds],
             args=(elem_collection, elemsamples_collection, min_percentile),
             method=opt_method, options={"maxiter": maxiter}, 
             tol=tol,
@@ -585,9 +589,28 @@ def determine_search_interval(
 
     best_alpha_list = []
 
-    print("scipy minimisation")
-    for search in range(nsearches):
+    logging.info(f"Preliminary global optimization to find reasonable bounds")
+    # sample a random part of the element data
+    random_indexes = random.sample(range(nsearches * nelemsamples_search), nelemsamples_search)
+    # build a preliminary collection
+    prelim_elemsamples_collection = []
+    for i, elem in enumerate(elem_collection):
+        prelim_elemsamples_collection.append(allelemsamples[i][random_indexes])
+    
+    prelim_result = minimise_logL_alphaNP(
+        elem_collection=elem_collection,
+        elemsamples_collection=prelim_elemsamples_collection,
+        alpha0=alpha0, 
+        maxiter=maxiter, 
+        opt_method="differential_evolution",
+        min_percentile=min_percentile,        
+        bounds=(-1e-2, 1e-2)
+    )
+    bound_scale = abs(prelim_result.x) * 1000
+    logging.info(f"Foundend best value: {prelim_result.x}, setting bounds to {bound_scale}")
 
+    # start with real search algorithm
+    for search in range(nsearches):
         if verbose:
             logging.info(f"Iterative search {search + 1}/{nsearches}")
         
@@ -606,6 +629,7 @@ def determine_search_interval(
             maxiter=maxiter, 
             opt_method=opt_method,
             min_percentile=min_percentile,
+            bounds=(-bound_scale, bound_scale)
         )
 
         if res_min.success:
@@ -735,7 +759,9 @@ def sample_alphaNP_fit(
         opt_method: str = "Powell",
         x0: int = 0,
         min_percentile: int = 1,
-        verbose: bool = True):
+        verbose: bool = True,
+        random_seed: int = 42,
+    ):
     """
     Get a set of nsamples_search samples of elem by varying the masses and isotope
     shifts according to the means and standard deviations given in the input
@@ -757,19 +783,8 @@ def sample_alphaNP_fit(
             "min_percentile must be a positive number in (0, 100], "
             + f"not {min_percentile}.")
 
-    _outputdata_path, _plot_path = generate_path()
+    _outputdata_path, _plot_path = generate_path(output_filename)
 
-    mc_output_path = os.path.join(
-        _outputdata_path, (
-              f"{output_filename}_{opt_method}_"
-            + f"{nsearches}searches_{nelemsamples_search}es-search_"
-            + f"{nexps}exps_{nelemsamples_exp}es-exp_{nalphasamples_exp}as-exp_"
-            + f"maxiter{maxiter}_"
-            + f"blocksize{block_size}_"
-            + f"x0{x0}_" 
-            + f"mphivar{mphivar}"
-        )
-    )
 
     result_keys = [
         "alpha_experiments",
@@ -792,6 +807,8 @@ def sample_alphaNP_fit(
             )
     logging.info("All elements respect the initialization requirements.")
 
+    # fix random seed for reproducibility of the experiment
+    np.random.seed(random_seed)
 
     if mphivar:
         x_range = range(len(elem_collection[0].Xcoeff_data))
@@ -801,13 +818,14 @@ def sample_alphaNP_fit(
     delchisqcrit = get_delchisq_crit(nsigmas=nsigmas, dof=1)
 
     for x in x_range:
+        
+        mc_output_path_x = f"{_outputdata_path}/x{x}"
         res_list_x = []
-        mc_output_path_x = mc_output_path + f"x{x}.json"
 
         if os.path.exists(mc_output_path_x):
             print(f"Loading fit results for x={x} from ", mc_output_path_x)
 
-            with open(mc_output_path_x) as json_file:
+            with open(f"{mc_output_path_x}/fit_results.json") as json_file:
                 res = json.load(json_file)
                 res_x = []
 
@@ -817,6 +835,8 @@ def sample_alphaNP_fit(
                 res_list_x.append(res_x)
 
         else:
+            os.makedirs(mc_output_path_x, exist_ok=True)
+
             for elem in elem_collection:
                 elem._update_Xcoeffs(x)
 
@@ -852,16 +872,16 @@ def sample_alphaNP_fit(
 
             for i, res in enumerate(res_exps):
                 if i == 0 or i == 1:
-                    for exp, res_exp in enumerate(res):
-                        if isinstance(res_exp, np.ndarray):
-                            res_exp = res_exp.tolist()
-                        res_dict_x[result_keys[i]].append(res_exp)
-
+                    continue
                 else:
                     res_dict_x[result_keys[i]] = res
+            
+            # save big arrays
+            np.save(arr=res_exps[0], file=f"{mc_output_path_x}/alphas_exps")
+            np.save(arr=res_exps[1], file=f"{mc_output_path_x}/delchisq_exps")
 
-            with open(mc_output_path_x, 'w') as json_file:
-                json.dump(res_dict_x, json_file)
+            with open(f"{mc_output_path_x}/fit_results.json", 'w') as json_file:
+                json.dump(res_dict_x, json_file, indent=4)
 
         mc_output = [res_list_x, nsigmas]
 
