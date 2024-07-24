@@ -1,14 +1,13 @@
 import os
 import numpy as np
+import logging
 from itertools import permutations, combinations, product
 from functools import cache
 
-from kifit.cache_update import update_fct
-from kifit.cache_update import cached_fct
-from kifit.cache_update import cached_fct_property
+from kifit.cache_update import update_fct, cached_fct, cached_fct_property
 from kifit.user_elements import user_elems
 
-from kifit.performfit import perform_odr
+from kifit.hunter import perform_odr
 
 _data_path = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
@@ -59,6 +58,54 @@ def LeviCivita(dim):
 
     """
     return list(Levi_Civita_generator(dim))
+
+
+class ElemCollection:
+
+    def __init__(self, elemlist):
+        elem_collection = []
+        elem_collection_id = ""
+
+        for elemstr in elemlist[:-1]:
+            elem = Elem.get(str(elemstr))
+            elem_collection.append(elem)
+            elem_collection_id += elem.id + "_"
+
+        elem = Elem.get(str(elemlist[-1]))
+        elem_collection.append(elem)
+        elem_collection_id += elem.id
+
+        self.elems = elem_collection
+        self.id = elem_collection_id
+
+        self.len = len(elem_collection)
+
+        self._init_Xcoeffs()
+
+    @classmethod
+    def get(cls, elem: str):
+        return cls(elem)
+
+    def _init_Xcoeffs(self):
+        # check the Xcoeff are the same
+        first_list = np.round(np.asarray(self.elems[0].Xcoeff_data).T[0], decimals=4)
+
+        for elem in self.elems:
+            new_list = np.round(np.asarray(elem.Xcoeff_data).T[0], decimals=4)
+            if (new_list != first_list).any():
+                raise ValueError(
+                    "Please prepare data with same mphi values for all "
+                    + "elements in the collection."
+                )
+        logging.info("All elements have been given X-coefficients with "
+        + "compatible mphi values.")
+
+        self.x_range = (self.elems[0]).x_range
+
+    def check_det_dims(self, gkpdims=[], nmgkpdims=[]):
+        if self.len != 1:
+            raise IndexError("Determinant methods are only valid for single element.")
+        (self.elems[0]).check_det_dims(gkpdims, nmgkpdims)
 
 
 class Elem:
@@ -162,6 +209,8 @@ class Elem:
 
         """
         self.mphis = self.Xcoeff_data[:, 0]
+        self.x_range = range(len(self.mphis))
+
         self.x = 0
         self.mphi = self.Xcoeff_data[self.x, 0]
         self.Xvec = self.Xcoeff_data[self.x, 1:]
@@ -265,22 +314,6 @@ class Elem:
                     X-coefficients and their uncertainties.""")
         else:
             self.sig_Xvec = self.sig_Xcoeff_data[x, 1:]
-
-        # self.sig_alphaNP_init = np.min([np.absolute(
-        #     np.average(self.absd / np.min(
-        #         np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))), 1])
-
-
-        # TODO: what's the best way to compute sig_alphaNP with the new X coeff?
-
-        # self.sig_alphaNP_init = np.min([np.absolute(
-        #     np.average(self.absd / np.min(
-        #         np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))), 1])
-
-        # self.sig_alphaNP_init = np.min([np.absolute(np.max(self.absd) / np.min(
-        #     np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0))), 1])
-        # self.sig_alphaNP_init = 1
-        # print("Updating sig_alphaNP_init to", self.sig_alphaNP_init)
 
     @update_fct
     def _update_fit_params(self, thetas):

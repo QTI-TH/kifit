@@ -1,11 +1,8 @@
-import os
-import json
 import logging
 from typing import List
 from itertools import (
-    product, 
-    combinations, 
-    groupby
+    product,
+    combinations
 )
 
 import numpy as np
@@ -21,37 +18,9 @@ from scipy.optimize import (
 )
 
 
-from tqdm import tqdm
-
 logging.basicConfig(level=logging.INFO)
 
 np.random.seed(1)
-
-
-def generate_path():
-
-    output_path = os.path.abspath(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "results"))
-
-    if not os.path.exists(output_path):
-        print("Creating file at ", output_path)
-        os.mkdir(output_path)
-
-    # path where to save data
-    outputdata_path = os.path.join(output_path, "output_data")
-
-    if not os.path.exists(outputdata_path):
-        print("Creating file at ", outputdata_path)
-        os.mkdir(outputdata_path)
-
-    # path where to save plots
-    plot_path = os.path.join(output_path, "plots")
-
-    if not os.path.exists(plot_path):
-        print("Creating file at ", plot_path)
-        os.mkdir(plot_path)
-
-    return outputdata_path, plot_path
 
 
 def linfit(p, x):
@@ -62,8 +31,10 @@ def linfit_x(p, y):
     return (y - p[1]) / p[0]
 
 
-def blocking_bounds(lbs: List[float], ubs: List[float], block_size: int,
-        plot_output: bool = False):
+def blocking_bounds(
+        messenger,
+        lbs: List[float],
+        ubs: List[float]):
     """
     Blocking method to compute the statistical uncertainty of the confidence
     intervals.
@@ -77,18 +48,13 @@ def blocking_bounds(lbs: List[float], ubs: List[float], block_size: int,
         uncertainties on the bounds cannot be computed.
 
     """
-    if plot_output:
-
-        print("Là je vais dessiner une chiée de figures.")
 
     if len(lbs) != len(ubs):
         raise ValueError("Lists of lower and upper bounds passed to the"
         "blocking method should be of equal length."
             f"len(lbs)={len(lbs)}, len(ubs)={len(ubs)}")
-    # if (len(lbs) % nblocks != 0):
-    #     raise ValueError(f"Number of experiments has to be a multiple of\
-    #         nblocks. Here {len(lbs)} is not multiple of {nblocks}.")
-    #
+
+    block_size = messenger.runparams.block_size
 
     if block_size > len(lbs):
         block_size = len(lbs)
@@ -97,7 +63,7 @@ def blocking_bounds(lbs: List[float], ubs: List[float], block_size: int,
             "sig[LB] and sig[UB] cannot be computed in this case.")
 
     nblocks = int(len(lbs) / block_size)
-
+    print("nblocks", nblocks)
 
     # parametric bootstrap
     lb_min, ub_max, lb_val, ub_val, sig_lb, sig_ub = [], [], [], [], [], []
@@ -115,29 +81,34 @@ def blocking_bounds(lbs: List[float], ubs: List[float], block_size: int,
         sig_lb.append(np.std(lb_min))
         sig_ub.append(np.std(ub_max))
 
+    print("sig_lb", sig_lb)
+    print("sig_ub", sig_ub)
+
     sig_LB = sig_lb[-1]
     sig_UB = sig_ub[-1]
 
     LB = lb_val[-1] - sig_LB
     UB = ub_val[-1] + sig_UB
 
-    if plot_output:
+    if messenger.runparams.verbose is True and block_size < len(lbs):
 
-        from kifit.plotfit import blocking_plot
+        from kifit.artist import blocking_plot
 
         blocking_plot(
+            messenger,
             nblocks=nblocks,
             estimations=lb_val,
             uncertainties=sig_lb,
             label="Lower bound",
-            filename="blocking_lb"
+            plotname="blocking_lb"
         )
         blocking_plot(
+            messenger,
             nblocks=nblocks,
             estimations=ub_val,
             uncertainties=sig_ub,
             label="Upper bound",
-            filename="blocking_ub"
+            plotname="blocking_ub"
         )
     return LB, UB, sig_LB, sig_UB
 
@@ -220,8 +191,6 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata, reftrans_index: int = 0):
 
     for i in range(y.shape[1]):
         data = RealData(x, y.T[i], sx=sigx, sy=sigy.T[i])
-        # results = linregress(x, y.T[i])
-        # beta_init = [results.slope, results.intercept]
         beta_init = np.polyfit(x, y.T[i], 1)
         odr = ODR(data, lin_model, beta0=beta_init)
         out = odr.run()
@@ -251,13 +220,6 @@ def get_paramsamples(means, stdevs, nsamples):
     return multivariate_normal.rvs(means, np.diag(stdevs**2), size=nsamples)
 
 
-def print_progress(s, nsamples):
-    if s % (nsamples // 100) == 0:
-        prog = np.round(s / nsamples * 100, 1)
-        print("Progress", prog, "%")
-    return 0
-
-
 def choLL(absd, covmat, lam=0):
     """
     For a given sample of absd, with the covariance matrix covmat, compute the
@@ -271,7 +233,6 @@ def choLL(absd, covmat, lam=0):
     logdet = 2 * np.sum(np.log(np.diag(chol_covmat)))
 
     return 0.5 * (logdet + absd_covinv_absd)
-
 
 
 def spectraLL(absd, covmat, lam=0):
@@ -354,10 +315,9 @@ def generate_alphaNP_sample(elem, nsamples: int, search_mode: str = "random",
 
 
 def get_bestalphaNP_and_bounds(
+        messenger,
         bestalphaNPlist,
-        confints,
-        block_size: int = 10,
-        plot_output: bool = False):
+        confints):
     """
     Starting from the best alphaNP values, apply the blocking method to
     compute the best alphaNP value, its uncertainty, as well as the nsigma -
@@ -366,41 +326,41 @@ def get_bestalphaNP_and_bounds(
     """
     confints = np.array(confints)
 
-    print("len confints", confints.shape)
-    print("len bestalphaNPlist", len(bestalphaNPlist))
+    best_alpha = np.median(bestalphaNPlist)
+    sig_alpha = np.std(bestalphaNPlist)
 
-    best_alpha_pts = np.median(bestalphaNPlist)
-    sig_alpha_pts = np.std(bestalphaNPlist)
-
-    lowbounds_exps = confints.T[0]
-    lb_nans = np.argwhere(np.isnan(lowbounds_exps))
+    lowerbounds_exps = confints.T[0]
+    lb_nans = np.argwhere(np.isnan(lowerbounds_exps))
     upperbounds_exps = confints.T[1]
     ub_nans = np.argwhere(np.isnan(upperbounds_exps))
 
     np.alltrue(lb_nans == ub_nans)
 
-    lowbounds_exps = lowbounds_exps[~np.isnan(lowbounds_exps)]
+    lowerbounds_exps = lowerbounds_exps[~np.isnan(lowerbounds_exps)]
     upperbounds_exps = upperbounds_exps[~np.isnan(upperbounds_exps)]
 
-    if len(lowbounds_exps) == 0 or len(upperbounds_exps) == 0:
-        return (best_alpha_pts, sig_alpha_pts, np.nan, np.nan, np.nan, np.nan)
+    if len(lowerbounds_exps) == 0 or len(upperbounds_exps) == 0:
+        return (best_alpha, sig_alpha, np.nan, np.nan, np.nan, np.nan)
+
+    print("lowbounds_exps", lowerbounds_exps)
+    print("upperbounds_exps", upperbounds_exps)
 
     LB, UB, sig_LB, sig_UB = blocking_bounds(
-        lowbounds_exps, upperbounds_exps, block_size=block_size,
-        plot_output=plot_output)
+        messenger,
+        lowerbounds_exps,
+        upperbounds_exps)
 
-    print(f"Final result: {best_alpha_pts} with bounds [{LB}, {UB}].")
+    print(f"Final result: {best_alpha} with bounds [{LB}, {UB}].")
 
-    return (best_alpha_pts, sig_alpha_pts, LB, sig_LB, UB, sig_UB)
+    return (best_alpha, sig_alpha, LB, sig_LB, UB, sig_UB)
 
 
 def compute_ll_experiments(
-        elem_collection, 
-        alphasamples, 
+        elem_collection,
+        alphasamples,
         nelemsamples,
         min_percentile,
-        cov_decomp_method="cholesky"
-    ):
+        cov_decomp_method="cholesky"):
     """
     Generate alphaNP list for element ``elem`` according to ``parameters_samples``.
 
@@ -416,7 +376,7 @@ def compute_ll_experiments(
     """
 
     elemsamples_collection = []
-    for elem in elem_collection:
+    for elem in elem_collection.elems:
         elemsamples_collection.append(generate_element_sample(elem, nelemsamples))
 
     lls = []
@@ -425,11 +385,10 @@ def compute_ll_experiments(
     for s in range(len(alphasamples)):
         # we collect a list of absd for each generated combination alpha-fitparams
         lls.append(logL_alphaNP(
-                alphaNP=alphasamples[s],
-                elem_collection=elem_collection,
-                elemsamples_collection=elemsamples_collection,
-                min_percentile=min_percentile,
-            )
+            alphaNP=alphasamples[s],
+            elem_collection=elem_collection,
+            elemsamples_collection=elemsamples_collection,
+            min_percentile=min_percentile)
         )
 
     return np.array(alphasamples), np.array(lls)
@@ -444,7 +403,7 @@ def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection, min_percentil
         4. min_percentile
     """
 
-    for elem in elem_collection:
+    for elem in elem_collection.elems:
         fitparams = elem.means_fit_params
         fitparams[-1] = alphaNP
         elem._update_fit_params(fitparams)
@@ -455,8 +414,8 @@ def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection, min_percentil
     loss = np.zeros(nelemsamples)
 
     # loop over elements in the collection
-    for i, elem in enumerate(elem_collection):
-        # for each element compute LL independently
+    for i, elem in enumerate(elem_collection.elems):
+        # for each element, compute LL independently
         absdsamples = []
         for s in range(nelemsamples):
             elem._update_elem_params(elemsamples_collection[i][s])
@@ -465,43 +424,41 @@ def logL_alphaNP(alphaNP, elem_collection, elemsamples_collection, min_percentil
         delchisq = get_delchisq(lls, min_percentile)
 
         loss += delchisq
-    
+
     return np.percentile(loss, min_percentile)
 
 
 def minimise_logL_alphaNP(
-        elem_collection, 
-        elemsamples_collection, 
-        alpha0, 
-        maxiter, 
-        opt_method, 
+        elem_collection,
+        elemsamples_collection,
+        maxiter,
+        opt_method,
         min_percentile,
-        tol=1e-12,
-    ):
+        tol=1e-12):
 
     if opt_method == "annealing":
         minlogL = dual_annealing(
-            logL_alphaNP, 
-            bounds=[(-1e-4, 1e-4)], 
-            args=(elem_collection, elemsamples_collection, min_percentile), 
+            logL_alphaNP,
+            bounds=[(-1e-4, 1e-4)],
+            args=(elem_collection, elemsamples_collection, min_percentile),
             maxiter=maxiter,
         )
 
     elif opt_method == "differential_evolution":
         minlogL = differential_evolution(
-            logL_alphaNP, 
-            bounds=[(-1e-4, 1e-4)], 
-            args=(elem_collection, elemsamples_collection, min_percentile), 
+            logL_alphaNP,
+            bounds=[(-1e-4, 1e-4)],
+            args=(elem_collection, elemsamples_collection, min_percentile),
             maxiter=maxiter,
         )
 
     else:
         minlogL = minimize(
-            logL_alphaNP, 
-            x0=0, 
+            logL_alphaNP,
+            x0=0,
             bounds=[(-1e-6, 1e-6)],
             args=(elem_collection, elemsamples_collection, min_percentile),
-            method=opt_method, options={"maxiter": maxiter}, 
+            method=opt_method, options={"maxiter": maxiter},
             tol=tol,
         )
 
@@ -548,34 +505,28 @@ def get_confint(alphas, delchisqs, delchisqcrit):
 
     """
     alphas_inside = alphas[np.argwhere(delchisqs < delchisqcrit).flatten()]
+    print(f"Npts in fit confidence interval: {len(alphas_inside)}")
 
     # Best 1% of points was used to define minll.
     # Make sure there are more than 1% of points below delchisqcrit.
 
     if len(alphas_inside) > 2:
-        print(f"Npts in fit confidence interval: {len(alphas_inside)}")
-
         return np.array([min(alphas_inside), max(alphas_inside)])
 
-        # return np.array([alphas[int(min(pos))], alphas[int(max(pos))]])
     else:
         return np.array([np.nan, np.nan])
 
 
 def determine_search_interval(
         elem_collection,
-        nsearches,
-        nelemsamples_search,
-        alpha0,
-        opt_method,
-        maxiter,
-        min_percentile,
-        verbose,
-    ):
-
+        messenger):
     # sampling `nsamples` new elements for each element in the collections
+
+    nsearches = messenger.runparams.num_searches
+    nelemsamples_search = messenger.runparams.num_elemsamples_search
+
     allelemsamples = []
-    for elem in elem_collection:
+    for elem in elem_collection.elems:
         allelemsamples.append(
             generate_element_sample(
                 elem,
@@ -588,11 +539,11 @@ def determine_search_interval(
     print("scipy minimisation")
     for search in range(nsearches):
 
-        if verbose:
+        if messenger.runparams.verbose is True:
             logging.info(f"Iterative search {search + 1}/{nsearches}")
-        
+
         elemsamples_collection = []
-        for i in range(len(elem_collection)):
+        for i in range(len(elem_collection.elems)):
             elemsamples_collection.append(
                 allelemsamples[i][
                     search * nelemsamples_search: (search + 1) * nelemsamples_search
@@ -600,12 +551,11 @@ def determine_search_interval(
             )
 
         res_min = minimise_logL_alphaNP(
-            elem_collection=elem_collection, 
+            elem_collection=elem_collection,
             elemsamples_collection=elemsamples_collection,
-            alpha0=alpha0, 
-            maxiter=maxiter, 
-            opt_method=opt_method,
-            min_percentile=min_percentile,
+            maxiter=messenger.runparams.maxiter,
+            opt_method=messenger.runparams.optimization_method,
+            min_percentile=messenger.runparams.min_percentile,
         )
 
         if res_min.success:
@@ -613,18 +563,11 @@ def determine_search_interval(
 
         print(f"res_min: {res_min}")
 
-        # print("best alpha search " + str(search) + ": ", res_min.x[0])
-
     best_alpha = np.median(best_alpha_list)
-    # print("median", best_alpha)
-    # print("average", np.average(best_alpha_list))
 
     sig_best_alpha = (max(best_alpha_list) - min(best_alpha_list))
 
-    # print("sig_best_alpha", sig_best_alpha)
-    # print("std_best_alpha", np.std(best_alpha_list))
-
-    for elem in elem_collection:
+    for elem in elem_collection.elems:
         elem.set_alphaNP_init(best_alpha, sig_best_alpha)
 
     return best_alpha, sig_best_alpha
@@ -632,25 +575,17 @@ def determine_search_interval(
 
 def perform_experiments(
         elem_collection,
-        delchisqcrit,
-        nexps,
-        nelemsamples_exp,
-        nalphasamples_exp,
-        block_size,
-        nsigmas,
-        plot_output,
-        verbose,
-        plot_path,
-        min_percentile,
-        xind=0,
-    ):
+        messenger,
+        xind=0):
 
-    from kifit.plotfit import plot_mc_output, plot_final_mc_output
-
+    nexps = messenger.runparams.num_exp
+    nelemsamples_exp = messenger.runparams.num_elemsamples_exp
+    nalphasamples_exp = messenger.runparams.num_alphasamples_exp
+    min_percentile = messenger.runparams.min_percentile
 
     # we can use one of the elements as reference, since alphaNP is shared
     allalphasamples = generate_alphaNP_sample(
-        elem_collection[0], nexps * nalphasamples_exp, search_mode="random"
+        elem_collection.elems[0], nexps * nalphasamples_exp, search_mode="random"
     )
 
     # shuffle the sample
@@ -659,8 +594,8 @@ def perform_experiments(
     alphas_exps, lls_exps, bestalphas_exps, delchisqs_exps = [], [], [], []
 
     for exp in range(nexps):
-        if verbose:
-           logging.info(f"Running experiment {exp+1}/{nexps}")
+        if messenger.runparams.verbose is True:
+            logging.info(f"Running experiment {exp+1}/{nexps}")
 
         # collect data for a single experiment
         alphasamples = allalphasamples[
@@ -679,62 +614,58 @@ def perform_experiments(
         minll_1 = np.percentile(lls, min_percentile)
         delchisqlist = get_delchisq(lls, minll=minll_1)
 
-        if plot_output:
+        if messenger.runparams.verbose is True:
+
+            from kifit.artist import plot_mc_output
+
             plot_mc_output(
+                messenger,
                 alphalist=alphas,
                 delchisqlist=delchisqlist,
-                plotname=f"exp_{exp}",
                 minll=minll_1,
-                plot_path=plot_path,
+                plotname=f"exp_{exp}",
+                xind=xind
             )
 
         delchisqs_exps.append(delchisqlist)
+
+    nsigmas = messenger.runparams.num_sigmas
+
+    delchisqcrit = get_delchisq_crit(nsigmas)
 
     confints_exps = np.array(
         [get_confint(alphas_exps[s], delchisqs_exps[s], delchisqcrit) for s in range(nexps)]
     )
 
-    (best_alpha_pts, sig_alpha_pts,
+    (best_alpha, sig_alpha,
         LB, sig_LB, UB, sig_UB) = \
-        get_bestalphaNP_and_bounds(bestalphas_exps,
-            confints_exps, block_size=block_size)
+        get_bestalphaNP_and_bounds(
+            messenger,
+            bestalphas_exps,
+            confints_exps)
 
-    for elem in elem_collection:
-        elem.set_alphaNP_init(best_alpha_pts, sig_alpha_pts)
+    print("LB    ", LB)
+    print("sig_LB", sig_LB)
+    print("UB    ", UB)
+    print("sig_UB", sig_UB)
 
-    if plot_output:
-        plot_final_mc_output(elem_collection, alphas_exps, delchisqs_exps,
-            delchisqcrit,
-            bestalphapt=best_alpha_pts, sigbestalphapt=sig_alpha_pts,
-            lb=LB, siglb=sig_LB, ub=UB, sigub=sig_UB,
-            nsigmas=nsigmas, xind=xind, plot_path=plot_path)
+    for elem in elem_collection.elems:
+        elem.set_alphaNP_init(best_alpha, sig_alpha)
 
     return [
-        alphas_exps, delchisqs_exps,
-        delchisqcrit,
-        best_alpha_pts, sig_alpha_pts,
+        np.array(alphas_exps), np.array(delchisqs_exps),
+        best_alpha, sig_alpha,
         LB, sig_LB, UB, sig_UB,
+        nsigmas,
         xind
     ]
 
 
 def sample_alphaNP_fit(
-        elem_collection: list,
-        output_filename: str,
-        nsearches: int = 10,
-        nelemsamples_search: int = 100,
-        nexps: int = 100,
-        nelemsamples_exp: int = 1000,
-        nalphasamples_exp: int = 1000,
-        block_size: int = 10,
-        nsigmas: int = 2,
-        maxiter: int = 1000,
-        plot_output: bool = False,
-        alpha0=0.,
-        mphivar: bool = False,
-        opt_method: str = "Powell",
-        x0: int = 0,
-        min_percentile: int = 1,
+        elem_collection,
+        messenger,
+        plot_output: bool = True,
+        xind: int = 0,
         verbose: bool = True):
     """
     Get a set of nsamples_search samples of elem by varying the masses and isotope
@@ -752,132 +683,98 @@ def sample_alphaNP_fit(
 
     """
 
-    if min_percentile <= 0 or min_percentile >= 100:
-        raise ValueError(
-            "min_percentile must be a positive number in (0, 100], "
-            + f"not {min_percentile}.")
-
-    _outputdata_path, _plot_path = generate_path()
-
-    mc_output_path = os.path.join(
-        _outputdata_path, (
-              f"{output_filename}_{opt_method}_"
-            + f"{nsearches}searches_{nelemsamples_search}es-search_"
-            + f"{nexps}exps_{nelemsamples_exp}es-exp_{nalphasamples_exp}as-exp_"
-            + f"maxiter{maxiter}_"
-            + f"blocksize{block_size}_"
-            + f"x0{x0}_" 
-            + f"mphivar{mphivar}"
-        )
-    )
-
     result_keys = [
-        "alpha_experiments",
-        "delchisq_experiments",
-        "delchisq_crit",
-        "best_alpha_pts",
-        "sig_alpha_pts",
+        "alphas_exp",
+        "delchisqs_exp",
+        "best_alpha",
+        "sig_best_alpha",
         "LB", "sig_LB",
         "UB", "sig_UB",
-        "x_ind"
-    ]
+        "nsigmas",
+        "x_ind"]
 
-    # check the Xcoeff are the same
-    first_list = np.round(np.asarray(elem_collection[0].Xcoeff_data).T[0], decimals=4)
-    for elem in elem_collection:
-        new_list = np.round(np.asarray(elem.Xcoeff_data).T[0], decimals=4)
-        if (new_list != first_list).any():
-            raise ValueError(
-                "Please prepare data with same mphi values for all the elements in the collection."
-            )
-    logging.info("All elements respect the initialization requirements.")
+    messenger.set_fit_keys(result_keys)
 
+    for elem in elem_collection.elems:
+        elem._update_Xcoeffs(xind)
 
-    if mphivar:
-        x_range = range(len(elem_collection[0].Xcoeff_data))
-    else:
-        x_range = [x0]
+    alpha_optimizer, sig_alpha_optimizer = determine_search_interval(
+        elem_collection=elem_collection,
+        messenger=messenger,
+    )
 
-    delchisqcrit = get_delchisq_crit(nsigmas=nsigmas, dof=1)
+    fit_output = perform_experiments(
+        elem_collection=elem_collection,
+        messenger=messenger,
+        xind=xind,
+    )
 
-    for x in x_range:
-        res_list_x = []
-        mc_output_path_x = mc_output_path + f"x{x}.json"
+    messenger.write_fit_output(xind, fit_output)
 
-        if os.path.exists(mc_output_path_x):
-            print(f"Loading fit results for x={x} from ", mc_output_path_x)
+    return fit_output
 
-            with open(mc_output_path_x) as json_file:
-                res = json.load(json_file)
-                res_x = []
-
-                for res_key in result_keys:
-                    res_x.append(res[res_key])
-
-                res_list_x.append(res_x)
-
-        else:
-            for elem in elem_collection:
-                elem._update_Xcoeffs(x)
-
-            alpha_optimizer, sig_alpha_optimizer = determine_search_interval(
-                elem_collection=elem_collection,
-                nsearches=nsearches,
-                nelemsamples_search=nelemsamples_search,
-                alpha0=alpha0,
-                maxiter=maxiter,
-                opt_method=opt_method,
-                min_percentile=min_percentile,
-                verbose=verbose,
-            )
-
-            res_exps = perform_experiments(
-                elem_collection=elem_collection,
-                delchisqcrit=delchisqcrit,
-                nexps=nexps,
-                nelemsamples_exp=nelemsamples_exp,
-                nalphasamples_exp=nalphasamples_exp,
-                block_size=block_size,
-                nsigmas=nsigmas,
-                plot_output=plot_output,
-                xind=x,
-                verbose=verbose,
-                plot_path=_plot_path,
-                min_percentile=min_percentile,
-            )
-
-            res_list_x.append(res_exps)
-
-            res_dict_x = {key: [] for key in result_keys[:2]}
-
-            for i, res in enumerate(res_exps):
-                if i == 0 or i == 1:
-                    for exp, res_exp in enumerate(res):
-                        if isinstance(res_exp, np.ndarray):
-                            res_exp = res_exp.tolist()
-                        res_dict_x[result_keys[i]].append(res_exp)
-
-                else:
-                    res_dict_x[result_keys[i]] = res
-
-            with open(mc_output_path_x, 'w') as json_file:
-                json.dump(res_dict_x, json_file)
-
-        mc_output = [res_list_x, nsigmas]
-
-    return mc_output
-
-
-# DETERMINANT METHODS
 
 def sample_alphaNP_det(
     elem,
+    messenger,
     dim,
-    nsamples,
+    gkp,
+    xind=0
+):
+
+    alphas, sigalphas = generate_alphaNP_det_samples(
+        elem=elem,
+        messenger=messenger,
+        dim=dim,
+        gkp=gkp,
+        xind=xind)
+
+    (
+        minpos_UB_alphas, maxneg_LB_alphas, minpos_alphas, maxneg_alphas
+    ) = get_minpos_maxneg_alphaNP_bounds(alphas, sigalphas,
+        messenger.runparams.num_sigmas)
+
+    det_results_x = [
+        elem.id,
+        gkp,
+        dim,
+        alphas,
+        sigalphas,
+        minpos_UB_alphas,
+        maxneg_LB_alphas,
+        minpos_alphas,
+        maxneg_alphas,
+        messenger.runparams.num_sigmas,
+        xind
+    ]
+
+    result_keys_x = [
+        "elem",
+        "gkp",
+        "dim",
+        "alphas",
+        "sigalphas",
+        "minpos_UB_alphas",
+        "maxneg_LB_alphas",
+        "minpos_alphas",
+        "maxneg_alphas",
+        "nsigmas",
+        "x_ind"
+    ]
+
+    messenger.set_det_keys(result_keys_x)
+    messenger.write_det_output(gkp, dim, xind, det_results_x)
+
+    return det_results_x
+
+
+def generate_alphaNP_det_samples(
+    elem,
+    messenger,
+    dim,
     mphivar=False,
     gkp=True,
-    outputdataname="alphaNP_det",
-    x0=0
+    xind=0
 ):
     """
     Get a set of nsamples samples of alphaNP by varying the masses and isotope
@@ -894,167 +791,82 @@ def sample_alphaNP_det(
         (nisotopepairs, ntransitions) = (dim, dim-1).
 
     """
-    print()
-    print(
-        """Using the %s-dimensional %sGeneralised King Plot to compute
-    alphaNP for %s samples. mphi is %svaried. %s"""
-        % (
-            dim,
-            "" if gkp else "No-Mass ",
-            nsamples,
-            ("" if mphivar else "not "),
-            ("" if mphivar
-                else "(mphi=" + str(elem.mphi) + ", x0=" + str(elem.x) + ")")))
+    nsamples = messenger.runparams.num_det_samples
 
-    if gkp:
-        method_tag = "GKP"
-    else:
-        method_tag = "NMGKP"
+    elemparamsamples = get_paramsamples(
+        elem.means_input_params, elem.stdevs_input_params, nsamples
+    )
 
-    mphi_tag = ("mphivar" if mphivar else ("x" + str(int(x0))))
+    voldatsamples = []
+    vol1samples = []
 
-    _outputdata_path, _ = generate_path()
-
-    file_path_tail = (
-        f"{outputdataname}_{elem.id}_{str(dim)}dim_{method_tag}_"
-        + f"{str(nsamples)}_samples_{mphi_tag}.txt")
-
-    file_path = os.path.join(_outputdata_path, file_path_tail)
-    sig_file_path = os.path.join(_outputdata_path, "sig" + file_path_tail)
-
-    if (os.path.exists(file_path) and os.path.exists(sig_file_path)
-            and elem.id != "Ca_testdata"):
-        print()
-        print("Loading alphaNP and sigalphaNP values from {}".format(file_path))
-        print()
+    for s in range(nsamples):
+        elem._update_elem_params(elemparamsamples[s])
 
         if gkp:
-            lenp = len(list(
-                product(
-                    combinations(elem.range_a, dim),
-                    combinations(elem.range_i, dim - 1))))
-
+            alphaNPparts = elem.alphaNP_GKP_part(dim)
         else:
-            lenp = len(list(
-                product(
-                    combinations(elem.range_a, dim),
-                    combinations(elem.range_i, dim))))
+            alphaNPparts = elem.alphaNP_NMGKP_part(dim)  # this is new
 
-        if mphivar:
-            lenx = len(elem.mphis)
+        voldatsamples.append(alphaNPparts[0])
+        vol1samples.append(alphaNPparts[1])
+        if s == 0:
+            xindlist = alphaNPparts[2]
         else:
-            lenx = 1
+            assert xindlist == alphaNPparts[2], (xindlist, alphaNPparts[2])
 
-        alphaNPs = np.loadtxt(file_path, delimiter=",").reshape(lenx, lenp)
-        sigalphaNPs = np.loadtxt(sig_file_path, delimiter=",").reshape(lenx, lenp)
-        # [x][perm]
+    # voldatsamples has the form [sample][alphaNP-permutation]
+    # vol1samples has the form [sample][alphaNP-permutation][eps-term]
 
-    else:
-        print()
-        print("""Initialising alphaNP""")
-        print()
-        elemparamsamples = get_paramsamples(
-            elem.means_input_params, elem.stdevs_input_params, nsamples
+    # for each term, average over all samples.
+
+    meanvoldat = np.average(np.array(voldatsamples), axis=0)  # [permutation]
+    sigvoldat = np.std(np.array(voldatsamples), axis=0)
+
+    meanvol1 = np.average(np.array(vol1samples), axis=0)  # [perm][eps-term]
+    sigvol1 = np.std(np.array(vol1samples), axis=0)
+
+    alphaNPs = []
+    sigalphaNPs = []
+
+    # Part with X-coeffs
+    elem._update_Xcoeffs(xind)
+
+    """ p: alphaNP-permutation index and xpinds: X-indices for sample p"""
+    alphaNP_p_list = []
+    sig_alphaNP_p_list = []
+
+    for p, xpinds in enumerate(xindlist):
+        meanvol1_p = np.array([elem.Xvec[xp] for xp in xpinds]) @ (meanvol1[p])
+        sigvol1_p_sq = np.array([elem.Xvec[xp] ** 2 for xp in xpinds]) @ (
+            sigvol1[p] ** 2
         )
 
-        voldatsamples = []
-        vol1samples = []
+        alphaNP_p_list.append(meanvoldat[p] / meanvol1_p)
+        sig_alphaNP_p_list.append(
+            (sigvoldat[p] / meanvol1_p) ** 2
+            + (meanvoldat[p] / meanvol1_p**2) ** 2 * sigvol1_p_sq
+        )
 
-        # nutilsamples = []   # add mass-normalised isotope shifts for cross-check
+    alphaNPs = np.math.factorial(dim - 2) * np.array(alphaNP_p_list)
+    sigalphaNPs = np.math.factorial(dim - 2) * np.array(sig_alphaNP_p_list)
 
-        for s in range(nsamples):
-            # print_progress(s, nsamples)
-            elem._update_elem_params(elemparamsamples[s])
+    if gkp:
+        lenp = len(list(
+            product(
+                combinations(elem.range_a, dim),
+                combinations(elem.range_i, dim - 1))))
 
-            if gkp:
-                alphaNPparts = elem.alphaNP_GKP_part(dim)
-            else:
-                alphaNPparts = elem.alphaNP_NMGKP_part(dim)  # this is new
+    else:
+        lenp = len(list(
+            product(
+                combinations(elem.range_a, dim),
+                combinations(elem.range_i, dim))))
 
-            voldatsamples.append(alphaNPparts[0])
-            vol1samples.append(alphaNPparts[1])
-            if s == 0:
-                xindlist = alphaNPparts[2]
-            else:
-                assert xindlist == alphaNPparts[2], (xindlist, alphaNPparts[2])
-
-        # voldatsamples has the form [sample][alphaNP-permutation]
-        # vol1samples has the form [sample][alphaNP-permutation][eps-term]
-
-        # for each term, average over all samples.
-
-        meanvoldat = np.average(np.array(voldatsamples), axis=0)  # [permutation]
-        sigvoldat = np.std(np.array(voldatsamples), axis=0)
-
-        meanvol1 = np.average(np.array(vol1samples), axis=0)  # [perm][eps-term]
-        sigvol1 = np.std(np.array(vol1samples), axis=0)
-
-        print()
-        print("""Computing alphaNP""")
-        print()
-        if mphivar:
-            x_range = range(len(elem.Xcoeff_data))
-        else:
-            x_range = [x0]
-
-        # mphi_list = []
-        alphaNPs = []  # alphaNP list for best alphaNP and all
-        sigalphaNPs = []
-
-        for x in x_range:
-            if mphivar:
-                elem._update_Xcoeffs(x)
-                # mphi_list.append(elem.mphi)
-                # print_progress(nsamples * x, nsamples * Nx)
-
-            """ p: alphaNP-permutation index and xpinds: X-indices for sample p"""
-            alphaNP_p_list = []
-            sig_alphaNP_p_list = []
-            for p, xpinds in enumerate(xindlist):
-                meanvol1_p = np.array([elem.Xvec[xp] for xp in xpinds]) @ (meanvol1[p])
-                sigvol1_p_sq = np.array([elem.Xvec[xp] ** 2 for xp in xpinds]) @ (
-                    sigvol1[p] ** 2
-                )
-
-                alphaNP_p_list.append(meanvoldat[p] / meanvol1_p)
-                sig_alphaNP_p_list.append(
-                    (sigvoldat[p] / meanvol1_p) ** 2
-                    + (meanvoldat[p] / meanvol1_p**2) ** 2 * sigvol1_p_sq
-                )
-            alphaNPs.append(alphaNP_p_list)
-            sigalphaNPs.append(sig_alphaNP_p_list)
-
-        alphaNPs = np.math.factorial(dim - 2) * np.array(alphaNPs)
-        sigalphaNPs = np.math.factorial(dim - 2) * np.array(sigalphaNPs)
-
-        print("saving det-result for (sig)alphaNP in ", (file_path,
-            sig_file_path))
-        np.savetxt(file_path, alphaNPs, delimiter=",")
-        np.savetxt(sig_file_path, sigalphaNPs, delimiter=",")
+    assert alphaNPs.shape[0] == lenp
+    assert sigalphaNPs.shape[0] == lenp
 
     return alphaNPs, sigalphaNPs
-
-
-def get_all_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
-    """
-    Determine all bounds on alphaNP at the desired confidence level.
-
-    """
-    alphaNPs = np.array(alphaNPs)  # [x][perm]
-    sigalphaNPs = np.array(sigalphaNPs)  # [x][perm]
-
-    # minimal positive alphaNP
-    ###############################
-    # Note: For NP we only want an exclusion bound, hence we do not consider the
-    # case of both upper and lower limits being positive / negative.
-
-    alphaNP_UB = alphaNPs + nsigmas * sigalphaNPs
-    alphaNP_LB = alphaNPs - nsigmas * sigalphaNPs
-
-    positive_alphaNP_bounds = np.where(alphaNP_UB > 0, alphaNP_UB, np.nan)
-    negative_alphaNP_bounds = np.where(alphaNP_LB < 0, alphaNP_LB, np.nan)
-
-    return positive_alphaNP_bounds, negative_alphaNP_bounds
 
 
 def get_minpos_maxneg_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
@@ -1065,11 +877,16 @@ def get_minpos_maxneg_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
     all vectors have dimensions [x][perm]
 
     """
-    alphaNP_UBs, alphaNP_LBs = get_all_alphaNP_bounds(
-        alphaNPs, sigalphaNPs, nsigmas=nsigmas
-    )
+    alphaNPs = np.array(alphaNPs)  # [x][perm]
+    sigalphaNPs = np.array(sigalphaNPs)  # [x][perm]
 
-    minpos = np.nanmin(alphaNP_UBs, axis=1)
-    maxneg = np.nanmax(alphaNP_LBs, axis=1)
+    alphaNP_UB = alphaNPs + nsigmas * sigalphaNPs
+    alphaNP_LB = alphaNPs - nsigmas * sigalphaNPs
 
-    return minpos, maxneg
+    allpos = np.where(alphaNP_UB > 0, alphaNP_UB, np.nan)
+    allneg = np.where(alphaNP_LB < 0, alphaNP_LB, np.nan)
+
+    minpos = np.nanmin(allpos)
+    maxneg = np.nanmax(allneg)
+
+    return minpos, maxneg, allpos, allneg
