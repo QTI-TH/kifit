@@ -1,17 +1,18 @@
-import os
+import logging
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-from kifit.hunter import (
+from kifit.fitools import (
     get_delchisq_crit,
-    get_minpos_maxneg_alphaNP_bounds,
     get_odr_residuals,
     linfit,
     perform_linreg,
     perform_odr,
-    sample_alphaNP_det,
+    collect_fit_X_data
 )
+
+from kifit.detools import get_minpos_maxneg_alphaNP_bounds, collect_det_X_data
 
 ###############################################################################
 
@@ -26,9 +27,8 @@ default_colour = [
     "#17becf",
 ]
 
-fit_colour = 'C0'
-fit_scatter_colour = 'b'
-gkp_colour = 'purple'
+fit_colour = 'orange'
+gkp_colour = 'blue'
 nmgkp_colour = 'darkgreen'
 det_colour = "royalblue"
 
@@ -151,8 +151,7 @@ def plot_linfit(elem, messenger, magnifac=1, resmagnifac=1, plot_path=None):
     ax3.set_ylabel(r"Lin. Reg. Resid.")
 
     plt.tight_layout()
-    plotpath = messenger.generate_plot_path("linfit", elemid=elem.id)
-    plt.savefig(plotpath)
+    plt.savefig(messenger.paths.generate_plot_path("linfit", elemid=elem.id))
 
     return fig, ax1, ax2, ax3
 
@@ -174,7 +173,9 @@ def blocking_plot(
     plt.xlabel("Blocks")
     plt.ylabel("Estimation")
 
-    plt.savefig(messenger.generate_plot_path(plotname))
+    plotpath = messenger.paths.generate_plot_path(plotname)
+    plt.savefig(plotpath)
+    logging.info(f"Saving blocking plot to {plotpath}")
 
 
 def plot_mc_output(
@@ -210,38 +211,37 @@ def plot_mc_output(
     plt.legend(loc='upper center')
     plt.title(rf"{len(alphalist)} samples")
 
-    plotpath = messenger.generate_plot_path("mc_output_" + plotname, xind=xind)
+    plotpath = messenger.paths.generate_plot_path("mc_output_" + plotname, xind=xind)
     plt.savefig(plotpath)
+    logging.info(f"Saving mc output plot to {plotpath}")
+
     plt.close()
 
     return ax
 
 
-def scatter_alphaNP_det_bounds(
+def plot_alphaNP_det_bounds(
     ax,
+    messenger,
+    gkp,
     dimindex,
     dim,
-    det_output,
-    messenger,
-    scatterpos,
-    minpos_global,
-    maxneg_global
+    xind,
+    scatterpos
 ):
     """
     Plot GKP/NMGKP bounds for one dimension dim.
 
     """
+    det_output = messenger.paths.read_det_output(gkp=gkp, dim=dim, x=xind)
 
     if det_output['gkp']:
         method_tag = "GKP"
-        scatter_colour = gkp_colour
+        plot_colour = gkp_colour
 
     else:
         method_tag = "NMGKP"
-        scatter_colour = nmgkp_colour
-
-    # alphas = det_results[0]
-    # sigalphas = det_results[1]
+        plot_colour = nmgkp_colour
 
     alphas = det_output['alphas']
     sigalphas = det_output['sigalphas']
@@ -254,90 +254,35 @@ def scatter_alphaNP_det_bounds(
         alphas, sigalphas, nsigmas
     )
 
-    if messenger.runparams.showalldetbounds:
-
-        for p in range(alphas.shape[0]):  # 1]):
-            # if p == 0:
-            #     scatterlabel = elem.id + ", dim " + str(dim) + " " + method_tag
-            # else:
-            #     scatterlabel = None
-
-            ax.scatter(
-                (allpos.T)[p], scatterpos * np.ones(len((allpos.T)[p])),
-                s=0.5,
-                color=scatter_colour
-            )
-
-            ax.scatter(
-                # alphaNP_LBs[p], scatterpos,
-                (allneg.T)[p], scatterpos * np.ones(len((allneg.T)[p])),
-                s=0.5,
-                color=scatter_colour,
-            )
-
-    if messenger.runparams.showbestdetbounds:
-
-        ax.scatter(
-            minpos, scatterpos,
-            s=6, marker=markerlist[dim - 3],
-            color=scatter_colour,
-            label=(det_output['elem'] + ", dim " + str(dim) + " "
-                + method_tag + " best: "
-                + r"$\alpha_{\mathrm{NP}}$: ["
-                # + f"[{maxneg:.1e}, {minpos:.1e}]"
-                + (f"{maxneg:.1e}, " if not np.isnan(maxneg) else "-")
-                + ", "
-                + (f"{minpos:.1e}" if not np.isnan(minpos) else "-")
-                + "]")
-        )
-
-        ax.errorbar(
-            minpos, scatterpos,
-            # xerr=np.abs(minpos - minpos_alphas),
-            color=scatter_colour)
-        ax.scatter(
-            maxneg, scatterpos,
-            s=6,
-            color=scatter_colour)
-        ax.errorbar(
-            maxneg, scatterpos,
-            # xerr=np.abs(maxneg_LB_alphas - maxneg_alphas),
-            color=scatter_colour)
-
-    if dimindex == 0:
-        minpos_global = minpos
-        maxneg_global = maxneg
-
-    else:
-        minpos_global = np.fmin(minpos_global, minpos)
-        maxneg_global = np.fmax(maxneg_global, maxneg)
-
-    return ax, minpos, maxneg
-
-
-def plot_vlines_det_bounds(
-    ax,
-    minpos,
-    maxneg,
-    nsigmas,
-    method_tag,
-    gkp=True,
-    vlinecolour=gkp_colour,
-):
-    """
-    On alphaNP vs. logL plot, plot best GKP / NMGKP bounds.
-
-    """
     minpos_num = np.nan_to_num(minpos, nan=10.)
     maxneg_num = np.nan_to_num(maxneg, nan=-10.)
 
-    ax.axvspan(maxneg_num, minpos_num, alpha=.5, color=vlinecolour,
-        label=f"{nsigmas}" + r"$\sigma$ " + method_tag
-        + r". best $\alpha_{\mathrm{NP}}$: ["
-        + (f"{maxneg:.1e}, " if not np.isnan(maxneg) else "-")
-        + ", "
-        + (f"{minpos:.1e}" if not np.isnan(minpos) else "-")
-        + "]", lw=1)
+    if messenger.params.showalldetbounds:
+
+        for p in range(alphas.shape[0]):  # 1]):
+            ax.scatter(
+                (allpos.T)[p], scatterpos * np.ones(len((allpos.T)[p])),
+                s=0.5,
+                color=plot_colour
+            )
+
+            ax.scatter(
+                (allneg.T)[p], scatterpos * np.ones(len((allneg.T)[p])),
+                s=0.5,
+                color=plot_colour,
+            )
+
+    if messenger.params.showbestdetbounds:
+
+        ax.axvspan(maxneg_num, minpos_num, alpha=.5, color=plot_colour,
+            label=("dim-" + str(dim) + " "
+                + method_tag
+                + f" {nsigmas}" + r"$\sigma$ bounds: "
+                + r"$\alpha_{\mathrm{NP}}\in$ ["
+                + (f"{maxneg:.1e}" if not np.isnan(maxneg) else "-")
+                + ", "
+                + (f"{minpos:.1e}" if not np.isnan(minpos) else "-")
+                + "]"))
 
     return ax, minpos, maxneg
 
@@ -358,12 +303,12 @@ def plot_alphaNP_ll(
     The resulting plot is saved in plots directory under alphaNP_ll + elem.
 
     """
-    gkpdims = messenger.runparams.gkp_dims
-    nmgkpdims = messenger.runparams.nmgkp_dims
+    gkpdims = messenger.params.gkp_dims
+    nmgkpdims = messenger.params.nmgkp_dims
 
     elem_collection.check_det_dims(gkpdims, nmgkpdims)
 
-    mc_output = messenger.read_fit_output(xind)
+    mc_output = messenger.paths.read_fit_output(xind)
 
     nsigmas = mc_output['nsigmas']
     delchisqcrit = get_delchisq_crit(nsigmas)
@@ -385,14 +330,11 @@ def plot_alphaNP_ll(
 
     fig, ax = plt.subplots()
 
-    ax.scatter(alphas, delchisqs,
-        s=1, c=fit_scatter_colour)
-
     if lb is not None and ub is not None:
-        ax.axvspan(lb, ub, alpha=.5, color=fit_colour,
+        ax.axvspan(lb, ub, alpha=.2, color=fit_colour,
                 label=(
-                    f"{nsigmas}"
-                    + r"$\sigma$ confidence interval: "
+                    f"fit {nsigmas}"
+                    + r"$\sigma$ confidence interval: $\alpha_{\mathrm{NP}}\in$"
                     + f"[{lb:.1e},{ub:.1e}]"))
 
     if siglb is not None and sigub is not None:
@@ -404,9 +346,9 @@ def plot_alphaNP_ll(
     for block in range(nblocks):
         for exp in range(nexps):
             ax.scatter(alphas[block][exp], delchisqs[block][exp],
-                s=1, alpha=0.5, color=fit_colour)
+                s=1, alpha=.2, color=fit_colour)
             ax.scatter(alphas[block][exp][np.argmin(delchisqs[block][exp])],
-                np.min(delchisqs[block][exp]), color=fit_scatter_colour)
+                np.min(delchisqs[block][exp]), color=fit_colour)
 
     (ymin, ymax) = ax.get_ylim()
 
@@ -423,79 +365,40 @@ def plot_alphaNP_ll(
     ax.errorbar(best_alpha, errorbarpos, xerr=sig_best_alpha, color="red")
     ax.scatter(best_alpha, errorbarpos,
         color="orange", marker="*",
-        label=("best $\\alpha_{\\mathrm{NP}}$ point: "
+        label=("best fit point: $\\alpha_{\\mathrm{NP}}$="
             + f"{best_alpha:.1e}({sig_best_alpha:.1e})"))
 
     ax.set_ylim(2 * errorbarpos, ymax)
-    minpos_global = np.array([])
-    maxneg_global = np.array([])
 
     for d, dim in enumerate(gkpdims):
-        det_output = messenger.read_det_output(gkp=True, dim=dim, x=xind)
 
-        ax, minpos_global, maxneg_global = scatter_alphaNP_det_bounds(
+        ax, minpos, maxneg = plot_alphaNP_det_bounds(
             ax,
-            d,
-            dim,
-            det_output,
             messenger,
-            scatterpos,
-            minpos_global,
-            maxneg_global
-        )
-
-    if len(gkpdims) > 0:
-
-        if len(gkpdims) > 1:
-            meth_tag = " (" + ", ".join(str(gd) for gd in gkpdims) + ")-dim GKP"
-
-        else:
-            meth_tag = f"{gkpdims[0]}-dim GKP"
-
-        ax, minpos_global, maxneg_global = plot_vlines_det_bounds(
-            ax,
-            minpos_global,
-            maxneg_global,
-            nsigmas=nsigmas,
-            method_tag=meth_tag,
             gkp=True,
-            vlinecolour=gkp_colour)
+            dimindex=d,
+            dim=dim,
+            xind=xind,
+            scatterpos=scatterpos
+        )
 
     for d, dim in enumerate(nmgkpdims):
-        det_output = messenger.read_det_output(gkp=False, dim=dim, x=xind)
 
-        ax, minpos_global, maxneg_global = scatter_alphaNP_det_bounds(
+        ax, minpos_global, maxneg_global = plot_alphaNP_det_bounds(
             ax,
-            scatterpos,
-            det_output,
             messenger,
-            scatterpos,
-            minpos_global,
-            maxneg_global
-        )
-
-    if len(nmgkpdims) > 0:
-
-        if len(nmgkpdims) > 1:
-            meth_tag = (
-                " (" + ", ".join(str(nmd) for nmd in nmgkpdims) + ")-dim NMGKP")
-        else:
-            meth_tag = f"{nmgkpdims[0]}-dim NMGKP"
-
-        ax, minpos_global, maxneg_global = plot_vlines_det_bounds(
-            ax,
-            minpos_global,
-            maxneg_global,
-            nsigmas=nsigmas,
-            method_tag=meth_tag,
             gkp=False,
-            vlinecolour=nmgkp_colour)
+            dimindex=d,
+            dim=dim,
+            xind=xind,
+            scatterpos=scatterpos
+        )
 
     plt.legend(loc='upper center')
 
-    plotpath = messenger.generate_plot_path("alphaNP_ll", xind=xind)
+    plotpath = messenger.paths.generate_plot_path("alphaNP_ll", xind=xind)
     plt.savefig(plotpath)
-    print("Saving alphaNP-logL plot to ", plotpath)
+    logging.info(f"Saving alphaNP-logL plot to {plotpath}")
     plt.close()
 
     return fig, ax
@@ -504,15 +407,11 @@ def plot_alphaNP_ll(
 def plot_mphi_alphaNP_det_bound(
     ax,
     elem,
+    messenger,
     dimindex,
     dim,
-    nsamples,
-    nsigmas,
-    minpos_global,
-    maxneg_global,
     gkp=True,
-    showalldetbounds=False,
-    showbestdetbounds=True
+    ylims=[None, None]
 ):
     """
     Plot GKP/NMGKP bounds for one dimension dim.
@@ -521,115 +420,143 @@ def plot_mphi_alphaNP_det_bound(
 
     if gkp:
         method_tag = "GKP"
+        det_colour = gkp_colour
 
     else:
         method_tag = "NMGKP"
-    alphas, sigalphas = sample_alphaNP_det(elem, dim, nsamples, mphivar=True, gkp=gkp)
+        det_colour = nmgkp_colour
 
-    (
-        minpos, maxneg, allpos, allneg
-    ) = get_minpos_maxneg_alphaNP_bounds(
-        alphas, sigalphas, nsigmas
-    )
+    minpos, allpos, maxneg, allneg = collect_det_X_data(messenger, dim=dim, gkp=gkp)
 
-    if showalldetbounds:
+    mphis_det = [elem.mphis[x] for x in messenger.x_vals_det]
 
-        for p in range(alphas.shape[1]):
+    min_ub = min(minpos)
+    max_lb = max(maxneg)
+
+    if messenger.params.showalldetbounds is True:
+
+        for p in range(allpos.shape[1]):
             if p == 0:
-                scatterlabel = elem.id + ", dim " + str(dim) + " " + method_tag
+                scatterlabel = (
+                    "all dim-" + str(dim) + " " + method_tag + " solutions")
             else:
                 scatterlabel = None
 
             ax.scatter(
-                elem.mphis,
+                mphis_det,
                 (allpos.T)[p],
-                s=0.5,
-                color=default_colour[dimindex],
+                s=3,
+                color=det_colour,
                 alpha=0.3,
                 label=scatterlabel,
             )
             ax.scatter(
-                elem.mphis,
+                mphis_det,
                 (allneg.T)[p],
-                s=0.5,
-                color=default_colour[dimindex],
+                s=3,
+                color=det_colour,
                 alpha=0.3,
             )
 
-    if showbestdetbounds:
-        ax.scatter(
-            elem.mphis,
+    if messenger.params.showbestdetbounds is True:
+        ax.fill_between(
+            mphis_det,
             minpos,
-            s=3,
-            color=default_colour[dimindex],
-            label=elem.id + ", dim " + str(dim) + " " + method_tag + "_best",
+            ylims[1],
+            color=det_colour,
+            alpha=.2,
+            label="best dim-" + str(dim) + " " + method_tag,
         )
-        ax.scatter(
-            elem.mphis,
+        ax.fill_between(
+            mphis_det,
+            ylims[0],
             maxneg,
-            s=3,
-            color=default_colour[dimindex])
+            color=det_colour,
+            alpha=.2)
 
-    if dimindex == 0:
-        minpos_global = minpos
-        maxneg_global = maxneg
-
-    else:
-        minpos_global = np.fmin(minpos_global, minpos)
-        maxneg_global = np.fmax(maxneg_global, maxneg)
-
-    return ax, minpos, maxneg
+    return ax, min_ub, max_lb
 
 
 def plot_mphi_alphaNP_fit_bound(
     ax,
-    elem,
-    bestalphas_pts,
-    sigbestalphas_pts,
-    lb,
-    siglb,
-    ub,
-    sigub
+    elem_collection,
+    messenger,
+    ylims
 ):
-    ax.errorbar(elem.mphis, bestalphas_pts, yerr=sigbestalphas_pts,
+
+    UB, sig_UB, LB, sig_LB, best_alphas, sig_best_alphas = collect_fit_X_data(
+        messenger=messenger)
+
+    print("UB", UB)
+
+    min_ub = min(UB)
+    max_lb = max(LB)
+
+    mphis_fit = [elem_collection.mphis[x] for x in messenger.x_vals_fit]
+
+    ax.errorbar(mphis_fit, best_alphas, yerr=sig_best_alphas,
         color='orange', ls='none')
-    ax.scatter(elem.mphis, bestalphas_pts, color='orange', marker="*",
-        label=r"best $\alpha_{\mathrm{NP}} \pm \sigma[\alpha_{\mats}}]$")
+    ax.scatter(mphis_fit, best_alphas,
+        color='orange', marker="*",
+        label=r"best fit $\alpha_{\mathrm{NP}} \pm \sigma[\alpha_{\mathrm{NP}}]$")
 
-    ax.plot(elem.mphis, ub, color=fit_colour)
-    ax.plot(elem.mphis, ub + sigub, ls='--', color=fit_colour, alpha=.2,
-        label=r"$2\sigma$ uncertainty on fit bound")
+    ax.fill_between(
+        mphis_fit,
+        UB, ylims[1] * np.ones(len(UB)),
+        color=fit_colour,
+        alpha=.2,
+        label=(str(messenger.params.num_sigmas) + r" $\sigma$ fit bounds")
+    )
+    ax.fill_between(
+        mphis_fit,
+        UB - sig_UB,
+        UB + sig_UB,
+        color=fit_colour,
+        ls='--',
+        label=r"uncertainties on fit bounds"
+    )
 
-    ax.plot(elem.mphis, lb, color=fit_colour)
-    ax.plot(elem.mphis, lb - siglb, ls='--', color=fit_colour, alpha=.2)
+    ax.fill_between(
+        mphis_fit,
+        ylims[0] * np.ones(len(LB)),
+        LB,
+        color=fit_colour,
+        alpha=.2
+    )
+    ax.fill_between(
+        mphis_fit,
+        LB - sig_LB,
+        LB + sig_LB,
+        color=fit_colour,
+        ls='--'
+    )
 
-    return ax
+    return ax, min_ub, max_lb
 
 
-def set_axes(
+def set_axes_mphi_alpha_plot(
     ax,
+    elem_collection,
     xlims,
     ylims,
     linthreshold,
-    elem,
-    minpos,
-    maxneg,
-    absb,
-    ub,
-    lb
+    minub,
+    maxlb,
+    xlabel,
+    ylabel
 ):
 
     if xlims[0] is not None:
         ax.set_xlim(left=xlims[0])
 
     else:
-        ax.set_xlim(left=min(elem.mphis))
+        ax.set_xlim(left=min(elem_collection.mphis))
 
     if xlims[1] is not None:
         ax.set_xlim(right=xlims[1])
 
     else:
-        ax.set_xlim(right=max(elem.mphis))
+        ax.set_xlim(right=max(elem_collection.mphis))
 
     if ylims[0] is not None:
         ymin = ylims[0]
@@ -647,8 +574,8 @@ def set_axes(
 
     ax.set_ylim(top=ymax)
 
-    ax.set_xlabel(r"$m_\phi~$[eV]")
-    ax.set_ylabel(r"$\alpha_{\mathrm{NP}}/\alpha_{\mathrm{EM}}$")
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
 
     ax.axhline(y=0, c="k")
 
@@ -659,51 +586,28 @@ def set_axes(
     ax.set_yscale("log")
 
     if linthreshold is None:
-        linlim = 10 ** (
-            np.floor(
-                np.log10(
-                    np.nanmin(
-                        [
-                            np.nanmin(np.abs(ub)),
-                            np.nanmin(np.abs(lb)),
-                        ]
-                    )
-                )
-                - 1
-            )
-        )
+        linlim = 10 ** np.floor(np.log10(
+            np.nanmax([np.abs(minub), np.abs(maxlb)])) - 1)
 
     else:
         linlim = linthreshold
     ax.set_yscale("symlog", linthresh=linlim)
+    ax.legend(loc="upper left", fontsize="9")
+
+    ax.set_title(elem_collection.id)
 
     return ax, ymin, ymax
 
 
 def plot_mphi_alphaNP(
     elem_collection,
-    elem,
     messenger,
-    lb_fit,
-    sig_lb_fit,
-    ub_fit,
-    sig_ub_fit,
-    bestalphas,
-    sig_bestalphas,
-    gkpdims,
-    lb_gkp,
-    ub_gkp,
-    nmgkpdims,
-    lb_nmgkp,
-    ub_nmgkp,
-    nsigmas,
+    elem=None,
+    xlabel=r"$m_\phi~$[eV]",
     ylabel=r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
     xlims=[None, None],
     ylims=[None, None],
-    linthreshold=None,
-    showbestdetbounds=False,
-    showalldetbounds=False,
-    plot_path=None
+    linthreshold=None
 ):
     """
     Plot the most stringent nsigmas-bounds on both positive and negative
@@ -713,154 +617,127 @@ def plot_mphi_alphaNP(
     shown.
 
     """
-
-    # nsigmas = mc_output[1]
-    #
-    # alphas = np.array([row[0] for row in mc_output[0]])
-    # delchisqs = np.array([row[1] for row in mc_output[0]])
-    # delchisqcrit = mc_output[0, 2]
-    # bestalphas_pts = np.array([row[3] for row in mc_output[0]])
-    # sigbestalphas_pts = np.array([row[4] for row in mc_output[0]])
-    # lb = np.array([row[4] for row in mc_output[0]])
-    # siglb = np.array([row[5] for row in mc_output[0]])
-    # ub = np.array([row[6] for row in mc_output[0]])
-    # sigub = np.array([row[7] for row in mc_output[0]])
-    #
-    # absb = np.max(np.array([np.abs(lb), np.abs(ub)]), axis=0)
-
     fig, ax = plt.subplots()
 
+    if ylims[0] is not None:
+        ymin = ylims[0]
+    else:
+        ymin = -1
+
+    if ylims[1] is not None:
+        ymax = ylims[1]
+    else:
+        ymax = 1
 
     # fit
 
     ###########################################################################
     ###########################################################################
+    minub = ymax
+    maxlb = ymin
 
-    ax = plot_mphi_alphaNP_fit_bound(
-        ax,
-        elem_collection,
-        bestalphas,
-        sig_bestalphas,
-        lb_fit,
-        sig_lb_fit,
-        ub_fit,
-        sig_ub_fit)
+    if len(messenger.x_vals_fit) > 2:
+        ax, minub, maxlb = plot_mphi_alphaNP_fit_bound(
+            ax,
+            elem_collection,
+            messenger,
+            ylims=[ymin, ymax])
 
     # determinant methods
     ###########################################################################
 
-    minpos = np.array([])
-    maxneg = np.array([])
+    gkpdims = messenger.params.gkp_dims
+    nmgkpdims = messenger.params.nmgkp_dims
 
-    for d, dim in enumerate(gkpdims):
-        ax, minpos, maxneg = plot_mphi_alphaNP_det_bound(
-            ax,
-            elem,
-            d,
-            dim,
-            ndetsamples,
-            nsigmas,
-            minpos,
-            maxneg,
-            gkp=True,
-            showbestdetbounds=showbestdetbounds,
-            showalldetbounds=showalldetbounds,
-        )
+    if elem is not None:
+        for d, dim in enumerate(gkpdims):
+            ax, minub_det, maxlb_det = plot_mphi_alphaNP_det_bound(
+                ax,
+                elem,
+                messenger,
+                d,
+                dim,
+                gkp=True,
+                ylims=[ymin, ymax]
+            )
+            if minub_det < minub:
+                minub = minub_det
+            if maxlb_det > maxlb:
+                maxlb = maxlb_det
 
-    for d, dim in enumerate(nmgkpdims):
-        ax, minpos, maxneg = plot_mphi_alphaNP_det_bound(
-            ax,
-            elem,
-            d + len(gkpdims),
-            dim,
-            ndetsamples,
-            nsigmas,
-            minpos,
-            maxneg,
-            gkp=False,
-            showbestdetbounds=showbestdetbounds,
-            showalldetbounds=showalldetbounds,
-        )
+        for d, dim in enumerate(nmgkpdims):
+            ax, minpos, maxneg = plot_mphi_alphaNP_det_bound(
+                ax,
+                elem,
+                messenger,
+                d + len(gkpdims),
+                dim,
+                gkp=False,
+                ylims=[ymin, ymax]
+            )
+            if minub_det < minub:
+                minub = minub_det
+            if maxlb_det > maxlb:
+                maxlb = maxlb_det
 
     # formatting + plotting combined det bound
     ###########################################################################
-    gkp_label = (
-        ("(" + ", ".join(str(gd) for gd in gkpdims) + ")-dim GKP")
-        if len(gkpdims) > 0
-        else ""
-    )
-    nmgkp_label = (
-        ("(" + ", ".join(str(nmd) for nmd in nmgkpdims) + ")-dim NMGKP")
-        if len(nmgkpdims) > 0
-        else ""
-    )
-    label_coupling = " + " if (gkp_label != "" and nmgkp_label != "") else ""
+    # gkp_label = (
+    #     ("(" + ", ".join(str(gd) for gd in gkpdims) + ")-dim GKP")
+    #     if len(gkpdims) > 0
+    #     else ""
+    # )
+    # nmgkp_label = (
+    #     ("(" + ", ".join(str(nmd) for nmd in nmgkpdims) + ")-dim NMGKP")
+    #     if len(nmgkpdims) > 0
+    #     else ""
+    # )
+    # label_coupling = " + " if (gkp_label != "" and nmgkp_label != "") else ""
+    #
+    # det_label = gkp_label + label_coupling + nmgkp_label
 
-    det_label = gkp_label + label_coupling + nmgkp_label
+    print("minub", minub)
+    print("maxlb", maxlb)
 
-    ax, ymin, ymax = set_axes(
+    ax, ymin, ymax = set_axes_mphi_alpha_plot(
         ax,
+        elem_collection,
         xlims,
         ylims,
         linthreshold,
-        elem,
-        minpos,
-        maxneg,
-        absb,
-        ub,
-        lb,
+        minub,
+        maxlb,
+        xlabel,
+        ylabel
     )
-
-    if len(minpos) > 1 and len(maxneg) > 1:
-
-        ax.plot(elem.mphis, minpos, color=det_colour)  # , label=det_label)
-        ax.plot(elem.mphis, maxneg, color=det_colour)
-        ax.scatter(elem.mphis, minpos, color=det_colour, s=1)
-        ax.scatter(elem.mphis, maxneg, color=det_colour, s=1)
-
-        ax.fill_between(
-            elem.mphis,
-            minpos,
-            ymax,
-            color=det_colour,
-            alpha=0.3,
-            label=det_label + " " + str(nsigmas) + r"$\sigma$-excluded",
-        )
-        ax.fill_between(
-            elem.mphis,
-            maxneg,
-            ymin,
-            color=det_colour,
-            alpha=0.3
-        )
-
-    if len(absb) > 1:
-
-        ax.fill_between(
-            elem.mphis,
-            ub,
-            ymax,
-            color=fit_colour,
-            alpha=0.3,
-            label="fit " + str(nsigmas) + r"$\sigma$-excluded",
-        )
-        ax.fill_between(
-            elem.mphis,
-            lb,
-            ymin,
-            color=fit_colour,
-            alpha=0.3
-        )
-
+    #
+    # ax.plot(elem.mphis, minpos, color=det_colour)  # , label=det_label)
+    # ax.plot(elem.mphis, maxneg, color=det_colour)
+    # ax.scatter(elem.mphis, minpos, color=det_colour, s=1)
+    # ax.scatter(elem.mphis, maxneg, color=det_colour, s=1)
+    #
+    # ax.fill_between(
+    #     elem.mphis,
+    #     minpos,
+    #     ymax,
+    #     color=det_colour,
+    #     alpha=0.3,
+    #     label=det_label + " "
+    #     + str(messenger.params.num_sigmas) + r"$\sigma$-excluded",
+    # )
+    # ax.fill_between(
+    #     elem.mphis,
+    #     maxneg,
+    #     ymin,
+    #     color=det_colour,
+    #     alpha=0.3
+    # )
+    #
     ax.legend(loc="upper left", fontsize="9")
 
-    if plotname == "":
-        prettyplotname = ""
-    else:
-        prettyplotname = plotname + "_"
-
-    fig.savefig(os.path.join(plot_path,
-        f"mphi_alphaNP_{elem.id}_{prettyplotname}{str(len(alphas[0]))}_fit_samples.png"))
+    plotpath = messenger.paths.generate_plot_path("mphi_alphaNP")
+    fig.savefig(plotpath)
+    logging.info(f"Saving mphi-alphaNP plot to {plotpath}")
 
     plt.close()
 

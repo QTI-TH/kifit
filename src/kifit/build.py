@@ -1,13 +1,13 @@
 import os
-import numpy as np
 import logging
+import numpy as np
 from itertools import permutations, combinations, product
 from functools import cache
 
 from kifit.cache_update import update_fct, cached_fct, cached_fct_property
 from kifit.user_elements import user_elems
 
-from kifit.hunter import perform_odr
+from kifit.fitools import perform_odr
 
 _data_path = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
@@ -62,16 +62,16 @@ def LeviCivita(dim):
 
 class ElemCollection:
 
-    def __init__(self, elemlist):
+    def __init__(self, elemlist, gkpdims, nmgkpdims):
         elem_collection = []
         elem_collection_id = ""
 
         for elemstr in elemlist[:-1]:
-            elem = Elem.get(str(elemstr))
+            elem = Elem(str(elemstr))
             elem_collection.append(elem)
             elem_collection_id += elem.id + "_"
 
-        elem = Elem.get(str(elemlist[-1]))
+        elem = Elem(str(elemlist[-1]))
         elem_collection.append(elem)
         elem_collection_id += elem.id
 
@@ -82,9 +82,7 @@ class ElemCollection:
 
         self._init_Xcoeffs()
 
-    @classmethod
-    def get(cls, elem: str):
-        return cls(elem)
+        self.check_det_dims(gkpdims, nmgkpdims)
 
     def _init_Xcoeffs(self):
         # check the Xcoeff are the same
@@ -100,11 +98,13 @@ class ElemCollection:
         logging.info("All elements have been given X-coefficients with "
         + "compatible mphi values.")
 
-        self.x_range = (self.elems[0]).x_range
+        self.mphis = first_list
+        self.x_vals = (self.elems[0]).x_vals
 
-    def check_det_dims(self, gkpdims=[], nmgkpdims=[]):
+    def check_det_dims(self, gkpdims, nmgkpdims):
         if self.len != 1:
-            raise IndexError("Determinant methods are only valid for single element.")
+            raise IndexError(
+                "Determinant methods are only valid for single element.")
         (self.elems[0]).check_det_dims(gkpdims, nmgkpdims)
 
 
@@ -131,7 +131,7 @@ class Elem:
             raise NameError("""Element {} not supported. You may want to add it
                     to src/kifit/user_elems""".format(element))
 
-        print("Loading raw data")
+        logging.info("Loading raw data")
         self.id = element
         self._init_elemdata()
         self._init_masses()
@@ -140,7 +140,7 @@ class Elem:
         self._init_fit_params()
 
     def __load(self, atr: str, file_type: str, file_path: str):
-        print('Loading attribute {} for element {} from {}'.format(
+        logging.info('Loading attribute {} for element {} from {}'.format(
             atr, self.id, file_path))
         val = np.loadtxt(file_path)
 
@@ -209,7 +209,7 @@ class Elem:
 
         """
         self.mphis = self.Xcoeff_data[:, 0]
-        self.x_range = range(len(self.mphis))
+        self.x_vals = range(len(self.mphis))
 
         self.x = 0
         self.mphi = self.Xcoeff_data[self.x, 0]
@@ -261,7 +261,7 @@ class Elem:
 
         # self.sig_alphaNP_init = np.absolute(np.max(self.absd) / np.min(
         #     np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))
-        print("sig_alphaNP_init", self.sig_alphaNP_init)
+        # print("sig_alphaNP_init", self.sig_alphaNP_init)
 
     @update_fct
     def set_alphaNP_init(self, alpha, sigalpha):
@@ -290,10 +290,6 @@ class Elem:
         Load all elements and returns result as dict.
         """
         return {u: cls(u) for u in cls.VALID_ELEM}
-
-    @classmethod
-    def get(cls, elem: str):
-        return cls(elem)
 
     @update_fct
     def _update_Xcoeffs(self, x: int):
@@ -449,21 +445,17 @@ class Elem:
                 raise ValueError("""dim is larger than dimension of provided
                 data.""")
             else:
-                print(f"GKP dimension {dim} is valid.")
+                logging.info(f"GKP dimension {dim} is valid.")
 
         for dim in nmgkpdims:
             if dim < 3:
                 raise ValueError("""No-Mass Generalised King Plot formula is
                 only valid for dim >=3.""")
             if dim > self.nisotopepairs or dim > self.ntransitions:
-                print("nisotopepairs", self.nisotopepairs)
-                print("ntransitions", self.ntransitions)
-                print("dim", dim)
-
                 raise ValueError(
                     """dim is larger than dimension of provided data.""")
             else:
-                print(f"Parsed NMGKP dimension {dim} is valid.")
+                logging.info(f"Parsed NMGKP dimension {dim} is valid.")
 
         return (self.nisotopepairs, self.ntransitions)
 
@@ -891,7 +883,7 @@ class Elem:
             vol1st.append(vol1part)
             xindlist.append(xindpart)
 
-        return np.array(voldatlist), np.array(vol1st), xindlist  #, indexlist
+        return np.array(voldatlist), np.array(vol1st), xindlist
 
     @cached_fct
     def alphaNP_GKP_combinations(self, dim):
@@ -949,8 +941,6 @@ class Elem:
             raise ValueError("""No-Mass Generalised King Plot formula is only
             valid for dim >=3.""")
         if dim > self.nisotopepairs or dim > self.ntransitions:
-            print("nisotopepairs", self.nisotopepairs)
-            print("ntransitions", self.ntransitions)
             raise ValueError("""dim is larger than dimension of provided
             data.""")
 

@@ -3,7 +3,7 @@
 #SBATCH --output=kifit.log
 
 
-python3 main.py --element_list "Camin" \
+python3 main.py --element_list "Camin"\
                 --optimization_method "Powell" \
                 --maxiter 100 \
                 --num_searches 5 \
@@ -14,7 +14,9 @@ python3 main.py --element_list "Camin" \
                 --num_sigmas 2\
                 --num_alphasamples_exp 100\
                 --num_elemsamples_exp 100 \
-                --num_det_samples 100\
                 --gkp_dims 3\
-                --x0 0\
+                --num_det_samples 100\
+                --mphivar_det\
+                --mphivar_fit\
+                --showbestdetbounds\
                 --verbose

@@ -15,7 +15,7 @@ def test_load_all():
 
 
 def test_load_individual():
-    ca = Elem.get('Ca_testdata')
+    ca = Elem('Ca_testdata')
 
     # overwrite nuclear masses with atomic masses
     ca.m_a_in = ca.isotope_data[1]
@@ -25,7 +25,7 @@ def test_load_individual():
 
     pprint(ca)
 
-    Ca = Elem.get('Ca_testdata')
+    Ca = Elem('Ca_testdata')
 
     assert np.all(np.nan_to_num(ca.nu) == np.nan_to_num(Ca.nu))
     assert np.isclose(np.sum(ca.m_a), 119.88777255, atol=0, rtol=1e-5)
@@ -87,7 +87,7 @@ def test_load_individual():
 
 
 def test_set_fit_params():
-    ca = Elem.get('Ca_testdata')
+    ca = Elem('Ca_testdata')
 
     kappaperp1temp = np.array(list(range(ca.ntransitions - 1)))
     ph1temp = np.array([np.pi / 2 - np.pi / (i + 2) for i in
@@ -126,7 +126,7 @@ def test_set_fit_params():
 
 
 def test_constr_dvec():
-    ca = Elem.get('Ca_testdata')
+    ca = Elem('Ca_testdata')
 
     # overwrite nuclear masses with atomic masses
     ca.m_a_in = ca.isotope_data[1]
@@ -170,9 +170,9 @@ def test_constr_dvec():
 
 
 def test_constr_logL():
-    ca = Elem.get('Ca_testdata')
-    camin = Elem.get('Camin')
-    ybmin = Elem.get('Ybmin')
+    ca = Elem('Ca_testdata')
+    camin = Elem('Camin')
+    ybmin = Elem('Ybmin')
     print(ca.absd)
     print(camin.absd)
     print(ybmin.absd)
@@ -259,7 +259,7 @@ def check_alphaNP_NMGKP(elem, dim):
 
 
 def test_alphaNP_GKP():
-    ca = Elem.get('Ca_testdata')
+    ca = Elem('Ca_testdata')
     vold, vol1, inds = ca.alphaNP_GKP_part(3)
     assert len(vold) == len(vol1), (len(vold), len(vol1))
 
@@ -275,7 +275,7 @@ def test_alphaNP_GKP():
 
 
 def test_alphaNP_NMGKP():
-    ca = Elem.get('Ca_testdata')
+    ca = Elem('Ca_testdata')
     vold, vol1, inds = ca.alphaNP_NMGKP_part(3)
     assert len(vold) == len(vol1), (len(vold), len(vol1))
 

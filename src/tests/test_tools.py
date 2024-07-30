@@ -11,7 +11,7 @@ from test_fcts import iterative_mc_search
 
 def test_linfit():
 
-    ca = Elem.get('Ca_testdata')
+    ca = Elem('Ca_testdata')
 
     (betas_odr, sig_betas_odr, kperp1s_odr, ph1s_odr,
         sig_kperp1s_odr, sig_ph1s_odr) = perform_odr(
@@ -44,7 +44,7 @@ def test_linfit():
 
 def test_sample_alphaNP_det():
 
-    ca = Elem.get('Ca_testdata')
+    ca = Elem('Ca_testdata')
 
     alphas_GKP_x0, sigalphas_GKP_x0 = sample_alphaNP_det(ca, 3, 100)
     alphas_NMGKP_x0, sigalphas_NMGKP_x0 = sample_alphaNP_det(ca, 3, 100, gkp=False)
@@ -150,7 +150,7 @@ def test_logL_minimisation():
 
     np.random.seed(1)
 
-    ca = Elem.get('Ybmin')
+    ca = Elem('Ybmin')
     x0 = 0
     ca._update_Xcoeffs(x0)
 
