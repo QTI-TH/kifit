@@ -16,6 +16,7 @@ det_keys = [
     "dim",
     "alphas",
     "sigalphas",
+    "npermutations",
     "minpos",
     "maxneg",
     "allpos",
@@ -195,6 +196,9 @@ def generate_alphaNP_det_samples(
         gkp (boolean): if True, generalised King plot is computed, else no-mass
                        generalised King plot
     Returns:
+        alphaNPs:      np.array of shape (lenp, ), with lenp (cf. below)
+        sigalphas:     np.array of shape (lenp, ), with lenp (cf. below)
+        lenp (int):    number of data permutations
 
     """
     # Part independent of X-coeffs
@@ -234,12 +238,7 @@ def generate_alphaNP_det_samples(
     assert alphaNPs.shape[0] == lenp
     assert sigalphaNPs.shape[0] == lenp
 
-    print("alphaNPs shape", alphaNPs.shape)
-    print("alphaNPs", alphaNPs)
-
-    print("lenp", lenp)
-
-    return alphaNPs, sigalphaNPs
+    return alphaNPs, sigalphaNPs, lenp
 
 
 # determine bounds
@@ -255,6 +254,8 @@ def get_minpos_maxneg_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
     """
     alphaNPs = np.array(alphaNPs)  # [x][perm]
     sigalphaNPs = np.array(sigalphaNPs)  # [x][perm]
+
+    assert all(sigalphaNPs > 0)
 
     alphaNP_UB = alphaNPs + nsigmas * sigalphaNPs
     alphaNP_LB = alphaNPs - nsigmas * sigalphaNPs
@@ -278,8 +279,28 @@ def sample_alphaNP_det(
     gkp,
     xind=0
 ):
+    """
+    Generate determinant results for elem specified by
 
-    alphas, sigalphas = generate_alphaNP_det_samples(
+    Args:
+        elem:          element of interest (instance of the Elem class)
+        messenger:     run configuration (instance of the Config class)
+        dim (int):     dimension of the (no-mass-) generalised King plot
+        gkp (boolean): specifying whether the generalised King plot formula is
+                       to be used (alternative: no-mass generalised King plot)
+        xind (int):    index of the X-coefficient for which the results are to
+                       be computed
+
+    Returns:
+        det_results_x: list of determinant reults which are also written to the
+                       det output file specified by messenger.
+                       N.B.: This output should fit to the det_keys defined in
+                       detools.py
+
+
+    """
+
+    alphas, sigalphas, nb_permutations = generate_alphaNP_det_samples(
         elem=elem,
         messenger=messenger,
         dim=dim,
@@ -297,6 +318,7 @@ def sample_alphaNP_det(
         dim,
         alphas,
         sigalphas,
+        nb_permutations,
         minpos,
         maxneg,
         allpos,
@@ -304,6 +326,9 @@ def sample_alphaNP_det(
         messenger.params.num_sigmas,
         xind
     ]
+
+    print("det_output[alphas].shape in sample_alphaNP_det", alphas.shape)
+    print("alphas", alphas)
 
     messenger.paths.write_det_output(gkp, dim, xind, det_results_x)
 
@@ -313,22 +338,57 @@ def sample_alphaNP_det(
 # collect all data for mphi-vs-alphaNP plot
 ##############################################################################
 
-def collect_det_X_data(messenger, dim, gkp):
+def collect_det_X_data(config, dim, gkp):
+    """
+    Load all data produced in run specified by
+
+    Args:
+        messenger:     run configuration (instance of the Config class)
+        dim (int):     dimension of the (no-mass-) generalised King plot
+        gkp (boolean): indicates whether the generalised King plot formula is to
+                       be used (alternative: no-mass generalised King plot
+
+    ... and organise it in terms of the X-coefficients.
+
+    Returns:
+        a set of lists, each of which has the length of the mphi-vector
+        specified in the files of X-coefficients.
+
+        UB (np.array):     most stringent nsigma-upper bounds on alphaNP (with
+                           nsigma specified in config)
+        allpos (np.array): all positive nsigma-bounds on alphaNP
+        LB (np.array):     most stringent nsigma-lower bounds on alphaNP
+        allneg (np.array): all negative nsigma-bounds
+
+    """
+    alphas = []
+    sigalphas = []
     UB = []
     allpos = []
     LB = []
     allneg = []
 
-    print("messenger x vals det", messenger.x_vals_det)
+    for x in config.x_vals_det:
 
-    for x in messenger.x_vals_det:
+        det_output = config.paths.read_det_output(gkp, dim, x)
 
-        det_output = messenger.paths.read_det_output(gkp, dim, x)
+        lenp = det_output["npermutations"]
 
+        alphas.append(det_output["alphas"])
+        sigalphas.append(det_output["sigalphas"])
         UB.append(det_output["minpos"])
         allpos.append(det_output["allpos"])
         LB.append(det_output["maxneg"])
         allneg.append(det_output["allneg"])
 
-    return (np.array(UB), np.array(allpos),
-            np.array(LB), np.array(allneg))
+    alphas = np.array(alphas).reshape(len(config.x_vals_det), lenp)
+    sigalphas = np.array(sigalphas).reshape(len(config.x_vals_det), lenp)
+
+    allpos = np.array(allpos).reshape(len(config.x_vals_det), lenp)
+    allneg = np.array(allneg).reshape(len(config.x_vals_det), lenp)
+
+    UB = np.array(UB).reshape(len(config.x_vals_det))
+    LB = np.array(LB).reshape(len(config.x_vals_det))
+
+    return (alphas, sigalphas,
+            UB, allpos, LB, allneg)

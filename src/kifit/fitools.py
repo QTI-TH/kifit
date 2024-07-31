@@ -38,10 +38,6 @@ def linfit(p, x):
     return p[0] * x + p[1]
 
 
-def linfit_x(p, y):
-    return (y - p[1]) / p[0]
-
-
 def get_odr_residuals(p, x, y, sx, sy):
 
     v = 1 / np.sqrt(1 + p[0] ** 2) * np.array([-p[0], 1])
@@ -54,21 +50,26 @@ def get_odr_residuals(p, x, y, sx, sy):
     return residuals, sigresiduals
 
 
-def perform_linreg(isotopeshiftdata, reftrans_index: int = 0):
+def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
     """
     Perform linear regression.
 
     Args:
-        data (normalised isotope shifts: rows=isotope pairs, columns=trans.)
-        reference_transition_index (default: first transition)
+        isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
+        reference_transition_index (int, default: first transition)
 
     Returns:
-        slopes, intercepts, Kperp, phi
+        betas:       fit parameters (p in linfit)
+        sig_betas:   uncertainties on betas
+        kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
+        ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
+        sig_kperp1s: uncertainties on kperp1s
+        sig_ph1s:    uncertainties on ph1s
 
     """
 
-    x = isotopeshiftdata.T[reftrans_index]
-    y = np.delete(isotopeshiftdata, reftrans_index, axis=1)
+    x = isotopeshiftdata.T[reference_transition_index]
+    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
 
     betas = []
     sig_betas = []
@@ -95,25 +96,31 @@ def perform_linreg(isotopeshiftdata, reftrans_index: int = 0):
     return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s)
 
 
-def perform_odr(isotopeshiftdata, sigisotopeshiftdata, reftrans_index: int = 0):
+def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
+        reference_transition_index: int = 0):
     """
     Perform separate orthogonal distance regression for each transition pair.
 
     Args:
-        data (normalised isotope shifts: rows=isotope pairs, columns=trans.)
-        reftrans_index (default: first transition)
+        isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
+        reference_transition_index (int, default: first transition)
 
     Returns:
-        slopes, intercepts, kperp1, ph1, sig_kperp1, sig_ph1
+        betas:       fit parameters (p in linfit)
+        sig_betas:   uncertainties on betas
+        kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
+        ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
+        sig_kperp1s: uncertainties on kperp1s
+        sig_ph1s:    uncertainties on ph1s
 
     """
     lin_model = Model(linfit)
 
-    x = isotopeshiftdata.T[reftrans_index]
-    y = np.delete(isotopeshiftdata, reftrans_index, axis=1)
+    x = isotopeshiftdata.T[reference_transition_index]
+    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
 
-    sigx = sigisotopeshiftdata.T[reftrans_index]
-    sigy = np.delete(sigisotopeshiftdata, reftrans_index, axis=1)
+    sigx = sigisotopeshiftdata.T[reference_transition_index]
+    sigy = np.delete(sigisotopeshiftdata, reference_transition_index, axis=1)
 
     betas = []
     sig_betas = []
@@ -146,7 +153,8 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata, reftrans_index: int = 0):
 
 def generate_paramsamples(means, stdevs, nsamples):
     """
-    Get nsamples samples of the parameters described by means and stdevs.
+    Generate ``nsamples`` by sampling the multivariate normal distribution
+    specified by by means and stdevs.
 
     """
     return multivariate_normal.rvs(means, np.diag(stdevs**2), size=nsamples)
@@ -159,10 +167,8 @@ def generate_elemsamples(elem, nsamples: int):
     provided by the corresponding data files:
 
 
-       m  ~ N(<m>,  sig[m])
-       m' ~ N(<m'>, sig[m'])
-       v  ~ N(<v>,  sig[v])
-
+       m  ~ N(<m>,  sig[m])   for the nuclear masses
+       v  ~ N(<v>,  sig[v])   for the transition frequencies
 
     """
     parameter_samples = generate_paramsamples(
@@ -174,9 +180,10 @@ def generate_elemsamples(elem, nsamples: int):
 def generate_alphaNP_samples(elem, nsamples: int, search_mode: str = "random",
         lb: float = None, ub: float = None):
     """
-    Generate ``nsamples`` of alphaNP according to the initial conditions
-    provided by the ``elem`` data. The sample can be generated either randomly
-    or by use of a grid.
+    Generate ``nsamples`` of alphaNP according to the initial conditions set in
+    the instance ``elem`` of the Elem class. alphaNP is either sampled from a
+    normal distribution or from a grid, both of which are defined via the
+    initial conditions on alphaNP.
 
     """
     if search_mode == "random":
@@ -208,7 +215,7 @@ def generate_alphaNP_samples(elem, nsamples: int, search_mode: str = "random",
 def choLL(absd, covmat, lam=0):
     """
     For a given sample of absd, with the covariance matrix covmat, compute the
-    log-likelihood using the Cholesky decomposition of covmat.
+    negative log-likelihood using the Cholesky decomposition of covmat.
 
     """
     chol_covmat, lower = cho_factor(covmat + lam * np.eye(covmat.shape[0]), lower=True)
@@ -223,7 +230,7 @@ def choLL(absd, covmat, lam=0):
 def spectraLL(absd, covmat, lam=0):
     """
     For a given sample of absd, with the covariance matrix covmat, compute the
-    log-likelihood using the spectral decomposition of covmat.
+    negative log-likelihood using the spectral decomposition of covmat.
     """
     covmat += lam * np.eye(covmat.shape[0])
     eigenvalues, eigenvectors = np.linalg.eigh(covmat)
@@ -245,9 +252,15 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky"):
     Since the loglikelihood is estimated numerically, it requires a list of
     samples of the input parameters.
 
-    For a list of absd samples (assumed to have been computed for a fixed value
-    of alphaNP and varying input parameters), compute the corresponding list of
-    negative loglikelihoods.
+    Args:
+        absdsamples:      list of absd samples (assumed to have been computed
+                          for a fixed value of alphaNP and varying input
+                          parameters)
+    cov_decomp_method:    string specifying method with which the covariance
+                          matrix is decomposed
+
+    Returns:
+        llist (np.array): np.array of negative loglikelihoods.
 
     """
     # estimate covariance matrix using absdsamples, computed for fixed alpha value
@@ -268,7 +281,9 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky"):
 
 def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
     """
-    Compute negative loglikelihood for fixed alphaNP.
+    For elem_collection, compute negative loglikelihood for fixed alphaNP from
+    ``nelemsamples`` samples of the input parameters associated to the elements
+    of elem_collection.
 
     Args:
         alphaNP:          fixed alphaNP value
@@ -290,8 +305,6 @@ def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
     loss = np.zeros(nelemsamples)
 
     for elem in elem_collection.elems:
-        # for each element, compute LL independently by sampling the element and
-        # constructing a
         absdsamples = []
         elemsamples_elem = generate_elemsamples(elem, nelemsamples)
 
@@ -303,12 +316,9 @@ def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
         lls = get_llist_elemsamples(np.array(absdsamples),
             cov_decomp_method="cholesky")
 
-        # all elements should contribute equally -> sum delchisq
-        delchisq = get_delchisq(lls, np.percentile(lls, min_percentile))
+        loss += lls
 
-        loss += delchisq  # loss.shape = (nelemsamples, 0)
-
-    return np.mean(loss)  # np.percentile(loss, min_percentile)
+    return np.percentile(loss, min_percentile)  # np.mean(loss)
 
 
 def compute_ll_experiments(
@@ -317,17 +327,19 @@ def compute_ll_experiments(
         nelemsamples,
         min_percentile,
         cov_decomp_method="cholesky"):
+
     """
-    Compute list of negative loglikelihoods for given experiment (list of alphaNP
-    samples).
+    From ``nelemsamples`` samples of the input parameters associated to the
+    elements of elem_collection, compute list of negative loglikelihoods for
+    given experiment (list of alphaNP samples).
 
     Args:
-        elem_collection: collection of elements.
-        alphasamples:    list of alphaNP values for which the loglikelihood is
-                         to be computed.
-        nelemsamples:    number of element samples
-
-        save_sample (bool): if ``True``, the parameters and alphaNP samples are saved.
+        elem_collection:   collection of elements.
+        alphasamples:      list of alphaNP values for which the loglikelihood is
+                           to be computed.
+        nelemsamples:      number of element samples
+        cov_decomp_method: string specifying method with which the covariance
+                           matrix entering the loglikelihood is decomposed.
 
     Returns:
         alphasamples (List[float]):   alphaNP samples
@@ -355,7 +367,7 @@ def compute_ll_experiments(
 def get_delchisq(llist, minll=None):
     """
     Compute delta chi^2 from list of negative loglikelihoods, subtracting the
-    minimum.
+    minimum of the list.
 
     """
     if minll is None:
@@ -392,6 +404,10 @@ def minimise_logL_alphaNP(
         maxiter,
         opt_method,
         tol=1e-12):
+    """
+    Scipy minimisation of negative loglikelihood as a function of alphaNP.
+
+    """
 
     if opt_method == "annealing":
         minlogL = dual_annealing(
@@ -431,12 +447,20 @@ def blocking_bounds(
     intervals.
 
     Args:
-        lbs: list of lower bounds for the different experiments.
-        ubs: list of upper bounds for the different experiments.
-        block_size: number of points in each block used by the blocking method.
-        Reduced to the number of surviving confidence intervals generated by the
-        experiments if block_size is larger. However, in this case the
-        uncertainties on the bounds cannot be computed.
+        messenger:  specifies run configuration, in particular block_size (int,
+                    number of points in each block)
+        lbs (list): lower bounds determined by experiments.
+        ubs (list): upper bounds determined by experiments.
+
+    If the demanded block_size is larger than the number of surviving confidence
+    intervals, the block_size is reduced to the number of surviving confidence
+    intervals. In this case the uncertainties on the bounds cannot be computed.
+
+    Returns:
+        UB (float):       resulting upper bound
+        LB (float):       resulting lower bound
+        sig_UB (float):   uncertainty on UB
+        sig_LB (float):   uncertainty on LB
 
     """
 
@@ -506,9 +530,17 @@ def get_bestalphaNP_and_bounds(
         bestalphaNPlist,
         confints):
     """
-    Starting from the best alphaNP values, apply the blocking method to
-    compute the best alphaNP value, its uncertainty, as well as the nsigma -
-    upper and lower bounds on alphaNP.
+    Starting from the best alphaNP values determined by the experiments, apply
+    the blocking method to compute the best alphaNP value, its uncertainty, as
+    well as the nsigma - upper and lower bounds on alphaNP.
+
+    Returns:
+        best_alpha (float)
+        sig_alpha (float)
+        LB (float)
+        sig_LB (float)
+        UB (float)
+        sig_UB (float)
 
     """
     confints = np.array(confints)
@@ -529,9 +561,6 @@ def get_bestalphaNP_and_bounds(
     if len(lowerbounds_exps) == 0 or len(upperbounds_exps) == 0:
         return (best_alpha, sig_alpha, np.nan, np.nan, np.nan, np.nan)
 
-    print("lowerbounds_exps", lowerbounds_exps)
-    print("upperbounds_exps", upperbounds_exps)
-
     LB, UB, sig_LB, sig_UB = blocking_bounds(
         messenger,
         lowerbounds_exps,
@@ -544,12 +573,12 @@ def get_bestalphaNP_and_bounds(
 
 def get_confint(alphas, delchisqs, delchisqcrit):
     """
-    Get nsigmas-confidence intervals.
+    From lists of alphas and delta-chi-squared values and the critical
+    delta-chi-squared value associated to the number of sigmas specified by the
+    run parameters, compute the confidence interval for alphaNP.
 
     Returns:
-    delchisq_crit: Delta chi^2 value associated to nsigmas.
-    paramlist[pos]: parameter values with Delta chi^2 values in the vicinity of
-    delchisq_crit
+       np.array of shape (2, )
 
     """
     alphas_inside = alphas[np.argwhere(delchisqs < delchisqcrit).flatten()]
@@ -740,7 +769,7 @@ def sample_alphaNP_fit(
         fit output (list): list of results that are also written to the fit
                            output file specified by the messenger.
                            N.B.: This output should fit to the fit_keys
-                           specified in fitools.py
+                           defined in fitools.py
 
     """
     logging.info(f"Performing King fit for x={xind}")
@@ -772,6 +801,15 @@ def sample_alphaNP_fit(
 ##############################################################################
 
 def collect_fit_X_data(messenger):
+    """
+    Load all fit data produced in run specified by messenger (instance of the
+    Config class) and organise it in terms of the X-coefficients.
+
+    Returns:
+        a set of lists, each of which has the length of the mphi-vector
+        specified in the files of X-coefficients.
+
+    """
     UB = []
     sig_UB = []
     LB = []

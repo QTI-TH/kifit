@@ -33,7 +33,8 @@ def sec(x: float):
 
 def Levi_Civita_generator(n):
     """
-    Generate indices and signs of Levi-Civita tensor of dimension n.
+    Generate indices and signs of non-zero elements of Levi-Civita tensor of
+    dimension n.
 
     """
     if n < 2:
@@ -85,7 +86,7 @@ class ElemCollection:
         self.check_det_dims(gkpdims, nmgkpdims)
 
     def _init_Xcoeffs(self):
-        # check the Xcoeff are the same
+        # check whether the Xcoeff are the same
         first_list = np.round(np.asarray(self.elems[0].Xcoeff_data).T[0], decimals=4)
 
         for elem in self.elems:
@@ -102,6 +103,13 @@ class ElemCollection:
         self.x_vals = (self.elems[0]).x_vals
 
     def check_det_dims(self, gkpdims, nmgkpdims):
+        """
+        Check whether the demanded generalised King plot and no-mass generalised
+        King plot dimensions are compatible with the data associated to the
+        first element in the element collection. (N.B.: The determinant methods
+        only take one element at a time.
+
+        """
         if self.len != 1:
             raise IndexError(
                 "Determinant methods are only valid for single element.")
@@ -249,7 +257,7 @@ class Elem:
             self.kp1_init, self.ph1_init, self.sig_kp1_init, self.sig_ph1_init
         ) = perform_odr(
             self.mu_norm_isotope_shifts_in, self.sig_mu_norm_isotope_shifts_in,
-            reftrans_index=0)
+            reference_transition_index=0)
 
         self.alphaNP_init = 0.
 
@@ -910,7 +918,7 @@ class Elem:
             alphalist.append(voldat[p] / vol1p)
         alphalist = np.math.factorial(dim - 2) * alphalist
 
-        return alphalist   #, sigalphalist
+        return alphalist
 
     @cached_fct
     def alphaNP_NMGKP_part(self, dim):

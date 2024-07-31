@@ -44,6 +44,8 @@ class Runner:
 
     def run(self):
 
+        self.generate_all_King_plots()
+
         elem = None
 
         for x in self.config.x_vals_fit:

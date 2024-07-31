@@ -331,12 +331,13 @@ class Paths:
 
         assert len(results) == len(keys), (len(results), len(keys))
 
-        res_dict = {key: [] for key in keys}
+        res_dict = {}  # {key: [] for key in keys}
 
         for i, res in enumerate(results):
             if isinstance(res, np.ndarray):
                 reslist = res.tolist()
-                res_dict[keys[i]].append(reslist)
+                res_dict[keys[i]] = reslist
+                # res_dict[keys[i]].append(reslist)
             else:
                 res_dict[keys[i]] = res
 
@@ -355,7 +356,7 @@ class Paths:
                 for key in keys:
                     if isinstance(res[key], list):
                         res[key] = np.array(res[key])
-                return res  # _list
+                return res
         else:
             raise ImportError(f"{path} Does not yet exist. Please run Kifit.")
 
@@ -395,8 +396,6 @@ class Config:
                 raise IndexError("Parsed invalid x0_fit index.")
             logging.info("Initialised x range for fit: %s", self.params.x0_fit)
             self.x_vals_fit = self.params.x0_fit
-
-        print("self.params.mphivar_det", self.params.mphivar_det)
 
         if self.params.mphivar_det is True:
             logging.info("Kifit will run dets for all provided mphi values.")
