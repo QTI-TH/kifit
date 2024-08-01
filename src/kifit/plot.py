@@ -512,7 +512,7 @@ def plot_mphi_alphaNP_fit_bound(
     print("LB", LB)
 
     min_ub = np.nanmin(UB)
-    max_lb = np.nanp.nannmax(LB)
+    max_lb = np.nanmax(LB)
 
     mphis_fit = [elem_collection.mphis[x] for x in messenger.x_vals_fit]
 

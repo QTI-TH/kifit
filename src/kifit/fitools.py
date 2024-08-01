@@ -584,6 +584,10 @@ def get_confint(alphas, delchisqs, delchisqcrit):
     alphas_inside = alphas[np.argwhere(delchisqs < delchisqcrit).flatten()]
     logging.info(f"Npts in fit confidence interval: {len(alphas_inside)}")
 
+    if len(alphas_inside) >=2:
+        print("min", np.min(alphas_inside))
+        print("max", np.max(alphas_inside))
+
     # Best 1% of points was used to define minll.
     # Make sure there are more than 1% of points below delchisqcrit.
 
