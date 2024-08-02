@@ -10,14 +10,14 @@ python3 main.py --element_list "Camin"\
                 --num_elemsamples_search 100 \
                 --num_exp 5\
                 --block_size  10\
-                --min_percentile 1\
+                --min_percentile 5\
                 --num_sigmas 2\
-                --num_alphasamples_exp 500 \
-                --num_elemsamples_exp 500 \
+                --num_alphasamples_exp 100 \
+                --num_elemsamples_exp 100 \
                 --gkp_dims 3\
                 --num_det_samples 100\
-                --mphivar_det\
                 --mphivar_fit\
+                --mphivar_det\
                 --showbestdetbounds\
                 --showalldetbounds\
                 --verbose

@@ -301,6 +301,7 @@ class Paths:
                 + f"{self.__params.num_exp}exps_"
                 + f"{self.__params.num_elemsamples_exp}es-exp_"
                 + f"{self.__params.num_alphasamples_exp}as-exp_"
+                + f"{self.__params.min_percentile}minperc_"
                 + f"maxiter{self.__params.maxiter}_"
                 + f"blocksize{self.__params.block_size}_"
                 + f"x{xind}.json")
@@ -405,5 +406,3 @@ class Config:
                 raise IndexError("Parsed invalid x0_det index.")
             logging.info("Initialised x range for determinants: %s", self.params.x0_det)
             self.x_vals_det = self.params.x0_det
-
-

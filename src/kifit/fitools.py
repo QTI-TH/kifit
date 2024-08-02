@@ -584,10 +584,6 @@ def get_confint(alphas, delchisqs, delchisqcrit):
     alphas_inside = alphas[np.argwhere(delchisqs < delchisqcrit).flatten()]
     logging.info(f"Npts in fit confidence interval: {len(alphas_inside)}")
 
-    if len(alphas_inside) >=2:
-        print("min", np.min(alphas_inside))
-        print("max", np.max(alphas_inside))
-
     # Best 1% of points was used to define minll.
     # Make sure there are more than 1% of points below delchisqcrit.
 
@@ -674,11 +670,16 @@ def perform_experiments(
     sig_alphaNP_init = elem_collection.elems[0].sig_alphaNP_init
 
     allalphasamples = generate_alphaNP_samples(
-        elem_collection.elems[0], nexps * nalphasamples_exp, search_mode="random"
+        elem_collection.elems[0],
+        nexps * nalphasamples_exp,
+        search_mode="random"
     )
 
     # shuffle the sample
     np.random.shuffle(allalphasamples)
+
+    # want all experiments (-> setups of the elemsamples) to be treated on equal
+    # footing -> compute delchisq separetely
 
     alphas_exps, lls_exps, bestalphas_exps, delchisqs_exps = [], [], [], []
 
@@ -700,6 +701,7 @@ def perform_experiments(
         lls_exps.append(lls)
 
         minll_1 = np.percentile(lls, min_percentile)
+
         delchisqlist = get_delchisq(lls, minll=minll_1)
 
         if messenger.params.verbose is True:
@@ -722,7 +724,10 @@ def perform_experiments(
     delchisqcrit = get_delchisq_crit(nsigmas)
 
     confints_exps = np.array(
-        [get_confint(alphas_exps[s], delchisqs_exps[s], delchisqcrit) for s in range(nexps)]
+        [
+            get_confint(alphas_exps[s], delchisqs_exps[s], delchisqcrit)
+            for s in range(nexps)
+        ]
     )
 
     (best_alpha, sig_alpha,

@@ -327,9 +327,6 @@ def sample_alphaNP_det(
         xind
     ]
 
-    print("det_output[alphas].shape in sample_alphaNP_det", alphas.shape)
-    print("alphas", alphas)
-
     messenger.paths.write_det_output(gkp, dim, xind, det_results_x)
 
     return det_results_x
@@ -383,6 +380,8 @@ def collect_det_X_data(config, dim, gkp):
 
     alphas = np.array(alphas).reshape(len(config.x_vals_det), lenp)
     sigalphas = np.array(sigalphas).reshape(len(config.x_vals_det), lenp)
+
+    print("sig_alphaNP / alphaNP", np.mean(sigalphas / alphas, axis=1))
 
     allpos = np.array(allpos).reshape(len(config.x_vals_det), lenp)
     allneg = np.array(allneg).reshape(len(config.x_vals_det), lenp)
