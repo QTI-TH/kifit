@@ -1,5 +1,6 @@
 import logging
 from typing import List
+import random
 
 import numpy as np
 
@@ -195,7 +196,7 @@ def generate_alphaNP_samples(elem, nsamples: int, search_mode: str = "random",
             alphaNP_samples = np.linspace(
                 elem.alphaNP_init - elem.sig_alphaNP_init,
                 elem.alphaNP_init + elem.sig_alphaNP_init,
-                nsamples
+                nsamples,
             )
         else:
             alphaNP_samples = np.linspace(
@@ -403,7 +404,9 @@ def minimise_logL_alphaNP(
         min_percentile,
         maxiter,
         opt_method,
-        tol=1e-12):
+        bounds,
+        tol=1e-12
+    ):
     """
     Scipy minimisation of negative loglikelihood as a function of alphaNP.
 
@@ -412,7 +415,7 @@ def minimise_logL_alphaNP(
     if opt_method == "annealing":
         minlogL = dual_annealing(
             logL_alphaNP,
-            bounds=[(-1e-4, 1e-4)],
+            bounds=[bounds],
             args=(elem_collection, nelemsamples, min_percentile),
             maxiter=maxiter,
         )
@@ -420,7 +423,7 @@ def minimise_logL_alphaNP(
     elif opt_method == "differential_evolution":
         minlogL = differential_evolution(
             logL_alphaNP,
-            bounds=[(-1e-4, 1e-4)],
+            bounds=[bounds],
             args=(elem_collection, nelemsamples, min_percentile),
             maxiter=maxiter,
         )
@@ -429,7 +432,7 @@ def minimise_logL_alphaNP(
         minlogL = minimize(
             logL_alphaNP,
             x0=0,
-            bounds=[(-1e-6, 1e-6)],
+            bounds=[bounds],
             args=(elem_collection, nelemsamples, min_percentile),
             method=opt_method, options={"maxiter": maxiter},
             tol=tol,
@@ -607,6 +610,21 @@ def determine_search_interval(
 
     best_alpha_list = []
 
+    logging.info(f"Preliminary global optimization to find reasonable bounds")
+    # build a preliminary collection
+    
+    prelim_result = minimise_logL_alphaNP(
+        elem_collection=elem_collection,
+        nelemsamples=1000, 
+        opt_method="differential_evolution",
+        min_percentile=5,        
+        maxiter=1000,
+        bounds=(-1e-2, 1e-2),
+        tol=1e-12,
+    )
+    bound_scale = abs(prelim_result.x) * 1000
+    logging.info(f"Foundend best value: {prelim_result.x}, setting bounds to {bound_scale}")
+
     for search in range(nsearches):
 
         logging.info(f"Iterative search {search + 1}/{nsearches}")
@@ -617,6 +635,7 @@ def determine_search_interval(
             min_percentile=messenger.params.min_percentile,
             maxiter=messenger.params.maxiter,
             opt_method=messenger.params.optimization_method,
+            bounds=(-bound_scale, bound_scale)
         )
 
         if res_min.success:
