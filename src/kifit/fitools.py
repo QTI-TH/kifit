@@ -1,6 +1,5 @@
 import logging
 from typing import List
-import random
 
 import numpy as np
 
@@ -610,20 +609,20 @@ def determine_search_interval(
 
     best_alpha_list = []
 
-    logging.info(f"Preliminary global optimization to find reasonable bounds")
+    logging.info("Preliminary global optimisation to find reasonable bounds")
     # build a preliminary collection
-    
+
     prelim_result = minimise_logL_alphaNP(
         elem_collection=elem_collection,
-        nelemsamples=1000, 
+        nelemsamples=1000,
         opt_method="differential_evolution",
-        min_percentile=5,        
+        min_percentile=5,
         maxiter=1000,
         bounds=(-1e-2, 1e-2),
         tol=1e-12,
     )
     bound_scale = abs(prelim_result.x) * 1000
-    logging.info(f"Foundend best value: {prelim_result.x}, setting bounds to {bound_scale}")
+    logging.info(f"Found best value: {prelim_result.x}, setting initial bounds to {bound_scale}")
 
     for search in range(nsearches):
 

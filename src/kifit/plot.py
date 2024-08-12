@@ -580,13 +580,13 @@ def set_axes_mphi_alpha_plot(
         ax.set_xlim(left=xlims[0])
 
     else:
-        ax.set_xlim(left=0.7 * min_mphi)
+        ax.set_xlim(left=min_mphi)
 
     if xlims[1] is not None:
         ax.set_xlim(right=xlims[1])
 
     else:
-        ax.set_xlim(right=1.3 * max_mphi)
+        ax.set_xlim(right=max_mphi)
 
     if ylims[0] is not None:
         ymin = ylims[0]
@@ -724,6 +724,8 @@ def plot_mphi_alphaNP(
 
     min_mphi = np.nanmax([min_mphis_det, min_mphis_fit])
     max_mphi = np.nanmin([max_mphis_det, max_mphis_fit])
+    print("min_mphi", min_mphi)
+    print("max_mphi", max_mphi)
 
     ax, ymin, ymax = set_axes_mphi_alpha_plot(
         ax,

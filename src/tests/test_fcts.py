@@ -2,8 +2,8 @@ import numpy as np
 
 # from tdqm import tqdm
 
-from kifit.performfit import (generate_alphaNP_sample, compute_ll, get_delchisq,
-    get_delchisq_crit, get_confint, get_bestalphaNP_and_bounds)
+from kifit.fitools import (generate_alphaNP_samples, compute_ll_experiments,
+    get_delchisq, get_delchisq_crit, get_confint, get_bestalphaNP_and_bounds)
 
 
 def get_new_alphaNP_interval(

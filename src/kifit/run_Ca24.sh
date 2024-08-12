@@ -3,7 +3,7 @@
 #SBATCH --output=kifit.log
 
 
-python3 main.py --element_list "Ca_PTB_2015"\
+python3 main.py --element_list "Ca_WT_Aarhus_PTB_2024"\
                 --optimization_method "Powell" \
                 --maxiter 600 \
                 --num_searches 20 \
@@ -16,8 +16,9 @@ python3 main.py --element_list "Ca_PTB_2015"\
                 --num_elemsamples_exp 500 \
                 --x0_fit $(seq 0 25 800) \
                 --gkp_dims 3\
-                --num_det_samples 500 \
-                --x0_det $(seq 0 25 800)\
+                --nmgkp_dims 3\
+                --num_det_samples 1000 \
+                --x0_det $(seq 0 25 775)\
                 --showbestdetbounds \
                 --showalldetbounds \
                 --verbose

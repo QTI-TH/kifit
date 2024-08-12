@@ -3,7 +3,7 @@
 #SBATCH --output=kifit.log
 
 
-python3 main.py --element_list "Ca_PTB_2015"\
+python3 main.py --element_list "Yb_Kyoto_MIT_GSI_PTB_2024"\
                 --optimization_method "Powell" \
                 --maxiter 600 \
                 --num_searches 20 \
