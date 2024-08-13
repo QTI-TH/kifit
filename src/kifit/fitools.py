@@ -404,7 +404,7 @@ def minimise_logL_alphaNP(
         min_percentile,
         maxiter,
         opt_method,
-        bounds,
+        bounds=(-1e-5, 1e-5),
         tol=1e-12
     ):
     """
@@ -610,20 +610,28 @@ def determine_search_interval(
 
     best_alpha_list = []
 
-    logging.info(f"Preliminary global optimization to find reasonable bounds")
-    # build a preliminary collection
-    
-    prelim_result = minimise_logL_alphaNP(
-        elem_collection=elem_collection,
-        nelemsamples=1000, 
-        opt_method="differential_evolution",
-        min_percentile=5,        
-        maxiter=1000,
-        bounds=(-1e-2, 1e-2),
-        tol=1e-12,
-    )
-    bound_scale = abs(prelim_result.x) * 1000
-    logging.info(f"Foundend best value: {prelim_result.x}, setting bounds to {bound_scale}")
+    if messenger.params.init_globalopt:
+        logging.info(f"Preliminary global optimization to find reasonable bounds")
+        # build a preliminary collection
+        
+        prelim_result = minimise_logL_alphaNP(
+            elem_collection=elem_collection,
+            nelemsamples=1000, 
+            opt_method="differential_evolution",
+            min_percentile=5,        
+            maxiter=1000,
+            bounds=(-1e-2, 1e-2),
+            tol=1e-12,
+        )
+
+        if abs(prelim_result.x) > 1e-3:
+            bound_scale = 1e-2
+        else:
+            bound_scale = abs(prelim_result.x) * 1000
+        logging.info(f"Foundend best value: {prelim_result.x}, setting bounds to {bound_scale}")
+    else:
+        logging.info(f"Initial global optimization has been skipped.")
+        bound_scale = 1e-5
 
     for search in range(nsearches):
 

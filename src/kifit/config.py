@@ -88,6 +88,10 @@ class RunParams:
     @property
     def showbestdetbounds(self):
         return self.__runparams.showbestdetbounds
+    
+    @property
+    def init_globalopt(self):
+        return self.__runparams.init_globalopt
 
     @property
     def num_sigmas(self):
@@ -216,6 +220,11 @@ class RunParams:
             "--showbestdetbounds",
             action="store_true",
             help="If true, the best det bounds are shown."
+        )
+        parser.add_argument(
+            "--init_globalopt",
+            action="store_true",
+            help="If true, an initial global optimization is done to determine the optimization bounds."
         )
         parser.add_argument(
             "--num_sigmas",
