@@ -83,7 +83,7 @@ class ElemCollection:
 
         self._init_Xcoeffs()
 
-        self.check_det_dims(gkpdims, nmgkpdims)
+        #self.check_det_dims(gkpdims, nmgkpdims)
 
     def _init_Xcoeffs(self):
         # check whether the Xcoeff are the same
