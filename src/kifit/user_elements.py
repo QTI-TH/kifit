@@ -1,6 +1,7 @@
 user_elems = [
     "Ca_testdata",
     "Camin",
+    "Ca24min",
     "Ca_PTB_2015",
     "Ca_WT_Aarhus_2020",
     "Ca_WT_Aarhus_2024",

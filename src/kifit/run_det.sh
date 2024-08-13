@@ -3,7 +3,7 @@
 #SBATCH --output=kifit.log
 
 
-python3 main.py --element_list "Camin"\
+python3 main.py --element_list "Ca24min"\
                 --num_sigmas 2\
                 --gkp_dims 3 4\
                 --nmgkp_dims 3 4\
