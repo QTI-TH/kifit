@@ -457,10 +457,13 @@ def plot_mphi_alphaNP_det_bound(
                 scatterlabel = (
                     "all dim-" + str(dim) + " " + method_tag + " solutions")
                 meanvalabel = (
-                    str(dim) + " " + method_tag + " solutions")
+                    str(dim) + " " + method_tag + r" solutions $\pm 1 \sigma$")
             else:
                 scatterlabel = None
                 meanvalabel = None
+            print("alphas     ", (alphas.T)[p])
+            print("alpha + 2 sig", ((alphas + 2 * sigalphas).T)[p])
+            print("alpha - sig", ((alphas - 2 * sigalphas).T)[p])
 
             ax.errorbar(
                 mphis_det,
@@ -492,7 +495,9 @@ def plot_mphi_alphaNP_det_bound(
             ylims[1],
             color=det_colour,
             alpha=.2,
-            label="best dim-" + str(dim) + " " + method_tag)
+            label=("best " + str(messenger.params.num_sigmas)
+                + r"$\sigma$-bounds dim-" + str(dim)
+                + " " + method_tag))
 
         ax.fill_between(
             mphis_det,
