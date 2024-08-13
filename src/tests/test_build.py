@@ -1,8 +1,9 @@
 import numpy as np
 from pprint import pprint
-from kifit.loadelems import Elem, Levi_Civita_generator, LeviCivita
+from kifit.build import Elem, Levi_Civita_generator, LeviCivita
 from Mathematica_crosschecks import *
 from itertools import permutations, combinations, product
+
 
 def test_load_all():
     all_element_data = Elem.load_all()
@@ -169,15 +170,6 @@ def test_constr_dvec():
     assert np.allclose(ca.absd, absd_explicit, atol=0, rtol=1e-25)
 
 
-def test_constr_logL():
-    ca = Elem('Ca_testdata')
-    camin = Elem('Camin')
-    ybmin = Elem('Ybmin')
-    print(ca.absd)
-    print(camin.absd)
-    print(ybmin.absd)
-
-
 def levi_civita_tensor(d):
     arr = np.zeros([d for _ in range(d)])
     for x in permutations(tuple(range(d))):
@@ -295,7 +287,6 @@ if __name__ == "__main__":
     test_load_individual()
     test_set_fit_params()
     test_constr_dvec()
-    test_constr_logL()
     test_levi_civita()
     test_alphaNP_GKP()
     test_alphaNP_NMGKP()

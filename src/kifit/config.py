@@ -164,7 +164,7 @@ class RunParams:
             "--min_percentile",
             default=1,
             choices=range(1, 100),
-            type=float,
+            type=int,
             help="Min percentile value used to compute a robust estimation of min(logL)",
         )
         parser.add_argument(
@@ -394,6 +394,7 @@ class Config:
         assert isinstance(runparams, RunParams)
         self.paths = paths
         assert isinstance(paths, Paths)
+        print("paths", paths.fit_output_path(0))
 
         self.__init_x_vals(collectionxvals)
 
@@ -403,7 +404,9 @@ class Config:
             self.x_vals_fit = collectionxvals
         else:
             if not set(self.params.x0_fit) <= set(collectionxvals):
-                raise IndexError("Parsed invalid x0_fit index.")
+                print("collectionxvals", collectionxvals)
+                print("x0_fit         ", self.params.x0_fit)
+                raise IndexError(r"Parsed invalid x0_fit index.")
             logging.info("Initialised x range for fit: %s", self.params.x0_fit)
             self.x_vals_fit = self.params.x0_fit
 

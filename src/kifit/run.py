@@ -33,6 +33,8 @@ class Runner:
 
         paths = Paths(params, collection.id, fit_keys, det_keys)
 
+        print("run.py collection.x_vals", collection.x_vals)
+
         config = Config(params, paths, collection.x_vals)
 
         return cls(config, collection)
@@ -125,3 +127,9 @@ class Runner:
                 elem_collection=self.collection,
                 messenger=self.config,
                 elem=elem)
+
+    def print_relative_uncertainties(self):
+
+        for elem in self.collection.elems:
+            print("Element: ", elem.id)
+            elem.print_relative_uncertainties
