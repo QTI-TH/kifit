@@ -39,4 +39,5 @@ python3 main.py --element_list "$ELEMENT" \
                 --x0_det $X0 \
                 --showbestdetbounds \
                 --showalldetbounds \
+                --init_globalopt \
                 --verbose

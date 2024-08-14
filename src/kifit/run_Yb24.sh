@@ -15,8 +15,9 @@ python3 main.py --element_list "Yb_Kyoto_MIT_GSI_PTB_2024"\
                 --num_alphasamples_exp 500 \
                 --num_elemsamples_exp 500 \
                 --x0_fit $(seq 0 25 800) \
-                --gkp_dims 3\
-                --num_det_samples 500 \
+                --gkp_dims 3 4\
+                --nmgkp_dims 3 4\
+                --num_det_samples 1000 \
                 --x0_det $(seq 0 25 800)\
                 --showbestdetbounds \
                 --showalldetbounds \

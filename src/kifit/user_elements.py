@@ -1,6 +1,7 @@
 user_elems = [
     "Ca_testdata",
     "Camin",
+    "Ca24min",
     "Ca_PTB_2015",
     "Ca_WT_Aarhus_2020",
     "Ca_WT_Aarhus_2024",
@@ -9,12 +10,8 @@ user_elems = [
     "Yb_Kyoto_MIT_GSI_2022",
     "Yb_Kyoto_MIT_GSI_PTB_2024",
     "Yb_PTB_2024",
-    "Ybmin",
-    "Ybmin5",
     "best_Yb_Kyoto_MIT_GSI_2022",
     "best_Yb_Kyoto_MIT_GSI_PTB_2024",
     "worst_Yb_Kyoto_MIT_GSI_2022",
-    "worst_Yb_Kyoto_MIT_GSI_PTB_2024",
-    "DataCa",
-    "DataYb",
+    "worst_Yb_Kyoto_MIT_GSI_PTB_2024"
 ]

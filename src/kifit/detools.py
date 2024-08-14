@@ -158,8 +158,10 @@ def assemble_alphaNP(
 
         alphaNP_p_list.append(meanvoldat[p] / meanvol1_p)
         sig_alphaNP_p_list.append(
-            (sigvoldat[p] / meanvol1_p) ** 2
-            + (meanvoldat[p] / meanvol1_p**2) ** 2 * sigvol1_p_sq
+            np.sqrt(
+                (sigvoldat[p] / meanvol1_p) ** 2
+                + (meanvoldat[p] / meanvol1_p**2) ** 2 * sigvol1_p_sq
+            )
         )
 
     alphaNPs = np.math.factorial(dim - 2) * np.array(alphaNP_p_list)
