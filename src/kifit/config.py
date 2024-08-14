@@ -313,6 +313,7 @@ class Paths:
                 + f"{self.__params.min_percentile}minperc_"
                 + f"maxiter{self.__params.maxiter}_"
                 + f"blocksize{self.__params.block_size}_"
+                + ("globalopt_" if self.__params.init_globalopt else "")
                 + f"x{xind}.json")
         )
 

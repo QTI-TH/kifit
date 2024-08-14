@@ -24,17 +24,17 @@ X0=${X0_FIT_VALUES[$X0_FIT_INDEX]}
 
 python3 main.py --element_list "$ELEMENT" \
                 --optimization_method "Powell" \
-                --maxiter 600 \
+                --maxiter 1000 \
                 --num_searches 20 \
-                --num_elemsamples_search 500 \
+                --num_elemsamples_search 200 \
                 --num_exp 20 \
                 --block_size 10 \
                 --min_percentile 5 \
                 --num_sigmas 2 \
-                --num_alphasamples_exp 500 \
-                --num_elemsamples_exp 500 \
+                --num_alphasamples_exp 200 \
+                --num_elemsamples_exp 200 \
                 --gkp_dims 3 \
-                --num_det_samples 500 \
+                --num_det_samples 1000 \
                 --x0_fit $X0 \
                 --x0_det $X0 \
                 --showbestdetbounds \
