@@ -32,6 +32,7 @@ fit_scatter_colour = 'orangered'
 fit_colour = 'orange'
 gkp_colour = 'blue'
 nmgkp_colour = 'darkgreen'
+proj_colour = 'purple'
 # det_colour = "royalblue"
 
 
@@ -226,7 +227,7 @@ def plot_mc_output(
 def plot_alphaNP_det_bounds(
     ax,
     messenger,
-    gkp,
+    detstr,
     dimindex,
     dim,
     xind,
@@ -236,15 +237,19 @@ def plot_alphaNP_det_bounds(
     Plot GKP/NMGKP bounds for one dimension dim.
 
     """
-    det_output = messenger.paths.read_det_output(gkp=gkp, dim=dim, x=xind)
+    det_output = messenger.paths.read_det_output(detstr=detstr, dim=dim, x=xind)
 
-    if det_output['gkp']:
+    if det_output['detstr']=='gkp':
         method_tag = "GKP"
         plot_colour = gkp_colour
 
-    else:
+    elif det_output['detstr']=='nmgkp':
         method_tag = "NMGKP"
         plot_colour = nmgkp_colour
+
+    elif det_output['detstr']=='proj':
+        method_tag= "proj"
+        plot_colour = proj_colour
 
     alphas = det_output['alphas']
     sigalphas = det_output['sigalphas']
@@ -304,7 +309,7 @@ def plot_alphaNP_det_bounds(
 def plot_alphaNP_ll(
     elem_collection,
     messenger,
-    xlabel=r"$\alpha_{\mathrm{NP}}$",
+    xlabel=r"$\alpha_{\mathrm{NP}}/\alpha_{\mathrm{EM}}$",
     ylabel=r"$\Delta \chi^2$",
     xlims=[None, None],
     ylims=[None, None],
@@ -319,8 +324,9 @@ def plot_alphaNP_ll(
     """
     gkpdims = messenger.params.gkp_dims
     nmgkpdims = messenger.params.nmgkp_dims
+    projdims = messenger.params.proj_dims
 
-    elem_collection.check_det_dims(gkpdims, nmgkpdims)
+    elem_collection.check_det_dims(gkpdims, nmgkpdims, projdims)
 
     mc_output = messenger.paths.read_fit_output(xind)
 
@@ -387,7 +393,7 @@ def plot_alphaNP_ll(
         ax, minpos, maxneg = plot_alphaNP_det_bounds(
             ax,
             messenger,
-            gkp=True,
+            detstr="gkp",
             dimindex=d,
             dim=dim,
             xind=xind,
@@ -399,7 +405,19 @@ def plot_alphaNP_ll(
         ax, minpos_global, maxneg_global = plot_alphaNP_det_bounds(
             ax,
             messenger,
-            gkp=False,
+            detstr="nmgkp",
+            dimindex=d,
+            dim=dim,
+            xind=xind,
+            scatterpos=scatterpos
+        )
+
+    for d, dim in enumerate(projdims):
+
+        ax, minpos_global, maxneg_global = plot_alphaNP_det_bounds(
+            ax,
+            messenger,
+            detstr="proj",
             dimindex=d,
             dim=dim,
             xind=xind,
@@ -422,7 +440,7 @@ def plot_mphi_alphaNP_det_bound(
     messenger,
     dimindex,
     dim,
-    gkp=True,
+    detstr="gkp",
     ylims=[None, None]
 ):
     """
@@ -430,16 +448,20 @@ def plot_mphi_alphaNP_det_bound(
 
     """
 
-    if gkp:
+    if detstr=="gkp":
         method_tag = "GKP"
         det_colour = gkp_colour
 
-    else:
+    elif detstr=="nmgkp":
         method_tag = "NMGKP"
         det_colour = nmgkp_colour
 
+    elif detstr=="proj":
+        method_tag = "proj"
+        det_colour = proj_colour
+
     alphas, sigalphas, minpos, allpos, maxneg, allneg = collect_det_X_data(
-        messenger, dim=dim, gkp=gkp)
+        messenger, dim=dim, detstr=detstr)
 
     npermutations = alphas.shape[1]
 
@@ -449,6 +471,23 @@ def plot_mphi_alphaNP_det_bound(
 
     min_ub = min(minpos)
     max_lb = max(maxneg)
+
+    if messenger.params.showalldetvals is True:
+
+        for p in range(npermutations):
+            if p == 0:
+                meanvalabel = (
+                    str(dim) + " " + method_tag + r" solutions $\pm 1 \sigma$")
+            else:
+                meanvalabel = None
+
+            ax.errorbar(
+                mphis_det,
+                (alphas.T)[p],
+                yerr=(sigalphas.T)[p],
+                color=det_colour,
+                ls=':',
+                label=meanvalabel)
 
     if messenger.params.showalldetbounds is True:
 
@@ -464,14 +503,6 @@ def plot_mphi_alphaNP_det_bound(
             print("alphas     ", (alphas.T)[p])
             print("alpha + 2 sig", ((alphas + 2 * sigalphas).T)[p])
             print("alpha - sig", ((alphas - 2 * sigalphas).T)[p])
-
-            ax.errorbar(
-                mphis_det,
-                (alphas.T)[p],
-                yerr=(sigalphas.T)[p],
-                color=det_colour,
-                ls=':',
-                label=meanvalabel)
 
             ax.scatter(
                 mphis_det,
@@ -530,7 +561,7 @@ def plot_mphi_alphaNP_fit_bound(
         color='orange', ls='none', zorder=1)
     ax.scatter(mphis_fit, best_alphas,
         color='orange', marker="*", zorder=0,
-        label=r"best fit $\alpha_{\mathrm{NP}} \pm \sigma[\alpha_{\mathrm{NP}}]$")
+        label=r"best fit $\alpha_{\mathrm{NP}}^* \pm \sigma[\alpha_{\mathrm{NP}}^*]$")
 
     ax.fill_between(
         mphis_fit,
@@ -691,6 +722,7 @@ def plot_mphi_alphaNP(
 
     gkpdims = messenger.params.gkp_dims
     nmgkpdims = messenger.params.nmgkp_dims
+    projdims = messenger.params.proj_dims
 
     if elem is not None:
         for d, dim in enumerate(gkpdims):
@@ -702,7 +734,7 @@ def plot_mphi_alphaNP(
                 messenger,
                 d,
                 dim,
-                gkp=True,
+                detstr="gkp",
                 ylims=[ymin, ymax]
             )
             if minub_det < np.nan_to_num(minub, nan=ymax):
@@ -719,7 +751,24 @@ def plot_mphi_alphaNP(
                 messenger,
                 d + len(gkpdims),
                 dim,
-                gkp=False,
+                detstr="nmgkp",
+                ylims=[ymin, ymax]
+            )
+            if minub_det < np.nan_to_num(minub, nan=ymax):
+                minub = minub_det
+            if maxlb_det > np.nan_to_num(maxlb, nan=ymin):
+                maxlb = maxlb_det
+
+        for d, dim in enumerate(projdims):
+            (
+                ax, minpos, maxneg, min_mphis_det, max_mphis_det
+            ) = plot_mphi_alphaNP_det_bound(
+                ax,
+                elem,
+                messenger,
+                d + len(gkpdims) + len(nmgkpdims),
+                dim,
+                detstr="proj",
                 ylims=[ymin, ymax]
             )
             if minub_det < np.nan_to_num(minub, nan=ymax):

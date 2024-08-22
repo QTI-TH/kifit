@@ -252,18 +252,27 @@ def check_alphaNP_NMGKP(elem, dim):
 
 def test_alphaNP_GKP():
     ca = Elem('Ca_testdata')
-    vold, vol1, inds = ca.alphaNP_GKP_part(3)
+    assert np.isclose(ca.alphaNP_GKP(), check_alphaNP_GKP(ca, 3)[0], atol=0,
+        rtol=1e-21)
+
+    yb1 = Elem("best_Yb_Kyoto_MIT_GSI_2022")
+    yb1_alphaNP = 5.06805e-11
+    assert np.isclose(yb1.alphaNP_GKP(), yb1_alphaNP, atol=0, rtol=1e-7)
+
+    yb2 = Elem("worst_Yb_Kyoto_MIT_GSI_2022")
+    yb2_alphaNP = -1.133363e-9
+    assert np.isclose(yb2.alphaNP_GKP(), yb2_alphaNP, atol=0, rtol=2)
+
+    yb3 = Elem("best_Yb_Kyoto_MIT_GSI_PTB_2024")
+    yb3_alphaNP = 1.7080361072283834e-10
+    assert np.isclose(yb3.alphaNP_GKP(), yb3_alphaNP, atol=0, rtol=1e-9)
+
+    yb4 = Elem("worst_Yb_Kyoto_MIT_GSI_PTB_2024")
+    yb4_alphaNP = -2.741008348571387e-9
+    assert np.isclose(yb4.alphaNP_GKP(), yb4_alphaNP, atol=0, rtol=1e-9)
+
+    vold, vol1, inds = ca.alphaNP_NMGKP_part(3)
     assert len(vold) == len(vol1), (len(vold), len(vol1))
-
-    alphaNP_GKP_check = check_alphaNP_GKP(ca, 3)
-    alphaNP_GKP_combinations = ca.alphaNP_GKP_combinations(3)
-    assert np.allclose(alphaNP_GKP_check, alphaNP_GKP_combinations,
-        atol=0, rtol=1e-12)
-
-    alphaNP_GKP_simple = ca.alphaNP_GKP()
-
-    assert np.isclose(alphaNP_GKP_combinations[0], alphaNP_GKP_simple,
-        atol=0, rtol=1e-13)
 
 
 def test_alphaNP_NMGKP():
@@ -271,15 +280,39 @@ def test_alphaNP_NMGKP():
     vold, vol1, inds = ca.alphaNP_NMGKP_part(3)
     assert len(vold) == len(vol1), (len(vold), len(vol1))
 
-    alphaNP_NMGKP_check = check_alphaNP_NMGKP(ca, 3)
-    alphaNP_NMGKP_combinations = ca.alphaNP_NMGKP_combinations(3)
-    assert np.allclose(alphaNP_NMGKP_check, alphaNP_NMGKP_combinations,
-        atol=0, rtol=10)
+    assert np.isclose(ca.alphaNP_NMGKP(3), check_alphaNP_NMGKP(ca, 3), atol=0,
+        rtol=1e-21)
 
-    alphaNP_NMGKP_simple = ca.alphaNP_NMGKP()
 
-    assert np.isclose(alphaNP_NMGKP_combinations[0], alphaNP_NMGKP_simple,
-        atol=0, rtol=1)
+def test_alphaNP_proj():
+    ca = Elem('Ca_testdata')
+    ca.alphaNP_proj()
+
+    assert np.isclose(ca.Fji(j=1, i=0), ca.F1[1], atol=0, rtol=1e-25)
+    assert np.isclose(ca.Xji(j=1, i=0), ca.X1[1], atol=0, rtol=1e-25)
+    assert np.isclose(
+        ca.Xji(j=1, i=0), ca.Xvec[1] - ca.Fji(j=1, i=0) * ca.Xvec[0],
+        atol=0, rtol=1e-25)
+
+    assert np.isclose(ca.Fji(j=2, i=0), ca.F1[2], atol=0, rtol=1e-25)
+    assert np.isclose(ca.Xji(j=2, i=0), ca.X1[2], atol=0, rtol=1e-25)
+
+    assert np.isclose(ca.alphaNP_proj(), ca.alphaNP_GKP(), atol=0, rtol=20)
+
+    lenp = len(list(product(
+        combinations(ca.range_a, 3), combinations(ca.range_i, 2))))
+
+    alphapartlist, xindlist = ca.alphaNP_proj_part(3)
+
+    assert (alphapartlist.shape[0] == lenp)
+    assert len(xindlist) == lenp
+    for xind in xindlist:
+        assert len(xind) == 2
+
+    camin = Elem('Camin')
+    alphapartlist, xindlist = ca.alphaNP_proj_part(3)
+
+    assert np.isclose(camin.alphaNP_proj(), camin.alphaNP_GKP(), atol=0, rtol=20)
 
 
 if __name__ == "__main__":
@@ -289,4 +322,5 @@ if __name__ == "__main__":
     test_constr_dvec()
     test_levi_civita()
     test_alphaNP_GKP()
-    test_alphaNP_NMGKP()
+    # test_alphaNP_NMGKP()
+    test_alphaNP_proj()

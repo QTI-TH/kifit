@@ -102,7 +102,7 @@ class ElemCollection:
         self.mphis = first_list
         self.x_vals = (self.elems[0]).x_vals
 
-    def check_det_dims(self, gkpdims, nmgkpdims):
+    def check_det_dims(self, gkpdims, nmgkpdims, projdims):
         """
         Check whether the demanded generalised King plot and no-mass generalised
         King plot dimensions are compatible with the data associated to the
@@ -110,12 +110,12 @@ class ElemCollection:
         only take one element at a time.
 
         """
-        if not (not gkpdims and not nmgkpdims):
+        if not (not gkpdims and not nmgkpdims and not projdims):
             if self.len != 1:
                 raise IndexError(
                     "Determinant methods are only valid for single element.")
             else:
-                (self.elems[0]).check_det_dims(gkpdims, nmgkpdims)
+                (self.elems[0]).check_det_dims(gkpdims, nmgkpdims, projdims)
 
 
 class Elem:
@@ -441,18 +441,22 @@ class Elem:
 
         return 0
 
-    def check_det_dims(self, gkpdims=[], nmgkpdims=[]):
+    def check_det_dims(self, gkpdims=[], nmgkpdims=[], projdims=[]):
         """
         Check whether Generalised King Plots (No-Mass Generalised King Plots) of
         dimensions gkpdims (nmgkpdims) can be constructed from data of element.
 
         """
+        if self.ntransitions < 2:
+            raise ValueError(
+                """Determinant methods require at least 2 transitions.""")
+
         for dim in gkpdims:
             if dim < 3:
                 raise ValueError("""Generalised King Plot formula is only valid
                 for dim >=3.""")
             if dim > self.nisotopepairs or dim > self.ntransitions + 1:
-                raise ValueError("""dim is larger than dimension of provided
+                raise ValueError("""GKP dim is larger than dimension of provided
                 data.""")
             else:
                 logging.info(f"GKP dimension {dim} is valid.")
@@ -463,9 +467,18 @@ class Elem:
                 only valid for dim >=3.""")
             if dim > self.nisotopepairs or dim > self.ntransitions:
                 raise ValueError(
-                    """dim is larger than dimension of provided data.""")
+                    """NMGKP dim is larger than dimension of provided data.""")
             else:
                 logging.info(f"Parsed NMGKP dimension {dim} is valid.")
+
+        for dim in projdims:
+            if dim < 3:
+                raise ValueError("""Projection method is only valid for dim >=3.""")
+            if dim > self.nisotopepairs:
+                raise ValueError(
+                    """proj dim is larger than provided number of isotope pairs.""")
+            else:
+                logging.info(f"Parsed proj dimension {dim} is valid.")
 
         return (self.nisotopepairs, self.ntransitions)
 
@@ -690,6 +703,34 @@ class Elem:
         """
         return np.insert(sec(self.ph1), 0, 0)
 
+    # @cached_fct
+    def Fji(self, j: int, i: int):
+        """
+        Return Fji = Fj / Fi for general i, j.
+
+        """
+        isotopeshiftdata = np.c_[
+            self.mu_norm_isotope_shifts_in.T[i],
+            self.mu_norm_isotope_shifts_in.T[j]
+        ]
+        sigisotopeshiftdata = np.c_[
+            self.sig_mu_norm_isotope_shifts_in.T[i],
+            self.sig_mu_norm_isotope_shifts_in.T[j]
+        ]
+
+        betas, _, _, _, _, _ = perform_odr(
+            isotopeshiftdata, sigisotopeshiftdata, reference_transition_index=0)
+
+        return betas[0, 0]
+
+    # @cached_fct
+    def Xji(self, j: int, i: int):
+        """
+        Return Xji = Xj - Fji Xi for general i, j.
+
+        """
+        return self.Xvec[j] - self.Fji(j, i) * self.Xvec[i]
+
     @cached_fct_property
     def X1(self):
         """
@@ -762,6 +803,12 @@ class Elem:
         """
         return np.sqrt(np.diag(self.dmat @ self.dmat.T))
 
+    # Determinant Methods
+    ###########################################################################
+
+    # ### GKP #################################################################
+
+    @cached_fct
     def alphaNP_GKP(self, ainds=[0, 1, 2], iinds=[0, 1]):
         """
         Returns value for alphaNP computed using the Generalised King plot
@@ -798,44 +845,6 @@ class Elem:
                 np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
                 mumat]))
         alphaNP = np.math.factorial(dim - 2) * np.array(vol_data / vol_alphaNP1)
-
-        return alphaNP
-
-    @cached_fct
-    def alphaNP_NMGKP(self, ainds=[0, 1, 2], iinds=[0, 1, 2]):
-        """
-        Returns value for alphaNP computed using the no-mass Generalised King
-        plot formula with the isotope pairs with indices ainds, the transitions
-        with indices iinds and the X-coefficients associated to the xth mphi
-        value.
-
-        """
-        dim = len(ainds)
-        if dim < 3:
-            raise ValueError("""Generalised King Plot formula is only valid for
-            numbers of isotope pairs >=3.""")
-        if len(iinds) != dim:
-            raise ValueError("""Generalised King Plot formula requires same
-            number of transitions as isotope pairs.""")
-        if max(ainds) > self.nisotopepairs:
-            raise ValueError("""Element %s does not have the required number of
-            isotope pairs.""" % (self.id))
-        if max(iinds) > self.ntransitions:
-            raise ValueError("""Element %s does not have the required number of
-            transitions.""" % (self.id))
-
-        numat = self.mu_norm_isotope_shifts[np.ix_(ainds, iinds)]
-        Xmat = self.Xvec[np.ix_(iinds)]  # X-coefficients for a given mphi
-        hmat = self.mu_norm_avec[np.ix_(ainds)]
-
-        vol_data = np.linalg.det(numat)
-
-        vol_alphaNP1 = 0
-        for i, eps_i in LeviCivita(dim):
-            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
-                Xmat[i[0]] * hmat,
-                np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
-        alphaNP = np.math.factorial(dim - 1) * np.array(vol_data / vol_alphaNP1)
 
         return alphaNP
 
@@ -895,32 +904,71 @@ class Elem:
 
         return np.array(voldatlist), np.array(vol1st), xindlist
 
+    # @cached_fct
+    # def alphaNP_GKP_combinations(self, dim):
+    #     """
+    #     Evaluates alphaNP using the ingredients computed by alphaNP_GKP_part for
+    #     dim=dim.
+    #
+    #     If the X-coefficients are varied, this part of the computation of
+    #     alphaNP should be repeated for each set of X-coefficients.
+    #
+    #     Returns a list of p alphaNP-values, where p is the number of
+    #     combinations of the data of dimension
+    #
+    #        (nisotopepairs, ntransitions) = (dim, dim-1),   dim >= 3.
+    #
+    #     """
+    #     voldat, vol1part, xindlist = self.alphaNP_GKP_part(dim)
+    #
+    #     alphalist = []
+    #
+    #     """ p: alphaNP permutation index and xpinds: X-indices for sample p"""
+    #     for p, xpinds in enumerate(xindlist):
+    #         vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
+    #         alphalist.append(voldat[p] / vol1p)
+    #     alphalist = np.math.factorial(dim - 2) * alphalist
+    #
+    #     return alphalist
+
+    # ### NMGKP ###############################################################
     @cached_fct
-    def alphaNP_GKP_combinations(self, dim):
+    def alphaNP_NMGKP(self, ainds=[0, 1, 2], iinds=[0, 1, 2]):
         """
-        Evaluates alphaNP using the ingredients computed by alphaNP_GKP_part for
-        dim=dim.
-
-        If the X-coefficients are varied, this part of the computation of
-        alphaNP should be repeated for each set of X-coefficients.
-
-        Returns a list of p alphaNP-values, where p is the number of
-        combinations of the data of dimension
-
-           (nisotopepairs, ntransitions) = (dim, dim-1),   dim >= 3.
+        Returns value for alphaNP computed using the no-mass Generalised King
+        plot formula with the isotope pairs with indices ainds, the transitions
+        with indices iinds and the X-coefficients associated to the initialised
+        mphi value.
 
         """
-        voldat, vol1part, xindlist = self.alphaNP_GKP_part(dim)
+        dim = len(ainds)
+        if dim < 3:
+            raise ValueError("""Generalised King Plot formula is only valid for
+            numbers of isotope pairs >=3.""")
+        if len(iinds) != dim:
+            raise ValueError("""Generalised King Plot formula requires same
+            number of transitions as isotope pairs.""")
+        if max(ainds) > self.nisotopepairs:
+            raise ValueError("""Element %s does not have the required number of
+            isotope pairs.""" % (self.id))
+        if max(iinds) > self.ntransitions:
+            raise ValueError("""Element %s does not have the required number of
+            transitions.""" % (self.id))
 
-        alphalist = []
+        numat = self.mu_norm_isotope_shifts[np.ix_(ainds, iinds)]
+        Xmat = self.Xvec[np.ix_(iinds)]  # X-coefficients for a given mphi
+        hmat = self.mu_norm_avec[np.ix_(ainds)]
 
-        """ p: alphaNP permutation index and xpinds: X-indices for sample p"""
-        for p, xpinds in enumerate(xindlist):
-            vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
-            alphalist.append(voldat[p] / vol1p)
-        alphalist = np.math.factorial(dim - 2) * alphalist
+        vol_data = np.linalg.det(numat)
 
-        return alphalist
+        vol_alphaNP1 = 0
+        for i, eps_i in LeviCivita(dim):
+            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+                Xmat[i[0]] * hmat,
+                np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
+        alphaNP = np.math.factorial(dim - 1) * np.array(vol_data / vol_alphaNP1)
+
+        return alphaNP
 
     @cached_fct
     def alphaNP_NMGKP_part(self, dim):
@@ -979,32 +1027,139 @@ class Elem:
 
         return np.array(voldatlist), np.array(vol1st), xindlist  #, indexlist
 
+    # @cached_fct
+    # def alphaNP_NMGKP_combinations(self, dim):
+    #     """
+    #     Evaluates alphaNP using the ingredients computed by alphaNP_NMGKP_part
+    #     for dim=dim.
+    #
+    #     If the X-coefficients are varied, this part of the computation of
+    #     alphaNP should be repeated for each set of X-coefficients.
+    #
+    #     Returns a list of p alphaNP-values, where p is the number of
+    #     combinations of the data of dimension
+    #
+    #        (nisotopepairs, ntransitions) = (dim, dim),   dim >= 3.
+    #
+    #     """
+    #     voldat, vol1part, xindlist = self.alphaNP_NMGKP_part(dim)
+    #
+    #     alphalist = []
+    #
+    #     """ p: alphaNP permutation index and xpinds: X-indices for sample p"""
+    #     for p, xpinds in enumerate(xindlist):
+    #         vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
+    #         alphalist.append(voldat[p] / vol1p)
+    #     alphalist = np.math.factorial(dim - 2) * alphalist
+    #
+    #     return alphalist
+
+    # ### projection method ###################################################
+    def alphaNP_proj_Xindep_part(self, ainds=[0, 1, 2], iinds=[0, 1]):
+        """
+        Returns X-coefficient independent part of alphaNP computed using the
+        projection method with the isotope pairs with indices ainds, the
+        transitions with indices iinds.
+
+        """
+        if len(iinds) != 2:
+            raise ValueError(""" Projection method is only valid for data sets
+            with two transitions.""")
+
+        dim = len(ainds)
+        if dim < 3:
+            raise ValueError("""Projection method requires at least 3 isotope
+            pairs.""")
+
+        Dmat = self.mu_norm_isotope_shifts[np.ix_(ainds, iinds)]
+        pvec = (Dmat @ np.linalg.inv(Dmat.T @ Dmat) @ Dmat.T) @ self.mu_norm_muvec
+
+        mnu1 = (self.mu_norm_isotope_shifts.T)[0]
+        mnu2 = (self.mu_norm_isotope_shifts.T)[1]
+
+        Vexp = np.linalg.norm(self.mu_norm_muvec - pvec) * np.sqrt(
+            (mnu1 @ mnu1) * (mnu2 @ mnu2) - (mnu1 @ mnu2)**2)
+
+        XindepVth = np.linalg.norm(self.mu_norm_muvec - pvec) * np.sqrt(
+            (mnu1 @ mnu1) * (self.mu_norm_avec @ self.mu_norm_avec)
+            - (mnu1 @ self.mu_norm_avec)**2)
+
+        return Vexp / XindepVth
+
+    def alphaNP_proj(self, ainds=[0, 1, 2], iinds=[0, 1]):
+        """
+        Returns value for alphaNP computed using the projection method with the
+        isotope pairs with indices ainds, the transitions with indices iinds.
+
+        """
+        return (
+            self.alphaNP_proj_Xindep_part(ainds=ainds, iinds=iinds)
+            / self.Xji(j=iinds[1], i=iinds[0]))
+
     @cached_fct
-    def alphaNP_NMGKP_combinations(self, dim):
+    def alphaNP_proj_part(self, dim):
         """
-        Evaluates alphaNP using the ingredients computed by alphaNP_NMGKP_part
-        for dim=dim.
+        Prepares the ingredients needed for the computation of alphaNP using the
+        projection method with
 
-        If the X-coefficients are varied, this part of the computation of
-        alphaNP should be repeated for each set of X-coefficients.
+           (nisotopepairs, ntransitions) = (dim, 2),   dim >= 3.
 
-        Returns a list of p alphaNP-values, where p is the number of
-        combinations of the data of dimension
+        The procedure is repeated for all possible combinations of the data that
+        fit into this form.
 
-           (nisotopepairs, ntransitions) = (dim, dim),   dim >= 3.
+        Since this part of the computation of alphaNP is independent of the
+        X-coefficients, it only needs to be evaluated once per element and per
+        dim.
+
+        Returns:
+            - list of X-coefficient independent parts of alphaNP, for each
+              permutation of the data (dimension: number of combinations),
+            - xindlist, a list that keeps track of the indices of the required
+              X-coefficients (dimension: number of combinations).
 
         """
-        voldat, vol1part, xindlist = self.alphaNP_NMGKP_part(dim)
+        if dim < 3:
+            raise ValueError("""Projection method is only valid for dim >=3.""")
+        if dim > self.nisotopepairs:
+            raise ValueError(
+                """proj dim is larger than provided number of isotope pairs.""")
 
-        alphalist = []
+        alphapartlist = []
+        xindlist = []
 
-        """ p: alphaNP permutation index and xpinds: X-indices for sample p"""
-        for p, xpinds in enumerate(xindlist):
-            vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
-            alphalist.append(voldat[p] / vol1p)
-        alphalist = np.math.factorial(dim - 2) * alphalist
+        for a_inds, i_inds in product(combinations(self.range_a, dim),
+                combinations(self.range_i, 2)):
+            # taking into account ordering
+            alphapartlist.append(self.alphaNP_proj_Xindep_part(ainds=a_inds,
+                iinds=i_inds))
+            xindlist.append(i_inds)
 
-        return alphalist
+        return np.array(alphapartlist), xindlist
+
+    # @cached_fct
+    # def alphaNP_proj_combinations(self, dim):
+    #     """
+    #     Evaluates alphaNP using the ingredients computed by
+    #     alphaNP_proj_Xindep_part for dim=dim.
+    #
+    #     This part of the computation of alphaNP should be repeated for each set
+    #     of X-coefficients.
+    #
+    #     Returns a list of p alphaNP-values, where p is the number of
+    #     combinations of the data of dimension
+    #
+    #        (nisotopepairs, 2) = (dim, 2),   dim >= 3.
+    #
+    #     """
+    #     alphalist = []
+    #
+    #     alphapartlist, xindlist = self.alphaNP_proj_part(dim)
+    #
+    #     for p, xind in enumerate(xindlist):
+    #
+    #         alphalist.append(alphapartlist[p] / self.Xji(j=xind[1], i=xind[0]))
+    #
+    #     return np.array(alphalist)
 
     # @cached_fct
     # def alphaNP_NMGKP(self, dim):

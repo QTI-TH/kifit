@@ -73,14 +73,14 @@ class Runner:
             elem = self.collection.elems[0]
 
             for x in self.config.x_vals_det:
-
+                elem._update_Xcoeffs(x)
                 for dim in self.config.params.gkp_dims:
 
                     sample_alphaNP_det(
                         elem=elem,
                         messenger=self.config,
                         dim=dim,
-                        gkp=True,
+                        detstr="gkp",
                         xind=x)
 
                 for dim in self.config.params.nmgkp_dims:
@@ -89,7 +89,16 @@ class Runner:
                         elem=elem,
                         messenger=self.config,
                         dim=dim,
-                        gkp=False,
+                        detstr="nmgkp",
+                        xind=x)
+
+                for dim in self.config.params.proj_dims:
+
+                    sample_alphaNP_det(
+                        elem=elem,
+                        messenger=self.config,
+                        dim=dim,
+                        detstr="proj",
                         xind=x)
 
         for x in list(set(self.config.x_vals_fit) & set(self.config.x_vals_det)):

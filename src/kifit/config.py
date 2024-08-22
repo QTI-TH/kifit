@@ -78,6 +78,10 @@ class RunParams:
         return self.__runparams.nmgkp_dims
 
     @property
+    def proj_dims(self):
+        return self.__runparams.proj_dims
+
+    @property
     def num_det_samples(self):
         return self.__runparams.num_det_samples
 
@@ -86,9 +90,13 @@ class RunParams:
         return self.__runparams.showalldetbounds
 
     @property
+    def showalldetvals(self):
+        return self.__runparams.showalldetvals
+
+    @property
     def showbestdetbounds(self):
         return self.__runparams.showbestdetbounds
-    
+
     @property
     def init_globalopt(self):
         return self.__runparams.init_globalopt
@@ -206,6 +214,13 @@ class RunParams:
             help="List of no-mass generalised King plot dimensions",
         )
         parser.add_argument(
+            "--proj_dims",
+            nargs="+",
+            default=[],
+            type=int,
+            help="List of projection method dimensions",
+        )
+        parser.add_argument(
             "--num_det_samples",
             default=100,
             type=int,
@@ -217,6 +232,11 @@ class RunParams:
             help="If true, the det bounds are shown for all combinations of the data."
         )
         parser.add_argument(
+            "--showalldetvals",
+            action="store_true",
+            help="If true, the det values +/- uncertainties (1 sigma) are plotted."
+        )
+        parser.add_argument(
             "--showbestdetbounds",
             action="store_true",
             help="If true, the best det bounds are shown."
@@ -224,7 +244,8 @@ class RunParams:
         parser.add_argument(
             "--init_globalopt",
             action="store_true",
-            help="If true, an initial global optimization is done to determine the optimization bounds."
+            help="""If true, an initial global optimization is done to determine
+            the optimization bounds."""
         )
         parser.add_argument(
             "--num_sigmas",
@@ -235,7 +256,8 @@ class RunParams:
         parser.add_argument(
             "--verbose",
             action="store_true",
-            help="If specified, extra statements are printed and extra plots plotted."
+            help="""If specified, extra statements are printed and extra plots
+            plotted."""
         )
 
         return parser.parse_args()
@@ -296,6 +318,7 @@ class Paths:
         return os.path.join(self.plot_path,
             f"{plotname}_"
             + (f"{self.__elem_collection_id}" if elemid is None else f"{elemid}")
+            + ("_globalopt" if self.__params.init_globalopt else "")
             + (f"_x{str(xind)}" if xind is not None else "")
             + ".png")
 
@@ -313,12 +336,13 @@ class Paths:
                 + f"{self.__params.min_percentile}minperc_"
                 + f"maxiter{self.__params.maxiter}_"
                 + f"blocksize{self.__params.block_size}_"
+                + ("globalopt_" if self.__params.init_globalopt else "")
                 + f"x{xind}.json")
         )
 
         return fit_output_path
 
-    def det_output_path(self, gkp, dim, xind):
+    def det_output_path(self, detstr, dim, xind):
         """
         Path where to save det results for the element defined by elemstr.
         dim = dimension of det
@@ -329,8 +353,7 @@ class Paths:
         det_output_path = os.path.join(
             self.output_data_path, (
                 f"{self.__elem_collection_id}_"
-                + f"{dim}-dim_"
-                + ("gkp_" if gkp else "nmgkp_")
+                + f"{dim}-dim_" + str(detstr) + "_"
                 + f"{self.__params.num_det_samples}samples_"
                 + f"x{xind}.json")
         )
@@ -373,14 +396,14 @@ class Paths:
     def read_fit_output(self, x):
         return self.read_from_path(self.fit_output_path(x), self.fit_keys)
 
-    def read_det_output(self, gkp, dim, x):
-        return self.read_from_path(self.det_output_path(gkp, dim, x), self.det_keys)
+    def read_det_output(self, detstr, dim, x):
+        return self.read_from_path(self.det_output_path(detstr, dim, x), self.det_keys)
 
     def write_fit_output(self, x, results):
         self.write_to_path(self.fit_output_path(x), self.fit_keys, results)
 
-    def write_det_output(self, gkp, dim, x, results):
-        self.write_to_path(self.det_output_path(gkp, dim, x), self.det_keys, results)
+    def write_det_output(self, detstr, dim, x, results):
+        self.write_to_path(self.det_output_path(detstr, dim, x), self.det_keys, results)
 
 
 class Config:
