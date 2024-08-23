@@ -2,7 +2,7 @@ from kifit.run import Runner
 
 
 if __name__ == "__main__":
-    # Runner.build().run()
+    Runner.build().run()
 
     # Runner.build().print_relative_uncertainties()
 

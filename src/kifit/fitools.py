@@ -613,6 +613,43 @@ def determine_search_interval(
         logging.info(f"Preliminary global optimization to find reasonable bounds")
         # build a preliminary collection
 
+<<<<<<< HEAD
+=======
+        test_lls = []
+        test_alphas = np.linspace(-1, -15, 100)
+        test_alphas = np.concatenate((-test_alphas, test_alphas[::-1]))
+        for i in range(len(test_alphas)):
+            test_lls.append(logL_alphaNP(
+                alphaNP=test_alphas[i],
+                elem_collection=elem_collection,
+                nelemsamples=nelemsamples_search,
+                min_percentile=messenger.params.min_percentile
+            ))
+
+        print(test_lls)
+        minll_here = np.min(test_lls)
+        llcrit_here = minll_here + 1e5
+        indices = np.where(test_lls < llcrit_here)[0]
+
+        ok_lls = np.array(test_lls)[indices]
+        ok_alphas = np.array(test_alphas)[indices]
+        print(indices)
+        
+        print(f"MIN: {minll_here}")
+        print(f"LL crit: {llcrit_here}")
+        print(f"OK LLS: {ok_lls}")
+        print(f"OK ALPHAS: {ok_alphas}")
+
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(5,8))
+        plt.plot(test_alphas, test_lls)
+        plt.savefig("ciao.png")
+        plt.figure(figsize=(5,8))
+        plt.plot(ok_alphas, ok_lls)
+        plt.savefig("ciao_reduced.png")
+        exit()
+        
+>>>>>>> globalopt
         prelim_result = minimise_logL_alphaNP(
             elem_collection=elem_collection,
             nelemsamples=1000,
