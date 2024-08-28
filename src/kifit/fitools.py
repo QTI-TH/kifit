@@ -195,7 +195,7 @@ def generate_alphaNP_samples(elem, nsamples: int, search_mode: str = "random",
             alphaNP_samples = np.linspace(
                 elem.alphaNP_init - elem.sig_alphaNP_init,
                 elem.alphaNP_init + elem.sig_alphaNP_init,
-                nsamples
+                nsamples,
             )
         else:
             alphaNP_samples = np.linspace(
@@ -403,7 +403,9 @@ def minimise_logL_alphaNP(
         min_percentile,
         maxiter,
         opt_method,
-        tol=1e-12):
+        bounds=(-1e-5, 1e-5),
+        tol=1e-12
+    ):
     """
     Scipy minimisation of negative loglikelihood as a function of alphaNP.
 
@@ -412,7 +414,7 @@ def minimise_logL_alphaNP(
     if opt_method == "annealing":
         minlogL = dual_annealing(
             logL_alphaNP,
-            bounds=[(-1e-4, 1e-4)],
+            bounds=[bounds],
             args=(elem_collection, nelemsamples, min_percentile),
             maxiter=maxiter,
         )
@@ -420,7 +422,7 @@ def minimise_logL_alphaNP(
     elif opt_method == "differential_evolution":
         minlogL = differential_evolution(
             logL_alphaNP,
-            bounds=[(-1e-4, 1e-4)],
+            bounds=[bounds],
             args=(elem_collection, nelemsamples, min_percentile),
             maxiter=maxiter,
         )
@@ -429,7 +431,7 @@ def minimise_logL_alphaNP(
         minlogL = minimize(
             logL_alphaNP,
             x0=0,
-            bounds=[(-1e-6, 1e-6)],
+            bounds=[bounds],
             args=(elem_collection, nelemsamples, min_percentile),
             method=opt_method, options={"maxiter": maxiter},
             tol=tol,
@@ -607,6 +609,63 @@ def determine_search_interval(
 
     best_alpha_list = []
 
+    if messenger.params.init_globalopt:
+        logging.info(f"Preliminary global optimization to find reasonable bounds")
+        # build a preliminary collection
+
+        test_lls = []
+        test_alphas = np.linspace(-1, -15, 100)
+        test_alphas = np.concatenate((-test_alphas, test_alphas[::-1]))
+        for i in range(len(test_alphas)):
+            test_lls.append(logL_alphaNP(
+                alphaNP=test_alphas[i],
+                elem_collection=elem_collection,
+                nelemsamples=nelemsamples_search,
+                min_percentile=messenger.params.min_percentile
+            ))
+
+        print(test_lls)
+        minll_here = np.min(test_lls)
+        llcrit_here = minll_here + 1e5
+        indices = np.where(test_lls < llcrit_here)[0]
+
+        ok_lls = np.array(test_lls)[indices]
+        ok_alphas = np.array(test_alphas)[indices]
+        print(indices)
+        
+        print(f"MIN: {minll_here}")
+        print(f"LL crit: {llcrit_here}")
+        print(f"OK LLS: {ok_lls}")
+        print(f"OK ALPHAS: {ok_alphas}")
+
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(5,8))
+        plt.plot(test_alphas, test_lls)
+        plt.savefig("ciao.png")
+        plt.figure(figsize=(5,8))
+        plt.plot(ok_alphas, ok_lls)
+        plt.savefig("ciao_reduced.png")
+        exit()
+        
+        prelim_result = minimise_logL_alphaNP(
+            elem_collection=elem_collection,
+            nelemsamples=1000, 
+            opt_method="differential_evolution",
+            min_percentile=5,        
+            maxiter=1000,
+            bounds=(-1e-2, 1e-2),
+            tol=1e-12,
+        )
+
+        if abs(prelim_result.x) > 1e-3:
+            bound_scale = 1e-2
+        else:
+            bound_scale = abs(prelim_result.x) * 1000
+        logging.info(f"Foundend best value: {prelim_result.x}, setting bounds to {bound_scale}")
+    else:
+        logging.info(f"Initial global optimization has been skipped.")
+        bound_scale = 1e-5
+
     for search in range(nsearches):
 
         logging.info(f"Iterative search {search + 1}/{nsearches}")
@@ -617,6 +676,7 @@ def determine_search_interval(
             min_percentile=messenger.params.min_percentile,
             maxiter=messenger.params.maxiter,
             opt_method=messenger.params.optimization_method,
+            bounds=(-bound_scale, bound_scale)
         )
 
         if res_min.success:

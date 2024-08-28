@@ -88,6 +88,10 @@ class RunParams:
     @property
     def showbestdetbounds(self):
         return self.__runparams.showbestdetbounds
+    
+    @property
+    def init_globalopt(self):
+        return self.__runparams.init_globalopt
 
     @property
     def num_sigmas(self):
@@ -160,7 +164,7 @@ class RunParams:
             "--min_percentile",
             default=1,
             choices=range(1, 100),
-            type=float,
+            type=int,
             help="Min percentile value used to compute a robust estimation of min(logL)",
         )
         parser.add_argument(
@@ -216,6 +220,11 @@ class RunParams:
             "--showbestdetbounds",
             action="store_true",
             help="If true, the best det bounds are shown."
+        )
+        parser.add_argument(
+            "--init_globalopt",
+            action="store_true",
+            help="If true, an initial global optimization is done to determine the optimization bounds."
         )
         parser.add_argument(
             "--num_sigmas",
@@ -304,6 +313,7 @@ class Paths:
                 + f"{self.__params.min_percentile}minperc_"
                 + f"maxiter{self.__params.maxiter}_"
                 + f"blocksize{self.__params.block_size}_"
+                + ("globalopt_" if self.__params.init_globalopt else "")
                 + f"x{xind}.json")
         )
 
@@ -385,6 +395,7 @@ class Config:
         assert isinstance(runparams, RunParams)
         self.paths = paths
         assert isinstance(paths, Paths)
+        print("paths", paths.fit_output_path(0))
 
         self.__init_x_vals(collectionxvals)
 
@@ -394,7 +405,9 @@ class Config:
             self.x_vals_fit = collectionxvals
         else:
             if not set(self.params.x0_fit) <= set(collectionxvals):
-                raise IndexError("Parsed invalid x0_fit index.")
+                print("collectionxvals", collectionxvals)
+                print("x0_fit         ", self.params.x0_fit)
+                raise IndexError(r"Parsed invalid x0_fit index.")
             logging.info("Initialised x range for fit: %s", self.params.x0_fit)
             self.x_vals_fit = self.params.x0_fit
 

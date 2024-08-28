@@ -83,7 +83,7 @@ class ElemCollection:
 
         self._init_Xcoeffs()
 
-        self.check_det_dims(gkpdims, nmgkpdims)
+        #self.check_det_dims(gkpdims, nmgkpdims)
 
     def _init_Xcoeffs(self):
         # check whether the Xcoeff are the same
@@ -110,10 +110,12 @@ class ElemCollection:
         only take one element at a time.
 
         """
-        if self.len != 1:
-            raise IndexError(
-                "Determinant methods are only valid for single element.")
-        (self.elems[0]).check_det_dims(gkpdims, nmgkpdims)
+        if not (not gkpdims and not nmgkpdims):
+            if self.len != 1:
+                raise IndexError(
+                    "Determinant methods are only valid for single element.")
+            else:
+                (self.elems[0]).check_det_dims(gkpdims, nmgkpdims)
 
 
 class Elem:
