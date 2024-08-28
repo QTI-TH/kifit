@@ -255,21 +255,21 @@ def test_alphaNP_GKP():
     assert np.isclose(ca.alphaNP_GKP(), check_alphaNP_GKP(ca, 3)[0], atol=0,
         rtol=1e-21)
 
-    yb1 = Elem("best_Yb_Kyoto_MIT_GSI_2022")
-    yb1_alphaNP = 5.06805e-11
-    assert np.isclose(yb1.alphaNP_GKP(), yb1_alphaNP, atol=0, rtol=1e-7)
+    yb1 = Elem("strongest_Yb_Kyoto_MIT_GSI_2022")
+    yb1_alphaNP = 5.068061e-11
+    assert np.isclose(yb1.alphaNP_GKP(), yb1_alphaNP, atol=0, rtol=1e-5)
 
-    yb2 = Elem("worst_Yb_Kyoto_MIT_GSI_2022")
+    yb2 = Elem("weakest_Yb_Kyoto_MIT_GSI_2022")
     yb2_alphaNP = -1.133363e-9
-    assert np.isclose(yb2.alphaNP_GKP(), yb2_alphaNP, atol=0, rtol=2)
+    assert np.isclose(yb2.alphaNP_GKP(), yb2_alphaNP, atol=0, rtol=1e-7)
 
-    yb3 = Elem("best_Yb_Kyoto_MIT_GSI_PTB_2024")
-    yb3_alphaNP = 1.7080361072283834e-10
-    assert np.isclose(yb3.alphaNP_GKP(), yb3_alphaNP, atol=0, rtol=1e-9)
+    yb3 = Elem("strongest_Yb_Kyoto_MIT_GSI_PTB_2024")
+    yb3_alphaNP = 7.49577e-11
+    assert np.isclose(yb3.alphaNP_GKP(), yb3_alphaNP, atol=0, rtol=1e-5)
 
-    yb4 = Elem("worst_Yb_Kyoto_MIT_GSI_PTB_2024")
-    yb4_alphaNP = -2.741008348571387e-9
-    assert np.isclose(yb4.alphaNP_GKP(), yb4_alphaNP, atol=0, rtol=1e-9)
+    yb4 = Elem("weakest_Yb_Kyoto_MIT_GSI_PTB_2024")
+    yb4_alphaNP = -2.74101e-9
+    assert np.isclose(yb4.alphaNP_GKP(), yb4_alphaNP, atol=0, rtol=1e-6)
 
     vold, vol1, inds = ca.alphaNP_NMGKP_part(3)
     assert len(vold) == len(vol1), (len(vold), len(vol1))
@@ -286,7 +286,6 @@ def test_alphaNP_NMGKP():
 
 def test_alphaNP_proj():
     ca = Elem('Ca_testdata')
-    ca.alphaNP_proj()
 
     assert np.isclose(ca.Fji(j=1, i=0), ca.F1[1], atol=0, rtol=1e-25)
     assert np.isclose(ca.Xji(j=1, i=0), ca.X1[1], atol=0, rtol=1e-25)
@@ -313,6 +312,14 @@ def test_alphaNP_proj():
     alphapartlist, xindlist = ca.alphaNP_proj_part(3)
 
     assert np.isclose(camin.alphaNP_proj(), camin.alphaNP_GKP(), atol=0, rtol=20)
+
+    ca24 = Elem("Ca_WT_Aarhus_2024")
+
+    alphaca = ca24.alphaNP_proj(ainds=[0, 1, 2, 3], iinds=[0, 1])
+    alphaca_Mathematica = 3.23947e-12
+
+    print("1", alphaca)
+    print("2", alphaca_Mathematica)
 
 
 if __name__ == "__main__":

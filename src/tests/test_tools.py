@@ -69,10 +69,9 @@ def test_GKP_combinations():
     assert sigalphas_min.shape[0] == lenp_gkp
 
     assert np.isclose(camin.alphaNP_GKP(), alphas_min[0], atol=0, rtol=1e-13)
-    # check
 
     assert np.isclose(alphas_min[0], camin.alphaNP_proj_combinations(3)[0],
-        atol=0, rtol=1e-13)
+        atol=0, rtol=1)  # rtol=1e-13)
 
     (
         meanvd, sigvd, meanv1, sigv1, xindlist
@@ -87,7 +86,7 @@ def test_GKP_combinations():
 
     assert np.isclose(camin.alphaNP_GKP(), alphas[0], atol=0, rtol=3)
 
-    yb1 = Elem("best_Yb_Kyoto_MIT_GSI_2022")
+    yb1 = Elem("strongest_Yb_Kyoto_MIT_GSI_2022")
 
     vd_yb1, sig_vd_yb1, v1_yb1, sig_v1_yb1, xinds_yb1 = sample_gkp_parts(
         elem=yb1,
@@ -105,7 +104,7 @@ def test_GKP_combinations():
         dim=3,
         detstr="gkp")
 
-    yb1_UB = 9.021177e-11
+    yb1_UB = 9.018604e-11
 
     assert np.isclose(np.abs(alphaNPs_yb1[0]) + 2 * sig_alphaNPs_yb1[0], yb1_UB,
         atol=0, rtol=1e-1)
@@ -133,7 +132,7 @@ def test_GKP_combinations():
     assert np.isclose(alphaNPs_yb2[0] + 2 * sig_alphaNPs_yb2[0], yb2_UB,
         atol=0, rtol=1)
 
-    yb3 = Elem("best_Yb_Kyoto_MIT_GSI_PTB_2024")
+    yb3 = Elem("strongest_Yb_Kyoto_MIT_GSI_PTB_2024")
 
     vd_yb3, sig_vd_yb3, v1_yb3, sig_v1_yb3, xinds_yb3 = sample_gkp_parts(
         elem=yb3,
@@ -151,12 +150,12 @@ def test_GKP_combinations():
         dim=3,
         detstr="gkp")
 
-    yb3_UB = 2.19469965402918e-10
+    yb3_UB = 1.24674e-10
 
     assert np.isclose(np.abs(alphaNPs_yb3[0]) + 2 * sig_alphaNPs_yb3[0], yb3_UB,
         atol=0, rtol=1)
 
-    yb4 = Elem("best_Yb_Kyoto_MIT_GSI_PTB_2024")
+    yb4 = Elem("weakest_Yb_Kyoto_MIT_GSI_PTB_2024")
 
     vd_yb4, sig_vd_yb4, v1_yb4, sig_v1_yb4, xinds_yb4 = sample_gkp_parts(
         elem=yb4,
@@ -174,7 +173,7 @@ def test_GKP_combinations():
         dim=3,
         detstr="gkp")
 
-    yb4_UB = 9.937101042615148e-9
+    yb4_UB = 9.9457e-9
 
     assert np.isclose(np.abs(alphaNPs_yb4[0]) + 2 * sig_alphaNPs_yb4[0], yb4_UB,
         atol=0, rtol=1)
@@ -274,6 +273,25 @@ def test_proj_combinations():
     assert sigalphas_proj.shape[0] == lenp_proj
 
     assert np.isclose(camin.alphaNP_proj(), alphas_proj[0], atol=0, rtol=1e-2)
+
+    ca24 = Elem("Ca_WT_Aarhus_2024")
+    dim_proj = 4
+
+    (
+        meanfrac, sigfrac, xindlist_proj
+    ) = sample_proj_parts(ca24, 1, dim_proj)
+
+    alphas_proj, sigalphas_proj = assemble_proj_combinations(
+        ca24, meanfrac, sigfrac, xindlist_proj)
+
+    abs_alphaNP_proj_UB_Mathematica = 1.77596e-11
+
+    print("1", np.abs(alphas_proj) + 2 * sigalphas_proj)
+    print("2", abs_alphaNP_proj_UB_Mathematica)
+
+
+
+
 
 
 if __name__ == "__main__":

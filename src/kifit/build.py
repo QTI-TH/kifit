@@ -195,9 +195,14 @@ class Elem:
             sig_m_ap_0 = self.isotope_data[5]
 
             # ionisation energies in eV
-            Eb = self.Eb_data.T[0] * (-1) * eV_to_u
-            sig_Eb = self.Eb_data.T[1] * (-1) * eV_to_u
-            n_electrons = len(Eb)
+            if self.Eb_data.shape[0] == 0:
+                Eb = np.array([0])
+                sig_Eb = np.array([0])
+                n_electrons = 0
+            else:
+                Eb = self.Eb_data.T[0] * (-1) * eV_to_u
+                sig_Eb = self.Eb_data.T[1] * (-1) * eV_to_u
+                n_electrons = len(Eb)
 
             # nuclear masses
             self.m_a_in = m_a_0 - n_electrons * m_e + np.sum(Eb)
