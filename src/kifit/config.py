@@ -2,7 +2,21 @@ import os
 import json
 import numpy as np
 import logging
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
+
+
+def check_input_logrid_frac(value):
+    intval = int(value)
+
+    if intval > 0:
+        raise ArgumentTypeError(
+            f"""{value} is not a valid value for logrid_frac.
+            Provide negative integer.""")
+    elif intval < -10:
+        raise ArgumentTypeError(
+            f"""{value} seems like a ridiculously small number for logrid_frac.
+            Give it a larger (but still negative) integer value.""")
+    return intval
 
 
 class RunParams:
@@ -14,24 +28,16 @@ class RunParams:
         return self.__runparams.element_list
 
     @property
-    def output_file_name(self):
-        return self.__output_file_name
+    def num_alphasamples_search(self):
+        return self.__runparams.num_alphasamples_search
 
     @property
-    def optimization_method(self):
-        return self.__runparams.optimization_method
+    def num_elemsamples_per_alphasample_search(self):
+        return self.__runparams.num_elemsamples_per_alphasample_search
 
     @property
-    def maxiter(self):
-        return self.__runparams.maxiter
-
-    @property
-    def num_searches(self):
-        return self.__runparams.num_searches
-
-    @property
-    def num_elemsamples_search(self):
-        return self.__runparams.num_elemsamples_search
+    def logrid_frac(self):
+        return self.__runparams.logrid_frac
 
     @property
     def num_exp(self):
@@ -98,10 +104,6 @@ class RunParams:
         return self.__runparams.showbestdetbounds
 
     @property
-    def init_globalopt(self):
-        return self.__runparams.init_globalopt
-
-    @property
     def num_sigmas(self):
         return self.__runparams.num_sigmas
 
@@ -121,40 +123,38 @@ class RunParams:
             help="List of strings corresponding to names of data folders",
         )
         parser.add_argument(
-            "--optimization_method",
-            default="Powell",
-            type=str,
-            help="Optimization method used to find the best experiment window",
-        )
-        parser.add_argument(
-            "--maxiter",
+            "--num_alphasamples_search",
             default=1000,
             type=int,
-            help="Max number of iterations for optimization early stopping",
+            help="no. alphaNP samples generated during each search step",
         )
         parser.add_argument(
-            "--num_searches",
-            default=10,
-            type=int,
-            help="# searches (optimizations) run to find the optimal working window",
-        )
-        parser.add_argument(
-            "--num_elemsamples_search",
+            "--num_elemsamples_per_alphasample_search",
             default=100,
             type=int,
-            help="# generated elements during each search step",
+            help="""no. element samples generated for each alphaNP sample during
+            initial search""",
+        )
+        parser.add_argument(
+            "--logrid_frac",
+            default=-5,
+            type=check_input_logrid_frac,
+            help="""log10 of fraction defining the alphaNP scan region for
+            initial search. Should be a negative or zero integer: 0 -> scan
+            region -> 0, -infty -> scan region infinite. Please provide integers
+            larger or equal to -10.""",
         )
         parser.add_argument(
             "--num_exp",
             default=10,
             type=int,
-            help="# experiments after the optimal working window has been found",
+            help="no. experiments after the optimal working window has been found",
         )
         parser.add_argument(
             "--num_elemsamples_exp",
             default=100,
             type=int,
-            help="# generated elements during each final experiment",
+            help="no. element samples generated during each experiment",
         )
         parser.add_argument(
             "--num_alphasamples_exp",
@@ -171,7 +171,7 @@ class RunParams:
         parser.add_argument(
             "--min_percentile",
             default=1,
-            choices=range(1, 100),
+            choices=range(1, 50),
             type=int,
             help="Min percentile value used to compute a robust estimation of min(logL)",
         )
@@ -202,7 +202,7 @@ class RunParams:
         parser.add_argument(
             "--gkp_dims",
             nargs="+",
-            default=[],
+            default=[3],
             type=int,
             help="List of generalised King plot dimensions",
         )
@@ -216,7 +216,7 @@ class RunParams:
         parser.add_argument(
             "--proj_dims",
             nargs="+",
-            default=[],
+            default=[3],
             type=int,
             help="List of projection method dimensions",
         )
@@ -240,12 +240,6 @@ class RunParams:
             "--showbestdetbounds",
             action="store_true",
             help="If true, the best det bounds are shown."
-        )
-        parser.add_argument(
-            "--init_globalopt",
-            action="store_true",
-            help="""If true, an initial global optimization is done to determine
-            the optimization bounds."""
         )
         parser.add_argument(
             "--num_sigmas",
@@ -318,7 +312,6 @@ class Paths:
         return os.path.join(self.plot_path,
             f"{plotname}_"
             + (f"{self.__elem_collection_id}" if elemid is None else f"{elemid}")
-            + ("_globalopt" if self.__params.init_globalopt else "")
             + (f"_x{str(xind)}" if xind is not None else "")
             + ".png")
 
@@ -327,16 +320,14 @@ class Paths:
         fit_output_path = os.path.join(
             self.output_data_path, (
                 f"{self.__elem_collection_id}_"
-                + f"{self.__params.optimization_method}_"
-                + f"{self.__params.num_searches}searches_"
-                + f"{self.__params.num_elemsamples_search}es-search_"
+                + f"{self.__params.num_elemsamples_per_alphasample_search}es-search_"
+                + f"{self.__params.num_alphasamples_search}as-search_"
+                + f"{self.__params.logrid_frac}logridfrac_"
                 + f"{self.__params.num_exp}exps_"
                 + f"{self.__params.num_elemsamples_exp}es-exp_"
                 + f"{self.__params.num_alphasamples_exp}as-exp_"
                 + f"{self.__params.min_percentile}minperc_"
-                + f"maxiter{self.__params.maxiter}_"
                 + f"blocksize{self.__params.block_size}_"
-                + ("globalopt_" if self.__params.init_globalopt else "")
                 + f"x{xind}.json")
         )
 

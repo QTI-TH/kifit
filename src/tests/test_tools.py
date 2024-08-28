@@ -71,6 +71,9 @@ def test_GKP_combinations():
     assert np.isclose(camin.alphaNP_GKP(), alphas_min[0], atol=0, rtol=1e-13)
     # check
 
+    assert np.isclose(alphas_min[0], camin.alphaNP_proj_combinations(3)[0],
+        atol=0, rtol=1e-13)
+
     (
         meanvd, sigvd, meanv1, sigv1, xindlist
     ) = sample_gkp_parts(camin, 10000, dim_gkp, "gkp")

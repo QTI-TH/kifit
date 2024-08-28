@@ -48,29 +48,13 @@ class Runner:
 
         self.generate_all_King_plots()
 
-        elem = None
+        # elem = None
+        #
+        # if self.collection.len == 1:
+        #
+        #     elem = self.collection.elems[0]
 
-        for x in self.config.x_vals_fit:
-
-            for elem in self.collection.elems:
-                elem._update_Xcoeffs(x)
-
-            sample_alphaNP_fit(
-                self.collection,
-                self.config,
-                xind=x
-            )
-
-            if x not in self.config.x_vals_det:
-
-                plot_alphaNP_ll(
-                    self.collection,
-                    messenger=self.config,
-                    xind=x)
-
-        if self.collection.len == 1:
-
-            elem = self.collection.elems[0]
+        for elem in self.collection.elems:
 
             for x in self.config.x_vals_det:
                 elem._update_Xcoeffs(x)
@@ -101,6 +85,24 @@ class Runner:
                         detstr="proj",
                         xind=x)
 
+        for x in self.config.x_vals_fit:
+
+            for elem in self.collection.elems:
+                elem._update_Xcoeffs(x)
+
+            sample_alphaNP_fit(
+                self.collection,
+                self.config,
+                xind=x
+            )
+
+            if x not in self.config.x_vals_det:
+
+                plot_alphaNP_ll(
+                    self.collection,
+                    messenger=self.config,
+                    xind=x)
+
         for x in list(set(self.config.x_vals_fit) & set(self.config.x_vals_det)):
 
             plot_alphaNP_ll(
@@ -112,8 +114,7 @@ class Runner:
 
             plot_mphi_alphaNP(
                 elem_collection=self.collection,
-                messenger=self.config,
-                elem=elem)
+                messenger=self.config)
 
     def generate_all_alphaNP_ll_plots(self):
 
@@ -126,16 +127,10 @@ class Runner:
 
     def generate_mphi_alphaNP_plot(self):
 
-        if self.collection.len == 1:
-            elem = self.collection.elems[0]
-        else:
-            elem = None
-
         if len(self.config.x_vals_fit) > 1 or len(self.config.x_vals_det) > 1:
             plot_mphi_alphaNP(
                 elem_collection=self.collection,
-                messenger=self.config,
-                elem=elem)
+                messenger=self.config)
 
     def print_relative_uncertainties(self):
 

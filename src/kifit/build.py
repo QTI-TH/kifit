@@ -288,6 +288,9 @@ class Elem:
         if hasattr(sigalpha, "__len__"):
             raise ValueError("""sig_alphaNP is a scalar.""")
 
+        logging.info(f"Setting alphaNP_init to     {alpha}.")
+        logging.info(f"setting sig_alphaNP_init to {sigalpha}.")
+
         self.alphaNP_init = alpha
         self.sig_alphaNP_init = sigalpha
 
@@ -904,32 +907,32 @@ class Elem:
 
         return np.array(voldatlist), np.array(vol1st), xindlist
 
-    # @cached_fct
-    # def alphaNP_GKP_combinations(self, dim):
-    #     """
-    #     Evaluates alphaNP using the ingredients computed by alphaNP_GKP_part for
-    #     dim=dim.
-    #
-    #     If the X-coefficients are varied, this part of the computation of
-    #     alphaNP should be repeated for each set of X-coefficients.
-    #
-    #     Returns a list of p alphaNP-values, where p is the number of
-    #     combinations of the data of dimension
-    #
-    #        (nisotopepairs, ntransitions) = (dim, dim-1),   dim >= 3.
-    #
-    #     """
-    #     voldat, vol1part, xindlist = self.alphaNP_GKP_part(dim)
-    #
-    #     alphalist = []
-    #
-    #     """ p: alphaNP permutation index and xpinds: X-indices for sample p"""
-    #     for p, xpinds in enumerate(xindlist):
-    #         vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
-    #         alphalist.append(voldat[p] / vol1p)
-    #     alphalist = np.math.factorial(dim - 2) * alphalist
-    #
-    #     return alphalist
+    @cached_fct
+    def alphaNP_GKP_combinations(self, dim):
+        """
+        Evaluates alphaNP using the ingredients computed by alphaNP_GKP_part for
+        dim=dim.
+
+        If the X-coefficients are varied, this part of the computation of
+        alphaNP should be repeated for each set of X-coefficients.
+
+        Returns a list of p alphaNP-values, where p is the number of
+        combinations of the data of dimension
+
+           (nisotopepairs, ntransitions) = (dim, dim-1),   dim >= 3.
+
+        """
+        voldat, vol1part, xindlist = self.alphaNP_GKP_part(dim)
+
+        alphalist = []
+
+        """ p: alphaNP permutation index and xpinds: X-indices for sample p"""
+        for p, xpinds in enumerate(xindlist):
+            vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
+            alphalist.append(voldat[p] / vol1p)
+        alphalist = np.math.factorial(dim - 2) * alphalist
+
+        return alphalist
 
     # ### NMGKP ###############################################################
     @cached_fct
@@ -1027,32 +1030,32 @@ class Elem:
 
         return np.array(voldatlist), np.array(vol1st), xindlist  #, indexlist
 
-    # @cached_fct
-    # def alphaNP_NMGKP_combinations(self, dim):
-    #     """
-    #     Evaluates alphaNP using the ingredients computed by alphaNP_NMGKP_part
-    #     for dim=dim.
-    #
-    #     If the X-coefficients are varied, this part of the computation of
-    #     alphaNP should be repeated for each set of X-coefficients.
-    #
-    #     Returns a list of p alphaNP-values, where p is the number of
-    #     combinations of the data of dimension
-    #
-    #        (nisotopepairs, ntransitions) = (dim, dim),   dim >= 3.
-    #
-    #     """
-    #     voldat, vol1part, xindlist = self.alphaNP_NMGKP_part(dim)
-    #
-    #     alphalist = []
-    #
-    #     """ p: alphaNP permutation index and xpinds: X-indices for sample p"""
-    #     for p, xpinds in enumerate(xindlist):
-    #         vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
-    #         alphalist.append(voldat[p] / vol1p)
-    #     alphalist = np.math.factorial(dim - 2) * alphalist
-    #
-    #     return alphalist
+    @cached_fct
+    def alphaNP_NMGKP_combinations(self, dim):
+        """
+        Evaluates alphaNP using the ingredients computed by alphaNP_NMGKP_part
+        for dim=dim.
+
+        If the X-coefficients are varied, this part of the computation of
+        alphaNP should be repeated for each set of X-coefficients.
+
+        Returns a list of p alphaNP-values, where p is the number of
+        combinations of the data of dimension
+
+           (nisotopepairs, ntransitions) = (dim, dim),   dim >= 3.
+
+        """
+        voldat, vol1part, xindlist = self.alphaNP_NMGKP_part(dim)
+
+        alphalist = []
+
+        """ p: alphaNP permutation index and xpinds: X-indices for sample p"""
+        for p, xpinds in enumerate(xindlist):
+            vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
+            alphalist.append(voldat[p] / vol1p)
+        alphalist = np.math.factorial(dim - 2) * alphalist
+
+        return alphalist
 
     # ### projection method ###################################################
     def alphaNP_proj_Xindep_part(self, ainds=[0, 1, 2], iinds=[0, 1]):
@@ -1136,30 +1139,30 @@ class Elem:
 
         return np.array(alphapartlist), xindlist
 
-    # @cached_fct
-    # def alphaNP_proj_combinations(self, dim):
-    #     """
-    #     Evaluates alphaNP using the ingredients computed by
-    #     alphaNP_proj_Xindep_part for dim=dim.
-    #
-    #     This part of the computation of alphaNP should be repeated for each set
-    #     of X-coefficients.
-    #
-    #     Returns a list of p alphaNP-values, where p is the number of
-    #     combinations of the data of dimension
-    #
-    #        (nisotopepairs, 2) = (dim, 2),   dim >= 3.
-    #
-    #     """
-    #     alphalist = []
-    #
-    #     alphapartlist, xindlist = self.alphaNP_proj_part(dim)
-    #
-    #     for p, xind in enumerate(xindlist):
-    #
-    #         alphalist.append(alphapartlist[p] / self.Xji(j=xind[1], i=xind[0]))
-    #
-    #     return np.array(alphalist)
+    @cached_fct
+    def alphaNP_proj_combinations(self, dim):
+        """
+        Evaluates alphaNP using the ingredients computed by
+        alphaNP_proj_Xindep_part for dim=dim.
+
+        This part of the computation of alphaNP should be repeated for each set
+        of X-coefficients.
+
+        Returns a list of p alphaNP-values, where p is the number of
+        combinations of the data of dimension
+
+           (nisotopepairs, 2) = (dim, 2),   dim >= 3.
+
+        """
+        alphalist = []
+
+        alphapartlist, xindlist = self.alphaNP_proj_part(dim)
+
+        for p, xind in enumerate(xindlist):
+
+            alphalist.append(alphapartlist[p] / self.Xji(j=xind[1], i=xind[0]))
+
+        return np.array(alphalist)
 
     # @cached_fct
     # def alphaNP_NMGKP(self, dim):
