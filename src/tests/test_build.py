@@ -313,13 +313,19 @@ def test_alphaNP_proj():
 
     assert np.isclose(camin.alphaNP_proj(), camin.alphaNP_GKP(), atol=0, rtol=20)
 
+    print("now ca24")
     ca24 = Elem("Ca_WT_Aarhus_2024")
 
     alphaca = ca24.alphaNP_proj(ainds=[0, 1, 2, 3], iinds=[0, 1])
     alphaca_Mathematica = 3.23947e-12
 
-    print("1", alphaca)
-    print("2", alphaca_Mathematica)
+    print("alpha kifit      ", alphaca)
+    print("alpha mathematica", alphaca_Mathematica)
+
+    print("ca24mu", ca24.mu_norm_muvec)
+    print("ca24mu", ca24.muvec)
+    print("Xvec  ", ca24.Xvec)
+    print("mphi  ", ca24.mphi)
 
 
 if __name__ == "__main__":
