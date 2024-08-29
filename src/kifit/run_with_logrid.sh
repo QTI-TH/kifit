@@ -15,9 +15,10 @@ python3 main.py --element_list "Camin"\
                 --num_elemsamples_exp 200 \
                 --x0_fit $(seq 0 400 800) \
                 --gkp_dims 3\
+                --proj_dims 3\
                 --num_det_samples 1000 \
                 --x0_det $(seq 0 400 800)\
-                --showbestdetbounds \
-                --showalldetbounds \
                 --showalldetvals \
+                --showalldetbounds \
+                --showbestdetbounds \
                 --verbose

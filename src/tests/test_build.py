@@ -87,6 +87,7 @@ def test_load_individual():
     assert (len(ca.range_i) == len(ca.range_j) + 1)
 
 
+
 def test_set_fit_params():
     ca = Elem('Ca_testdata')
 
@@ -326,6 +327,28 @@ def test_alphaNP_proj():
     print("ca24mu", ca24.muvec)
     print("Xvec  ", ca24.Xvec)
     print("mphi  ", ca24.mphi)
+
+
+
+
+
+
+        print()
+        print("hvec     ", self.mu_norm_avec)
+        print("mnu1     ", mnu1)
+        print("mnu2     ", mnu2)
+        print()
+        print("hvec @ hvec", self.mu_norm_avec @ self.mu_norm_avec)
+        print("mnu1 @ mnu1", mnu1 @ mnu1)
+        print("mnu1 @ hvec", mnu1 @ self.mu_norm_avec)
+        print()
+        print("pexp     ", self.pvec(mnu1, mnu2))
+        print("pth      ", self.pvec(mnu1, self.mu_norm_avec))
+        print()
+        print("Vexp     ", Vexp)
+        print("XindepVth", XindepVth)
+        print()
+
 
 
 if __name__ == "__main__":

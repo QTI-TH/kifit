@@ -477,11 +477,14 @@ def plot_mphi_alphaNP_det_bound(
         det_colour = nmgkp_colour
 
     elif detstr=="proj":
+        print("hullu proj")
         method_tag = "proj"
         det_colour = proj_colour
 
     alphas, sigalphas, minpos, allpos, maxneg, allneg = collect_det_X_data(
         messenger, dim=dim, detstr=detstr)
+    print("detstr", detstr)
+    print("alphas", alphas)
 
     npermutations = alphas.shape[1]
 
@@ -525,15 +528,13 @@ def plot_mphi_alphaNP_det_bound(
                 (allpos.T)[p],
                 s=3,
                 color=det_colour,
-                alpha=0.3,
                 label=scatterlabel)
 
             ax.scatter(
                 mphis_det,
                 (allneg.T)[p],
                 s=3,
-                color=det_colour,
-                alpha=0.3)
+                color=det_colour)
 
     if messenger.params.showbestdetbounds is True:
         ax.plot(  # ax.fill_between(
@@ -675,8 +676,7 @@ def set_axes_mphi_alpha_plot(
     ax.axhline(y=linlim, color='k', ls='--')
     ax.axhline(y=-linlim, color='k', ls='--')
     ax.tick_params(axis='both', labelsize=9)
-    plt.locator_params(axis='y', numticks=8)
-    plt.minorticks_off()
+    ax.locator_params(axis='y', numticks=6)
     ax.set_title(elem_collection.id, fontsize=11)
 
     return ax, ymin, ymax

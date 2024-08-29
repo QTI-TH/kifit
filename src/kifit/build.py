@@ -1099,40 +1099,6 @@ class Elem:
         Vexp = self.Vproj(self.mu_norm_muvec, mnu1, mnu2)
         XindepVth = self.Vproj(self.mu_norm_muvec, mnu1, self.mu_norm_avec)
 
-        #
-        # Vexp = np.linalg.norm(self.mu_norm_muvec - pvec_exp) * np.sqrt(
-        #     (mnu1 @ mnu1) * (mnu2 @ mnu2) - (mnu1 @ mnu2)**2)
-        #
-        # XindepVth = np.linalg.norm(self.mu_norm_muvec - pvec_th) * np.sqrt(
-        #     (mnu1 @ mnu1) * (self.mu_norm_avec @ self.mu_norm_avec)
-        #     - (mnu1 @ self.mu_norm_avec)**2)
-
-        # print("XindepVth", XindepVth)
-        # print("|1-p|", np.linalg.norm(self.mu_norm_muvec - pvec))
-        # print("gamma ", self.mu_norm_avec)
-        # print("Vexp", Vexp)
-        # print("nu1", (self.nu).T[0])
-        # print("nu2", (self.nu).T[1])
-        # print("mnu1 @ mnu1", mnu1 @ mnu1)
-        # print("gamma @ gamma", self.mu_norm_avec @ self.mu_norm_avec)
-        # print("mnu1 @ gamma ", mnu1 @ self.mu_norm_avec)
-        # print("mnu1 @ gamma ", (mnu1 @ self.mu_norm_avec)**2)
-        # print("th sqrt part 1",
-        #     (mnu1 @ mnu1) * (self.mu_norm_avec @ self.mu_norm_avec))
-        # print("th sqrt part 2", (mnu1 @ self.mu_norm_avec)**2)
-        # print()
-        # print("th sqrt part 1a", (mnu1 @ mnu1) * (self.mu_norm_avec @ self.mu_norm_avec))
-        # print("th sqrt part 1b", (mnu1 @ self.mu_norm_avec))
-        # print("testi",
-        #     (mnu1 @ mnu1) * (self.mu_norm_avec @ self.mu_norm_avec)
-        #     - (mnu1 @ self.mu_norm_avec)**2)
-        # print("testisqrt      ", np.sqrt(
-        #     (mnu1 @ mnu1) * (self.mu_norm_avec @ self.mu_norm_avec)
-        #     - (mnu1 @ self.mu_norm_avec)**2))
-        # print("XindepVth testi", np.sqrt(
-        #     (mnu1 @ mnu1) * (self.mu_norm_avec @ self.mu_norm_avec)
-        #     - (mnu1 @ self.mu_norm_avec)**2))
-        #
         return Vexp / XindepVth
 
     def alphaNP_proj(self, ainds=[0, 1, 2], iinds=[0, 1]):
