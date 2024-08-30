@@ -712,12 +712,6 @@ def determine_search_interval(
         init_minpos = np.nanmax([init_minpos, np.abs(init_maxneg)])
         init_maxneg = - init_minpos
 
-    # print("in determine_search_interval:")
-    # print("init_mineg ", init_mineg)
-    # print("init_maxneg", init_maxneg)
-    # print("init_minpos", init_minpos)
-    # print("init_maxpos", init_maxpos)
-    #
     search_output = perform_experiments(
         elem_collection=elem_collection,
         messenger=messenger,
@@ -915,9 +909,10 @@ def perform_experiments(
         sig_alpha = np.max([
             np.abs(np.nanmax(confints_search) - best_alpha),
             np.abs(best_alpha - np.nanmin(confints_search))])
-        LB = None
+
+        LB = best_alpha - sig_alpha
         sig_LB = None
-        UB = None
+        UB = best_alpha + sig_alpha
         sig_UB = None
         logging.info(f"best_alpha search stage: {best_alpha}({sig_alpha})")
 
@@ -970,11 +965,13 @@ def sample_alphaNP_fit(
 
     logging.info(f"scipy minimisation for x={xind}")
 
-    determine_search_interval(
+    search_output = determine_search_interval(
         elem_collection=elem_collection,
         messenger=messenger,
         xind=xind
     )
+
+    messenger.paths.write_search_output(xind, search_output)
 
     logging.info(f"Experiments for x={xind}")
 

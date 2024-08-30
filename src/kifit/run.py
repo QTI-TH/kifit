@@ -96,18 +96,17 @@ class Runner:
                 xind=x
             )
 
-            if x not in self.config.x_vals_det:
-
-                plot_alphaNP_ll(
-                    self.collection,
-                    messenger=self.config,
-                    xind=x)
-
-        for x in list(set(self.config.x_vals_fit) & set(self.config.x_vals_det)):
+            plot_alphaNP_ll(
+                self.collection,
+                messenger=self.config,
+                expstr="search",
+                logplot=True,
+                xind=x)
 
             plot_alphaNP_ll(
                 self.collection,
                 messenger=self.config,
+                expstr="experiment",
                 xind=x)
 
         if len(self.config.x_vals_fit) > 1 or len(self.config.x_vals_det) > 1:
@@ -123,6 +122,14 @@ class Runner:
             plot_alphaNP_ll(
                 self.collection,
                 messenger=self.config,
+                expstr="search",
+                logplot=True,
+                xind=x)
+
+            plot_alphaNP_ll(
+                self.collection,
+                messenger=self.config,
+                expstr="experiment",
                 xind=x)
 
     def generate_mphi_alphaNP_plot(self):

@@ -315,6 +315,25 @@ class Paths:
             + (f"_x{str(xind)}" if xind is not None else "")
             + ".png")
 
+    def search_output_path(self, xind):
+        # path where to save fit results for x=xind
+        search_output_path = os.path.join(
+            self.output_data_path, (
+                "search_output_"
+                + f"{self.__elem_collection_id}_"
+                + f"{self.__params.num_elemsamples_per_alphasample_search}es-search_"
+                + f"{self.__params.num_alphasamples_search}as-search_"
+                + f"{self.__params.logrid_frac}logridfrac_"
+                + f"{self.__params.num_exp}exps_"
+                + f"{self.__params.num_elemsamples_exp}es-exp_"
+                + f"{self.__params.num_alphasamples_exp}as-exp_"
+                + f"{self.__params.min_percentile}minperc_"
+                + f"blocksize{self.__params.block_size}_"
+                + f"x{xind}.json")
+        )
+
+        return search_output_path
+
     def fit_output_path(self, xind):
         # path where to save fit results for x=xind
         fit_output_path = os.path.join(
@@ -384,11 +403,17 @@ class Paths:
         else:
             raise ImportError(f"{path} Does not yet exist. Please run Kifit.")
 
+    def read_search_output(self, x):
+        return self.read_from_path(self.search_output_path(x), self.fit_keys)
+
     def read_fit_output(self, x):
         return self.read_from_path(self.fit_output_path(x), self.fit_keys)
 
     def read_det_output(self, detstr, dim, x):
         return self.read_from_path(self.det_output_path(detstr, dim, x), self.det_keys)
+
+    def write_search_output(self, x, results):
+        self.write_to_path(self.search_output_path(x), self.fit_keys, results)
 
     def write_fit_output(self, x, results):
         self.write_to_path(self.fit_output_path(x), self.fit_keys, results)
