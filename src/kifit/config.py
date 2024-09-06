@@ -111,6 +111,10 @@ class RunParams:
     def verbose(self):
         return self.__runparams.verbose
 
+    @property
+    def sample_fitparams(self):
+        return self.__runparams.sample_fitparams
+
     @staticmethod
     def parse_arguments():
         parser = ArgumentParser(
@@ -253,6 +257,12 @@ class RunParams:
             help="""If specified, extra statements are printed and extra plots
             plotted."""
         )
+        parser.add_argument(
+            "--sample_fitparams",
+            action="store_true",
+            help="""If specified, also fit parameters are sampled from multinormal distribution
+            during search and experiment phase."""
+        )
 
         return parser.parse_args()
 
@@ -329,6 +339,7 @@ class Paths:
                 + f"{self.__params.num_alphasamples_exp}as-exp_"
                 + f"{self.__params.min_percentile}minperc_"
                 + f"blocksize{self.__params.block_size}_"
+                + ("sampling_fitparams_" if self.__params.sample_fitparams else "")  
                 + f"x{xind}.json")
         )
 
@@ -347,7 +358,9 @@ class Paths:
                 + f"{self.__params.num_alphasamples_exp}as-exp_"
                 + f"{self.__params.min_percentile}minperc_"
                 + f"blocksize{self.__params.block_size}_"
-                + f"x{xind}.json")
+                + ("sampling_fitparams_" if self.__params.sample_fitparams else "")  
+                + f"x{xind}.json"
+            )
         )
 
         return fit_output_path

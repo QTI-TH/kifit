@@ -183,7 +183,7 @@ def generate_paramsamples(means, stdevs, nsamples):
     return multivariate_normal.rvs(means, np.diag(stdevs**2), size=nsamples)
 
 
-def generate_elemsamples(elem, nsamples: int):
+def generate_elemsamples(elem, nsamples: int, sample_fitparams:bool=False):
     """
     Generate ``nsamples`` of the input parameters associated to ``elem`` from
     the normal distributions defined by the means and standard deviations
@@ -193,11 +193,29 @@ def generate_elemsamples(elem, nsamples: int):
        m  ~ N(<m>,  sig[m])   for the nuclear masses
        v  ~ N(<v>,  sig[v])   for the transition frequencies
 
+
     """
-    parameter_samples = generate_paramsamples(
+    inputparams_samples = generate_paramsamples(
         elem.means_input_params, elem.stdevs_input_params, nsamples
     )
-    return parameter_samples
+
+    # sampling fit params if needed
+    if sample_fitparams:
+        samples_per_transition = []
+        for kp1, ph1, cov in zip(elem.kp1_init, elem.ph1_init, elem.cov_kperp1_ph1):
+            samples_per_transition.append(np.random.multivariate_normal([kp1, ph1], cov, size=nsamples))
+        fitparams_samples = []
+        for i in range(nsamples):
+            these_fitparams = []
+            for j in range(len(elem.kp1_init)):
+                these_fitparams.append(samples_per_transition[j][i][0])
+            for j in range(len(elem.kp1_init)):
+                these_fitparams.append(samples_per_transition[j][i][1])
+            fitparams_samples.append(these_fitparams)
+    else:
+        fitparams_samples = None
+
+    return inputparams_samples, fitparams_samples
 
 
 def generate_alphaNP_samples(elem,
@@ -367,7 +385,7 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky"):
     return np.array(llist)
 
 
-def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
+def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile, sample_fitparams=False):
     """
     For elem_collection, compute negative loglikelihood for fixed alphaNP from
     ``nelemsamples`` samples of the input parameters associated to the elements
@@ -380,6 +398,10 @@ def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
                           for estimation of loglikelihood.
         min_percentile:   percentile of samples to be used in comuptation of
                           minimum log-likelihood value min_ll
+        sample_fitparams (bool): if `True`, kperp1 and ph1 are sampled from a 
+                           multinormal distribution computed from the initial 
+                           parameter's defintion via ODR. If `False`, the fit 
+                           parameters are kept fixed
     Returns:
         min_ll:           log-likelihood value at min_percentile
 
@@ -394,11 +416,15 @@ def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
 
     for elem in elem_collection.elems:
         absdsamples = []
-        elemsamples_elem = generate_elemsamples(elem, nelemsamples)
+        inputparams_samples, fitparams_samples = generate_elemsamples(elem, nelemsamples, sample_fitparams=True)
 
-        for elemsamples in elemsamples_elem:
-            generate_elemsamples(elem, nelemsamples)
-            elem._update_elem_params(elemsamples)
+        for i, inputparam in enumerate(inputparams_samples):
+            # generate_elemsamples(elem, nelemsamples)
+            elem._update_elem_params(inputparam)
+            if sample_fitparams:
+                these_fitparams = fitparams_samples[i]
+                these_fitparams.append(alphaNP)
+                elem._update_fit_params(these_fitparams)
             absdsamples.append(elem.absd)
 
         lls = get_llist_elemsamples(np.array(absdsamples),
@@ -414,7 +440,9 @@ def compute_ll_experiments(
         alphasamples,
         nelemsamples,
         min_percentile,
-        cov_decomp_method="cholesky"):
+        cov_decomp_method="cholesky",
+        sample_fitparams=False,
+    ):
 
     """
     From ``nelemsamples`` samples of the input parameters associated to the
@@ -428,6 +456,10 @@ def compute_ll_experiments(
         nelemsamples:      number of element samples
         cov_decomp_method: string specifying method with which the covariance
                            matrix entering the loglikelihood is decomposed.
+        sample_fitparams (bool): if `True`, kperp1 and ph1 are sampled from a 
+                           multinormal distribution computed from the initial 
+                           parameter's defintion via ODR. If `False`, the fit 
+                           parameters are kept fixed
 
     Returns:
         alphasamples (List[float]):   alphaNP samples
@@ -444,7 +476,8 @@ def compute_ll_experiments(
             alphaNP=alpha,
             elem_collection=elem_collection,
             nelemsamples=nelemsamples,
-            min_percentile=min_percentile)
+            min_percentile=min_percentile,
+            sample_fitparams=sample_fitparams,)
         )
 
     return np.array(alphasamples), np.array(lls)
@@ -492,7 +525,9 @@ def minimise_logL_alphaNP(
         maxiter,
         opt_method,
         bounds=(-1e-5, 1e-5),
-        tol=1e-12):
+        tol=1e-12,
+        sample_fitparams=False,
+        ):
     """
     Scipy minimisation of negative loglikelihood as a function of alphaNP.
 
@@ -504,6 +539,7 @@ def minimise_logL_alphaNP(
             bounds=[bounds],
             args=(elem_collection, nelemsamples, min_percentile),
             maxiter=maxiter,
+            sample_fitparams=sample_fitparams,
         )
 
     elif opt_method == "differential_evolution":
@@ -512,6 +548,7 @@ def minimise_logL_alphaNP(
             bounds=[bounds],
             args=(elem_collection, nelemsamples, min_percentile),
             maxiter=maxiter,
+            sample_fitparams=sample_fitparams,
         )
 
     else:
@@ -522,6 +559,7 @@ def minimise_logL_alphaNP(
             args=(elem_collection, nelemsamples, min_percentile),
             method=opt_method, options={"maxiter": maxiter},
             tol=tol,
+            sample_fitparams=sample_fitparams,
         )
 
     return minlogL
@@ -794,7 +832,7 @@ def perform_experiments(
         expstr="experiment",
         search_mode="normal",
         lbmin=None, lbmax=None,
-        ubmin=None, ubmax=None):
+        ubmin=None, ubmax=None,):
     """
     Perform the experiments for the element collection elem_collection and the
     configuration specified by the messenger.
@@ -803,6 +841,12 @@ def perform_experiments(
         elem_collection:   element collection (instance of ElemCollection class)
         messenger:         run configuration (instance of Config class),
         xind (int):        x-index
+        expstr (str):      if "experiment", standard experiment procedure is run,
+                           if "search", the method is used as support method to 
+                           compute the initial search stage, which is determining 
+                           the interesting window to search for NP
+        search_mode (str): determine the search mode. It can be chosen among 
+                           ["normal", "lingrid", "logrid"]
 
     Returns:
         fit output (list): list of results that are also written to the fit
@@ -861,7 +905,11 @@ def perform_experiments(
 
         # compute alphas and LLs for this experiment
         alphas, lls = compute_ll_experiments(
-            elem_collection, alphasamples, nelemsamples_exp, min_percentile,
+            elem_collection, 
+            alphasamples, 
+            nelemsamples_exp, 
+            min_percentile, 
+            sample_fitparams=messenger.params.sample_fitparams,
         )
 
         alphas_exps.append(alphas)
