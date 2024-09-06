@@ -261,7 +261,7 @@ class Elem:
         # self.ph1 = np.zeros(self.ntransitions - 1)
         (
             _, _,
-            self.kp1_init, self.ph1_init, self.sig_kp1_init, self.sig_ph1_init
+            self.kp1_init, self.ph1_init, self.sig_kp1_init, self.sig_ph1_init, self.cov_kperp1_ph1
         ) = perform_odr(
             self.mu_norm_isotope_shifts_in, self.sig_mu_norm_isotope_shifts_in,
             reference_transition_index=0)
@@ -726,7 +726,7 @@ class Elem:
             self.sig_mu_norm_isotope_shifts_in.T[j]
         ]
 
-        betas, _, _, _, _, _ = perform_odr(
+        betas, _, _, _, _, _, _ = perform_odr(
             isotopeshiftdata, sigisotopeshiftdata, reference_transition_index=0)
 
         return betas[0, 0]

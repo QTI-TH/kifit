@@ -50,7 +50,7 @@ def plot_linfit(elem, messenger, magnifac=1, resmagnifac=1, plot_path=None):
 
     """
 
-    betas_odr, sig_betas_odr, kperp1s, ph1s, sig_kperp1s, sig_ph1s = perform_odr(
+    betas_odr, sig_betas_odr, kperp1s, ph1s, sig_kperp1s, sig_ph1s, _ = perform_odr(
         elem.mu_norm_isotope_shifts_in,
         elem.sig_mu_norm_isotope_shifts_in,
         reference_transition_index=0,

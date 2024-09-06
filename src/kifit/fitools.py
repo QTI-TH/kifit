@@ -80,6 +80,7 @@ def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
         sig_betas.append([res.stderr, res.intercept_stderr])
 
     betas = np.array(betas)
+    
     sig_betas = np.array(sig_betas)
 
     ph1s = np.arctan(betas.T[0])
@@ -97,7 +98,7 @@ def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
 
 
 def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
-        reference_transition_index: int = 0):
+                reference_transition_index: int = 0):
     """
     Perform separate orthogonal distance regression for each transition pair.
 
@@ -112,7 +113,7 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
         ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
         sig_kperp1s: uncertainties on kperp1s
         sig_ph1s:    uncertainties on ph1s
-
+        cov_kperp1_ph1s: covariance matrices for (kperp1, ph1)
     """
     lin_model = Model(linfit)
 
@@ -124,14 +125,36 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
 
     betas = []
     sig_betas = []
+    cov_kperp1_ph1s = []
 
     for i in range(y.shape[1]):
         data = RealData(x, y.T[i], sx=sigx, sy=sigy.T[i])
         beta_init = np.polyfit(x, y.T[i], 1)
         odr = ODR(data, lin_model, beta0=beta_init)
         out = odr.run()
+
+        # Extract beta and covariance matrix
         betas.append(out.beta)
         sig_betas.append(out.sd_beta)
+        cov_beta = out.cov_beta
+
+        # Calculate ph1 and kperp1
+        ph1 = np.arctan(out.beta[0])
+        kperp1 = out.beta[1] * np.cos(ph1)
+
+        # Derivatives for the delta method
+        d_kperp1_d_beta0 = -out.beta[1] * np.sin(ph1)
+        d_kperp1_d_beta1 = np.cos(ph1)
+        d_ph1_d_beta0 = 1 / (1 + out.beta[0]**2)
+        d_ph1_d_beta1 = 0
+
+        # Jacobian matrix J
+        J = np.array([[d_kperp1_d_beta0, d_kperp1_d_beta1],
+                      [d_ph1_d_beta0, d_ph1_d_beta1]])
+
+        # Covariance matrix for (kperp1, ph1)
+        cov_kperp1_ph1 = J @ cov_beta @ J.T
+        cov_kperp1_ph1s.append(cov_kperp1_ph1)
 
     betas = np.array(betas)
     sig_betas = np.array(sig_betas)
@@ -145,7 +168,7 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
         + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
     )
 
-    return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s)
+    return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s, cov_kperp1_ph1s)
 
 
 # generate samples
