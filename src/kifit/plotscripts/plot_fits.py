@@ -11,7 +11,7 @@ ORANGE = "#f0a12b"
 
 WIDTH = 0.5
 
-elemlist = ["Ca_WT_Aarhus_PTB_2024"]
+elemlist = ["Camin"]
 elnames = ["Ca", "Yb"]
 elhatches = ["//", "\\\\"]
 elcolors = [PURPLE, RED]
@@ -33,7 +33,8 @@ for i in range(len(elemlist)):
 
 name1 = f"../results/output_data/{elements}_500es-search_500as-search_-5logridfrac_50exps_500es-exp_500as-exp_5minperc_blocksize10_sampling_fitparams_x"
 # name2 = f"../results/output_data/{elements}_Powell_20searches_400es-search_50exps_400es-exp_400as-exp_5minperc_maxiter1000_blocksize5_globalopt_x"
-name2 = f"../results/output_data/{elements}_500es-search_500as-search_-5logridfrac_50exps_500es-exp_500as-exp_5minperc_blocksize10_x"
+# name2 = f"../results/output_data/{elements}_500es-search_500as-search_-5logridfrac_50exps_500es-exp_500as-exp_5minperc_blocksize10_x"
+name2 = f"../results/output_data/{elements}_Powell_20searches_400es-search_50exps_400es-exp_400as-exp_5minperc_maxiter1000_blocksize5_x"
 
 
 ubs1, ubs2, lbs1, lbs2 = [], [], [], []
@@ -62,6 +63,10 @@ for i in range(len(elemlist)):
             ubs2.append(res_dict2["UB"])
             lbs1.append(res_dict1["LB"])
             lbs2.append(res_dict2["LB"])
+            
+            # for the meeting
+            print("best"res_dict1["best_alpha"])
+
         these_ubs_gkp.append(res_dict_gkp["minpos"])
         these_lbs_gkp.append(res_dict_gkp["maxneg"])
         these_ubs_proj.append(res_dict_proj["minpos"])
@@ -106,6 +111,6 @@ plt.yticks(yticks)
 plt.legend(fontsize=8, ncols=2, loc=2, framealpha=1)
 plt.ylabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=12)
 plt.xlabel(r"m$_{\phi}$ [eV]", fontsize=12)
-plt.title("Ca")
+plt.title("Camin")
 
-plt.savefig("ca_fits.pdf", bbox_inches="tight")
+plt.savefig("camin_fits.pdf", bbox_inches="tight")
