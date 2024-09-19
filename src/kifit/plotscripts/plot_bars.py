@@ -4,7 +4,13 @@ import copy
 
 import numpy as np
 import matplotlib.pyplot as plt 
+import matplotlib.colors as mcolors
 import seaborn as sns
+
+base_colors = ['#2ca02c', '#ff7f0e', '#9467bd']
+def create_custom_palette(n):
+    cmap = mcolors.LinearSegmentedColormap.from_list("custom_cmap", base_colors, N=n)
+    return [mcolors.to_hex(cmap(i / (n - 1))) for i in range(n)]
 
 
 def draw_point(x, y, lb, ub, col, lab):
@@ -14,19 +20,20 @@ def draw_point(x, y, lb, ub, col, lab):
 
 def draw_set(alphas, lbs, ubs, title, lab, lab_array, keyword):
     # some decoration
-    colors = sns.color_palette("inferno", n_colors=len(alphas)).as_hex()
+    colors = create_custom_palette(len(lab_array))
+    
     # some ylabel stuff
     xticks = [None]
     for i, l in enumerate(lab_array):
         xticks.append(str(l))
     xticks.append(None)
     
-    plt.figure(figsize=(6, 6*6/8))
+    plt.figure(figsize=(10 * 0.5, 10 * 0.5 * 6/8))
     for i in range(len(alphas)):
         draw_point(alphas[i], (i+1)*3, lbs[i], ubs[i], colors[i], lab+str(lab_array[i]))
     plt.title(title)
-    plt.xlabel(r"$\alpha$")
-    plt.ylabel(r"$n$")
+    plt.xlabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$")
+    plt.ylabel(r"Parameter value")
     plt.yticks(np.arange(0,len(lab_array)*3+4,3), xticks)
     plt.vlines(0, 0, len(lab_array)*3+2, color="black", ls="-", lw=1)
     plt.savefig(f"{keyword}.png", dpi=1000, bbox_inches="tight")
@@ -50,48 +57,57 @@ def load_data_using_keyword(path, keyword, ns):
     return alphas, lbs, ubs
 
 
-def costruct_filename(data_name, optimizer, searches, es_search, exps, es_exp, as_exp, minperc, maxiter, blocksize, globalopt, x0):
+def costruct_filename(
+        data_name, 
+        es_search,
+        as_search,  
+        logridfrac,
+        exps, 
+        es_exp, 
+        as_exp, 
+        minperc, 
+        blocksize, 
+        x0
+    ):
     json_filename = (
         f"{data_name}_"
-        + f"{optimizer}_"
-        + f"{searches}searches_"
         + f"{es_search}es-search_"
+        + f"{as_search}as-search_"
+        + f"{logridfrac}logridfrac_"
         + f"{exps}exps_"
         + f"{es_exp}es-exp_"
         + f"{as_exp}as-exp_"
         + f"{minperc}minperc_"
-        + f"maxiter{maxiter}_"
         + f"blocksize{blocksize}_"
-        + ("globalopt_" if globalopt else "")
+        + "sampling_fitparams_"
         + f"x{x0}.json"
     )
     return json_filename
 
 
 path = "../results/output_data"
-keyword = ["minperc"]
-# ns = [50, 100, 200, 500, 1000]
-# ns = [50, 100, 200, 500, 1000]
+keyword = ["es_search", "es_exp"]
+ns = [50, 100, 200, 500, 1000]
+# ns = [10, 50, 100, 200, 500, 1000]
+# ns = [-2,-5,-8,-10]
 # ns = [50, 100, 200, 500, 1000]
 # ns = ["TNC", "differential_evolution"]
 # ns = np.arange(20,43,1)
-ns = [1,2,5,10,20]
+# ns = [1,2,5,10,20]
 
 PARAMS_DICT = {
-    "data_name": "Ca_WT_Aarhus_PTB_2024",
-    "optimizer": "Powell",
-    "searches": 20,
-    "es_search": 200,
-    "exps": 20,
-    "es_exp": 200,
-    "as_exp": 200,
+    "data_name": "Camin",
+    "es_search": 500,
+    "as_search": 500,
+    "logridfrac": -5,
+    "exps": 50,
+    "es_exp": 500,
+    "as_exp": 500,
     "minperc": 5,
-    "maxiter": 1000,
-    "blocksize": 10,
-    "globalopt": False,
-    "x0": 400,
+    "blocksize": 5,
+    "x0": 0,
 }
 
 
 data = load_data_using_keyword(path, keyword, ns)
-draw_set(data[0], data[1], data[2], r"Varying min percentile", r"$n=$", ns, keyword)
+draw_set(data[0], data[1], data[2], r"Sampled elements", r"$n=$", ns, keyword)
