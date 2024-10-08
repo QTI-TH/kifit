@@ -160,7 +160,13 @@ def sample_proj_parts(
     # fracsamples has the form [sample][alphaNP-permutation]
     # for each term, average over all samples.
 
-    meanfrac = np.average(np.array(fracsamples), axis=0)  # [permutation]
+    print("min(fracsamples)", np.min(np.array(fracsamples), axis=0))
+    print("max(fracsamples)", np.max(np.array(fracsamples), axis=0))
+    print("avg(fracsamples)", np.average(np.array(fracsamples), axis=0))
+    print("std(fracsamples)", np.std(np.array(fracsamples), axis=0))
+
+    print("fracsamples.shape", np.array(fracsamples).shape)
+    meanfrac = np.median(np.array(fracsamples), axis=0)  # [permutation]
     sigfrac = np.std(np.array(fracsamples), axis=0)
 
     return meanfrac, sigfrac, xindlist
@@ -269,9 +275,14 @@ def assemble_proj_combinations(
     sigalphalist = []
 
     """ p: alphaNP-permutation index and xpinds: X-indices for sample p"""
+
     for p, xind in enumerate(xindlist):
         alphalist.append(meanfrac[p] / elem.Xji(j=xind[1], i=xind[0]))
         sigalphalist.append(sigfrac[p] / elem.Xji(j=xind[1], i=xind[0]))
+        print()
+        print("p", p)
+        print("sigfrac[p]", sigfrac[p])
+        print("Xji", elem.Xji(j=xind[1], i=xind[0]))
 
     return np.array(alphalist), np.array(sigalphalist)
 

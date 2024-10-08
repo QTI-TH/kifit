@@ -51,8 +51,8 @@ def plot_linfit(elem, messenger, magnifac=1, resmagnifac=1, plot_path=None):
     """
 
     betas_odr, sig_betas_odr, kperp1s, ph1s, sig_kperp1s, sig_ph1s = perform_odr(
-        elem.mu_norm_isotope_shifts_in,
-        elem.sig_mu_norm_isotope_shifts_in,
+        elem.nutil_in,
+        elem.sig_nutil_in,
         reference_transition_index=0,
     )
 
@@ -63,13 +63,13 @@ def plot_linfit(elem, messenger, magnifac=1, resmagnifac=1, plot_path=None):
         ph1s_linreg,
         sig_kperp1s_linreg,
         sig_ph1s_linreg,
-    ) = perform_linreg(elem.mu_norm_isotope_shifts_in,
+    ) = perform_linreg(elem.nutil_in,
         reference_transition_index=0)
 
-    xvals = elem.mu_norm_isotope_shifts_in.T[0]
-    sigxvals = elem.sig_mu_norm_isotope_shifts_in.T[0]
-    yvals = elem.mu_norm_isotope_shifts_in[:, 1:].T
-    sigyvals = elem.sig_mu_norm_isotope_shifts_in[:, 1:].T
+    xvals = elem.nutil_in.T[0]
+    sigxvals = elem.sig_nutil_in.T[0]
+    yvals = elem.nutil_in[:, 1:].T
+    sigyvals = elem.sig_nutil_in[:, 1:].T
 
     AAp = np.array([elem.a_nisotope, elem.ap_nisotope]).T
 
