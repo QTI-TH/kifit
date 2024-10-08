@@ -263,7 +263,7 @@ class Elem:
             _, _,
             self.kp1_init, self.ph1_init, self.sig_kp1_init, self.sig_ph1_init, self.cov_kperp1_ph1
         ) = perform_odr(
-            self.mu_norm_isotope_shifts_in, self.sig_mu_norm_isotope_shifts_in,
+            self.nutil_in, self.sig_nutil_in,
             reference_transition_index=0)
 
         self.alphaNP_init = 0.
@@ -275,7 +275,7 @@ class Elem:
         self.sig_alphaNP_init = 1
 
         # self.sig_alphaNP_init = np.absolute(np.max(self.absd) / np.min(
-        #     np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))
+        #     np.tensordot(self.gammatilvec, self.X1[1:], axes=0)))
         # print("sig_alphaNP_init", self.sig_alphaNP_init)
 
     @update_fct
@@ -587,7 +587,7 @@ class Elem:
                 self.m_ap_in)
 
     @cached_fct_property
-    def mu_norm_isotope_shifts_in(self):
+    def nutil_in(self):
         """
         Generate mass normalised isotope shifts from input data
 
@@ -600,7 +600,7 @@ class Elem:
         return np.divide(self.nu_in.T, self.muvec_in).T
 
     @cached_fct_property
-    def mu_norm_isotope_shifts(self):
+    def nutil(self):
         """
         Generate mass normalised isotope shifts
 
@@ -612,13 +612,13 @@ class Elem:
         return np.divide(self.nu.T, self.muvec).T
 
     @cached_fct_property
-    def sig_mu_norm_isotope_shifts_in(self):
+    def sig_nutil_in(self):
         """
         Generate uncertainties on mass normalised isotope shifts and write
         (nisotopepairs x ntransitions)-matrix to file.
 
         """
-        return np.absolute(np.array([[self.mu_norm_isotope_shifts_in[a, i]
+        return np.absolute(np.array([[self.nutil_in[a, i]
             * np.sqrt((self.sig_nu_in[a, i] / self.nu_in[a, i])**2
                 + (self.m_a_in[a]**2 * self.sig_m_ap_in[a]**2 / self.m_ap_in[a]**2
                     + self.m_ap_in[a]**2 * self.sig_m_a_in[a]**2 / self.m_a_in[a]**2)
@@ -647,34 +647,37 @@ class Elem:
                 self.m_ap)
 
     @cached_fct_property
-    def mu_norm_muvec(self):
+    def mutilvec(self):
         """
         Return mu vector, normalised by itself.
-        mu_norm_muvec is an (nisotopepairs)-vector.
+        mutilvec is an (nisotopepairs)-vector.
 
         """
         return np.ones((self.muvec).shape)
 
     @cached_fct_property
-    def avec(self):
+    def gammavec(self):
         """
         Generate nuclear form factor
 
-            a^{AA'} = A - A'
+            gamma^a = gamma^{A_a A_a'} = A_a - A_a',
 
-        for the new physics term. avec is an nisotopepairs-vector.
+        for the new physics term. Here A_a and A_a' are the isotope and the
+        reference isotope of the a-th isotope pair.
+
+        gammavec is an nisotopepairs-vector.
 
         """
         return self.a_nisotope - self.ap_nisotope
 
     @cached_fct_property
-    def mu_norm_avec(self):
+    def gammatilvec(self):
         """
         Generate mass-normalised nuclear form factor h for the new physics term.
         h is an nisotopepairs-vector.
 
         """
-        return self.avec / self.muvec
+        return self.gammavec / self.muvec
 
     # Electronic Factors ######################################################
     @cached_fct_property
@@ -718,12 +721,12 @@ class Elem:
 
         """
         isotopeshiftdata = np.c_[
-            self.mu_norm_isotope_shifts_in.T[i],
-            self.mu_norm_isotope_shifts_in.T[j]
+            self.nutil_in.T[i],
+            self.nutil_in.T[j]
         ]
         sigisotopeshiftdata = np.c_[
-            self.sig_mu_norm_isotope_shifts_in.T[i],
-            self.sig_mu_norm_isotope_shifts_in.T[j]
+            self.sig_nutil_in.T[i],
+            self.sig_nutil_in.T[j]
         ]
 
         betas, _, _, _, _, _, _ = perform_odr(
@@ -749,13 +752,14 @@ class Elem:
 
     # Construction of the Loglikelihood Function ##############################
     @cached_fct_property
-    def np_term(self):
+    def avg_np_term(self):
         """
         Generate the (nisotopepairs x ntransitions)-dimensional new physics term
         starting from theoretical input and fit parameters.
 
         """
-        return self.alphaNP * np.tensordot(self.mu_norm_avec, self.X1, axes=0)
+        return self.alphaNP * np.tensordot(
+            self.gammatilvec - np.average(self.gammatilvec), self.X1, axes=0)
 
     @cached_fct
     def D_a1i(self, a: int, i: int):
@@ -768,8 +772,8 @@ class Elem:
             return 0
 
         elif ((i in self.range_j) and (a in self.range_a)):
-            return (self.nu[a, i] - self.F1[i] * self.nu[a, 0]
-                    - self.muvec[a] * self.np_term[a, i])
+            return (self.nutil[a, i] - self.F1[i] * self.nutil[a, 0]
+                    - self.avg_np_term[a, i])
         else:
             raise IndexError('Index passed to D_a1i is out of range.')
 
@@ -781,12 +785,12 @@ class Elem:
         """
         if ((i == 0) & (a in self.range_a)):
             return (- 1 / self.F1sq * np.sum(np.array([self.F1[j]
-                * (self.D_a1i(a, j) / self.muvec[a]
+                * (self.D_a1i(a, j)
                     - self.secph1[j] * self.Kperp1[j])
                 for j in self.range_j])))
 
         elif ((i in self.range_j) & (a in self.range_a)):
-            return (self.D_a1i(a, i) / self.muvec[a]
+            return (self.D_a1i(a, i)
                     - self.secph1[i] * self.Kperp1[i]
                     + self.F1[i] * self.d_ai(a, 0))
         else:
@@ -838,11 +842,11 @@ class Elem:
             raise ValueError("""Element %s does not have the required number of
             transitions.""" % (self.id))
 
-        numat = self.mu_norm_isotope_shifts[np.ix_(ainds, iinds)]
-        mumat = self.mu_norm_muvec[np.ix_(ainds)]
+        numat = self.nutil[np.ix_(ainds, iinds)]
+        mumat = self.mutilvec[np.ix_(ainds)]
         Xmat = self.Xvec[np.ix_(iinds)]  # X-coefficients for a given mphi
 
-        hmat = self.mu_norm_avec[np.ix_(ainds)]
+        hmat = self.gammatilvec[np.ix_(ainds)]
 
         vol_data = np.linalg.det(np.c_[numat, mumat])
 
@@ -893,9 +897,9 @@ class Elem:
         for a_inds, i_inds in product(combinations(self.range_a, dim),
                 combinations(self.range_i, dim - 1)):
             # taking into account ordering
-            numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
-            mumat = self.mu_norm_muvec[np.ix_(a_inds)]
-            hmat = self.mu_norm_avec[np.ix_(a_inds)]
+            numat = self.nutil[np.ix_(a_inds, i_inds)]
+            mumat = self.mutilvec[np.ix_(a_inds)]
+            hmat = self.gammatilvec[np.ix_(a_inds)]
 
             voldatlist.append(np.linalg.det(np.c_[numat, mumat]))
             vol1part = []
@@ -963,9 +967,9 @@ class Elem:
             raise ValueError("""Element %s does not have the required number of
             transitions.""" % (self.id))
 
-        numat = self.mu_norm_isotope_shifts[np.ix_(ainds, iinds)]
+        numat = self.nutil[np.ix_(ainds, iinds)]
         Xmat = self.Xvec[np.ix_(iinds)]  # X-coefficients for a given mphi
-        hmat = self.mu_norm_avec[np.ix_(ainds)]
+        hmat = self.gammatilvec[np.ix_(ainds)]
 
         vol_data = np.linalg.det(numat)
 
@@ -1017,8 +1021,8 @@ class Elem:
         for a_inds, i_inds in product(combinations(self.range_a, dim),
                 combinations(self.range_i, dim)):
             # taking into account ordering
-            numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
-            hmat = self.mu_norm_avec[np.ix_(a_inds)]
+            numat = self.nutil[np.ix_(a_inds, i_inds)]
+            hmat = self.gammatilvec[np.ix_(a_inds)]
 
             voldatlist.append(np.linalg.det(numat))
             vol1part = []
@@ -1068,7 +1072,7 @@ class Elem:
 
         Dmat = np.c_[v1, v2]
 
-        return (Dmat @ np.linalg.inv(Dmat.T @ Dmat) @ Dmat.T) @ self.mu_norm_muvec
+        return (Dmat @ np.linalg.inv(Dmat.T @ Dmat) @ Dmat.T) @ self.mutilvec
 
     def Vproj(self, v0, v1, v2):
 
@@ -1093,11 +1097,11 @@ class Elem:
             raise ValueError("""Projection method requires at least 3 isotope
             pairs.""")
 
-        mnu1 = (self.mu_norm_isotope_shifts.T)[0]
-        mnu2 = (self.mu_norm_isotope_shifts.T)[1]
+        mnu1 = (self.nutil.T)[0]
+        mnu2 = (self.nutil.T)[1]
 
-        Vexp = self.Vproj(self.mu_norm_muvec, mnu1, mnu2)
-        XindepVth = self.Vproj(self.mu_norm_muvec, mnu1, self.mu_norm_avec)
+        Vexp = self.Vproj(self.mutilvec, mnu1, mnu2)
+        XindepVth = self.Vproj(self.mutilvec, mnu1, self.gammatilvec)
 
         return Vexp / XindepVth
 
@@ -1198,9 +1202,9 @@ class Elem:
     #
     #         # indexlist.append([a_inds, i_inds])
     #
-    #         numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+    #         numat = self.nutil[np.ix_(a_inds, i_inds)]
     #         Xmat = self.Xvec[np.ix_(i_inds)]
-    #         hmat = self.mu_norm_avec[np.ix_(a_inds)]
+    #         hmat = self.gammatilvec[np.ix_(a_inds)]
     #
     #         vol_data = np.linalg.det(numat)
     #
@@ -1239,10 +1243,10 @@ class Elem:
     #
     #         # indexlist.append([a_inds, i_inds])
     #
-    #         numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
-    #         mumat = self.mu_norm_muvec[np.ix_(a_inds)]
+    #         numat = self.nutil[np.ix_(a_inds, i_inds)]
+    #         mumat = self.mutilvec[np.ix_(a_inds)]
     #         Xmat = self.Xvec[np.ix_(i_inds)]
-    #         hmat = self.mu_norm_avec[np.ix_(a_inds)]
+    #         hmat = self.gammatilvec[np.ix_(a_inds)]
     #
     #         vol_data = np.linalg.det(np.c_[numat, mumat])
     #
@@ -1280,9 +1284,9 @@ class Elem:
     #
     #         # indexlist.append([a_inds, i_inds])
     #
-    #         numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+    #         numat = self.nutil[np.ix_(a_inds, i_inds)]
     #         Xmat = self.Xvec[np.ix_(i_inds)]
-    #         hmat = self.mu_norm_avec[np.ix_(a_inds)]
+    #         hmat = self.gammatilvec[np.ix_(a_inds)]
     #
     #         vol_data = np.linalg.det(numat)
     #

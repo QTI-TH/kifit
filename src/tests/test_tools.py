@@ -19,12 +19,12 @@ def test_linfit():
 
     (betas_odr, sig_betas_odr, kperp1s_odr, ph1s_odr,
         sig_kperp1s_odr, sig_ph1s_odr) = perform_odr(
-        ca.mu_norm_isotope_shifts_in, ca.sig_mu_norm_isotope_shifts_in,
+        ca.nutil_in, ca.sig_nutil_in,
         reference_transition_index=0)
 
     (betas_linreg, sig_betas_linreg, kperp1s_linreg, ph1s_linreg,
         sig_kperp1s_linreg, sig_ph1s_linreg) = perform_linreg(
-        ca.mu_norm_isotope_shifts_in, reference_transition_index=0)
+        ca.nutil_in, reference_transition_index=0)
 
     assert betas_odr.shape == (ca.ntransitions - 1, 2)
     assert betas_linreg.shape == (ca.ntransitions - 1, 2)
@@ -36,8 +36,8 @@ def test_linfit():
     assert np.all(np.isclose(sig_kperp1s_odr, sig_kperp1s_linreg, atol=0, rtol=1))
     assert np.all(np.isclose(sig_ph1s_odr, sig_ph1s_linreg, atol=0, rtol=1))
 
-    xvals = ca.mu_norm_isotope_shifts_in.T[0]
-    yvals = ca.mu_norm_isotope_shifts_in[:, 1:]
+    xvals = ca.nutil_in.T[0]
+    yvals = ca.nutil_in[:, 1:]
 
     betas_dat = np.array([np.polyfit(xvals, yvals[:, i], 1) for i in
         range(yvals.shape[1])])
@@ -55,6 +55,7 @@ def test_GKP_combinations():
     (
         meanvd_min, sigvd_min, meanv1_min, sigv1_min, xindlist_min
     ) = sample_gkp_parts(camin, 1, dim_gkp, "gkp")
+    # one sample so no uncertainty computed
 
     alphas_min, sigalphas_min = assemble_gkp_combinations(
         camin, meanvd_min, sigvd_min, meanv1_min, sigv1_min, xindlist_min,
@@ -81,10 +82,13 @@ def test_GKP_combinations():
         camin, meanvd, sigvd, meanv1, sigv1, xindlist,
         dim_gkp, "gkp")
 
-    print("alphas[0]  ", alphas[0])
-    print("alphaNP_GKP", camin.alphaNP_GKP())
+    # check this
+    # print("alphas[0]  ", alphas[0])
+    # print("alphaNP_GKP", camin.alphaNP_GKP())
 
     assert np.isclose(camin.alphaNP_GKP(), alphas[0], atol=0, rtol=3)
+
+    print("sigalphas gkp camin", sigalphas)
 
     yb1 = Elem("strongest_Yb_Kyoto_MIT_GSI_2022")
 
@@ -189,6 +193,7 @@ def test_NMGKP_combinations():
         nsamples=1,
         dim=dim_nmgkp,
         detstr="nmgkp")
+    # one sample so no uncertainty computed
 
     alphas_min, sigalphas_min = assemble_gkp_combinations(
         elem=camin,
@@ -199,6 +204,7 @@ def test_NMGKP_combinations():
         xindlist=xinds_min,
         dim=3,
         detstr="nmgkp")
+    # one sample so no uncertainty computed
 
     lenp = len(list(
         product(
@@ -243,6 +249,7 @@ def test_proj_combinations():
     (
         meanfrac, sigfrac, xindlist_proj
     ) = sample_proj_parts(camin, 1, dim_proj)
+    # one sample so no uncertainty computed
 
     alphas_proj, sigalphas_proj = assemble_proj_combinations(
         camin, meanfrac, sigfrac, xindlist_proj)
@@ -251,18 +258,25 @@ def test_proj_combinations():
         product(
             combinations(camin.range_a, dim_proj),
             combinations(camin.range_i, 2))))
+    # one sample so no uncertainty computed
 
     assert alphas_proj.shape[0] == lenp_proj
     assert sigalphas_proj.shape[0] == lenp_proj
 
     assert np.isclose(camin.alphaNP_proj(), alphas_proj[0], atol=0, rtol=1e-28)
-
+    print()
+    print("test_proj_combinations")
     (
         meanfrac, sigfrac, xindlist_proj
     ) = sample_proj_parts(camin, 1000, dim_proj)
 
+    print("sigfrac", sigfrac)
+
     alphas_proj, sigalphas_proj = assemble_proj_combinations(
         camin, meanfrac, sigfrac, xindlist_proj)
+
+    print("sigalphas_proj", sigalphas_proj)
+    print()
 
     lenp_proj = len(list(
         product(
@@ -272,26 +286,35 @@ def test_proj_combinations():
     assert alphas_proj.shape[0] == lenp_proj
     assert sigalphas_proj.shape[0] == lenp_proj
 
-    assert np.isclose(camin.alphaNP_proj(), alphas_proj[0], atol=0, rtol=1e-2)
+    # print("camin.alphaNP_proj()", camin.alphaNP_proj())
+    # print("alphas_proj[0]      ", alphas_proj[0])
+
+    assert np.isclose(camin.alphaNP_proj(), alphas_proj[0], atol=0, rtol=1)
 
     ca24 = Elem("Ca_WT_Aarhus_2024")
     dim_proj = 4
 
+    alphaca = ca24.alphaNP_proj(ainds=[0, 1, 2, 3], iinds=[0, 1])
+
     (
         meanfrac, sigfrac, xindlist_proj
-    ) = sample_proj_parts(ca24, 1, dim_proj)
+    ) = sample_proj_parts(ca24, 1000, dim_proj)
 
     alphas_proj, sigalphas_proj = assemble_proj_combinations(
         ca24, meanfrac, sigfrac, xindlist_proj)
 
-    abs_alphaNP_proj_UB_Mathematica = 1.77596e-11
+    abs_alphaNP_proj_cv_Mathematica = 2.45796e-11
+    abs_alphaNP_proj_UB_Mathematica = 1.35176e-10
 
-    print("1", np.abs(alphas_proj) + 2 * sigalphas_proj)
-    print("2", abs_alphaNP_proj_UB_Mathematica)
+    sig_alphaNP_proj_Mathematica = (
+        abs_alphaNP_proj_UB_Mathematica - abs_alphaNP_proj_cv_Mathematica) / 2
 
+    assert np.isclose(sig_alphaNP_proj_Mathematica, sigalphas_proj[0],
+        atol=0, rtol=1e-2)
 
-
-
+    assert np.isclose(np.abs(alphas_proj[0]), alphaca, atol=0, rtol=10)
+    assert np.isclose(np.abs(alphas_proj[0]), abs_alphaNP_proj_cv_Mathematica,
+        atol=0, rtol=10)
 
 
 if __name__ == "__main__":

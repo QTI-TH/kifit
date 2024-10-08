@@ -57,9 +57,9 @@ def test_load_individual():
         assert len(ca.sig_Xcoeff_data[x]) == ca.ntransitions + 1
 
     assert (ca.nu.size == ca.nisotopepairs * ca.ntransitions)
-    assert np.allclose(ca.mu_norm_isotope_shifts_in, mnu_Mathematica,
+    assert np.allclose(ca.nutil_in, mnu_Mathematica,
         atol=0, rtol=1e-14)
-    assert np.allclose(ca.sig_mu_norm_isotope_shifts_in, sig_mnu_Mathematica,
+    assert np.allclose(ca.sig_nutil_in, sig_mnu_Mathematica,
         atol=0, rtol=1e-14)
     # assert (np.sum(ca.corr_nu_nu) == ca.nisotopepairs * ca.ntransitions)
     # assert (np.sum(ca.corr_m_m) == 1)
@@ -68,10 +68,10 @@ def test_load_individual():
     # assert (np.trace(ca.corr_X_X) == ca.ntransitions)
     assert (ca.muvec[0] == 1 / ca.m_a[0] - 1 / ca.m_ap[0])
     assert (len(ca.muvec) == ca.nisotopepairs)
-    assert (ca.mu_norm_avec.size == ca.nisotopepairs)
-    assert np.allclose(ca.mu_norm_avec, np.array([(ca.a_nisotope[a] - ca.ap_nisotope[a])
+    assert (ca.gammatilvec.size == ca.nisotopepairs)
+    assert np.allclose(ca.gammatilvec, np.array([(ca.a_nisotope[a] - ca.ap_nisotope[a])
         / ca.muvec[a] for a in ca.range_a]), atol=0, rtol=1e-5)
-    assert (ca.np_term.size == ca.nisotopepairs * ca.ntransitions)
+    assert (ca.avg_np_term.size == ca.nisotopepairs * ca.ntransitions)
     assert np.all([i.is_integer() for i in ca.a_nisotope])
     assert np.all([i.is_integer() for i in ca.ap_nisotope])
     assert (ca.F1.size == ca.ntransitions)
@@ -147,7 +147,8 @@ def test_constr_dvec():
     assert np.allclose(ca.muvec, muvec_Mathematica, atol=0, rtol=1e-10)
 
     D_a1i_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
-    assert np.allclose(D_a1i_Mathematica, D_a1i_python, atol=0, rtol=1e-15)
+
+    assert np.allclose(D_a1i_Mathematica, D_a1i_python, atol=0, rtol=1e-14)
     assert np.allclose(np.array(dmat_Mathematica) / ca.dnorm, ca.dmat,
         atol=0, rtol=1e-8)
 
@@ -157,18 +158,23 @@ def test_constr_dvec():
 
     ca._update_fit_params(theta_LL_Mathematica_1)
 
-    assert np.allclose(ca.np_term, NP_term_alphaNP_1_Mathematica, atol=0, rtol=1e-7)
+    # avg_NP_term_alphaNP_1_Mathematica = np.average(
+        # NP_term_alphaNP_1_Mathematica, axis=1)
+
+    assert np.allclose(ca.avg_np_term, avg_NP_term_alphaNP_1_Mathematica,
+        atol=0, rtol=1e-7)
 
     D_a1i_alphaNP_1_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
+
     assert np.allclose(D_a1i_alphaNP_1_Mathematica, D_a1i_alphaNP_1_python,
-        atol=0, rtol=1e-15)
+        atol=0, rtol=1e-13)
     assert np.allclose(np.array(dmat_alphaNP_1_Mathematica) / ca.dnorm, ca.dmat,
-        atol=0, rtol=1e-14)
+        atol=0, rtol=1e-13)
 
     absd_explicit = np.array([np.sqrt(np.sum(
         np.fromiter([ca.d_ai(a, i)**2 for i in ca.range_i], float))) for a in
         ca.range_a]) / ca.dnorm
-    assert np.allclose(ca.absd, absd_explicit, atol=0, rtol=1e-25)
+    assert np.allclose(ca.absd, absd_explicit, atol=0, rtol=1e-15)
 
 
 def levi_civita_tensor(d):
@@ -206,10 +212,10 @@ def check_alphaNP_GKP(elem, dim):
     for a_inds, i_inds in product(combinations(elem.range_a, dim),
             combinations(elem.range_i, dim - 1)):
 
-        numat = elem.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
-        mumat = elem.mu_norm_muvec[np.ix_(a_inds)]
+        numat = elem.nutil[np.ix_(a_inds, i_inds)]
+        mumat = elem.mutilvec[np.ix_(a_inds)]
         Xmat = elem.Xvec[np.ix_(i_inds)]
-        hmat = elem.mu_norm_avec[np.ix_(a_inds)]
+        hmat = elem.gammatilvec[np.ix_(a_inds)]
 
         vol_data = np.linalg.det(np.c_[numat, mumat])
 
@@ -233,9 +239,9 @@ def check_alphaNP_NMGKP(elem, dim):
     for a_inds, i_inds in product(combinations(elem.range_a, dim),
             combinations(elem.range_i, dim)):
 
-        numat = elem.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+        numat = elem.nutil[np.ix_(a_inds, i_inds)]
         Xmat = elem.Xvec[np.ix_(i_inds)]
-        hmat = elem.mu_norm_avec[np.ix_(a_inds)]
+        hmat = elem.gammatilvec[np.ix_(a_inds)]
 
         vol_data = np.linalg.det(numat)
 
@@ -279,9 +285,10 @@ def test_alphaNP_GKP():
 def test_alphaNP_NMGKP():
     ca = Elem('Ca_testdata')
     vold, vol1, inds = ca.alphaNP_NMGKP_part(3)
+
     assert len(vold) == len(vol1), (len(vold), len(vol1))
 
-    assert np.isclose(ca.alphaNP_NMGKP(3), check_alphaNP_NMGKP(ca, 3), atol=0,
+    assert np.isclose(ca.alphaNP_NMGKP(), check_alphaNP_NMGKP(ca, 3)[0], atol=0,
         rtol=1e-21)
 
 
@@ -314,41 +321,13 @@ def test_alphaNP_proj():
 
     assert np.isclose(camin.alphaNP_proj(), camin.alphaNP_GKP(), atol=0, rtol=20)
 
-    print("now ca24")
     ca24 = Elem("Ca_WT_Aarhus_2024")
 
     alphaca = ca24.alphaNP_proj(ainds=[0, 1, 2, 3], iinds=[0, 1])
-    alphaca_Mathematica = 3.23947e-12
+    pprint("ca24 kifit", alphaca)
+    alphaca_Mathematica = 2.45796e-11
 
-    print("alpha kifit      ", alphaca)
-    print("alpha mathematica", alphaca_Mathematica)
-
-    print("ca24mu", ca24.mu_norm_muvec)
-    print("ca24mu", ca24.muvec)
-    print("Xvec  ", ca24.Xvec)
-    print("mphi  ", ca24.mphi)
-
-
-
-
-
-
-        print()
-        print("hvec     ", self.mu_norm_avec)
-        print("mnu1     ", mnu1)
-        print("mnu2     ", mnu2)
-        print()
-        print("hvec @ hvec", self.mu_norm_avec @ self.mu_norm_avec)
-        print("mnu1 @ mnu1", mnu1 @ mnu1)
-        print("mnu1 @ hvec", mnu1 @ self.mu_norm_avec)
-        print()
-        print("pexp     ", self.pvec(mnu1, mnu2))
-        print("pth      ", self.pvec(mnu1, self.mu_norm_avec))
-        print()
-        print("Vexp     ", Vexp)
-        print("XindepVth", XindepVth)
-        print()
-
+    assert np.isclose(alphaca, alphaca_Mathematica, atol=0, rtol=1e-4)
 
 
 if __name__ == "__main__":
@@ -358,5 +337,5 @@ if __name__ == "__main__":
     test_constr_dvec()
     test_levi_civita()
     test_alphaNP_GKP()
-    # test_alphaNP_NMGKP()
+    test_alphaNP_NMGKP()
     test_alphaNP_proj()

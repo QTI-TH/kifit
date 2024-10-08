@@ -969,7 +969,16 @@ def perform_experiments(
     elif expstr == "search":
         best_alpha = np.median(bestalphas_exps)
         delchisqs_search = delchisqs_exps + np.min(delchisqs_exps)
-        median_delchisq = np.median(delchisqs_search)
+
+        print()
+        print("median ", np.median(delchisqs_search))
+        print("critval", get_delchisq_crit(nsigmas))
+        print("applied", max(
+            np.median(delchisqs_search), get_delchisq_crit(nsigmas)))
+        print()
+
+        median_delchisq = max(
+            np.median(delchisqs_search), get_delchisq_crit(nsigmas))
 
         confints_search = np.array(
             [
