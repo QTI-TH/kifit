@@ -5,7 +5,7 @@ import numpy as np
 
 from scipy.linalg import cho_factor, cho_solve
 from scipy.odr import ODR, Model, RealData
-from scipy.stats import chi2, linregress, multivariate_normal, loguniform
+from scipy.stats import chi2, linregress, multivariate_normal
 
 from scipy.optimize import (
     minimize,
@@ -34,142 +34,142 @@ fit_keys = [
 # linear King fit
 ##############################################################################
 
-def linfit(p, x):
-    return p[0] * x + p[1]
-
-
-def get_odr_residuals(p, x, y, sx, sy):
-
-    v = 1 / np.sqrt(1 + p[0] ** 2) * np.array([-p[0], 1])
-    z = np.array([x, y]).T
-    sz = np.array([np.diag([sx[i] ** 2, sy[i] ** 2]) for i in range(len(x))])
-
-    residuals = np.array([v @ z[i] - p[1] * v[1] for i in range(len(x))])
-    sigresiduals = np.sqrt(np.array([v @ sz[i] @ v for i in range(len(x))]))
-
-    return residuals, sigresiduals
-
-
-def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
-    """
-    Perform linear regression.
-
-    Args:
-        isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
-        reference_transition_index (int, default: first transition)
-
-    Returns:
-        betas:       fit parameters (p in linfit)
-        sig_betas:   uncertainties on betas
-        kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
-        ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
-        sig_kperp1s: uncertainties on kperp1s
-        sig_ph1s:    uncertainties on ph1s
-
-    """
-
-    x = isotopeshiftdata.T[reference_transition_index]
-    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
-
-    betas = []
-    sig_betas = []
-
-    for i in range(y.shape[1]):
-        res = linregress(x, y.T[i])
-        betas.append([res.slope, res.intercept])
-        sig_betas.append([res.stderr, res.intercept_stderr])
-
-    betas = np.array(betas)
-    
-    sig_betas = np.array(sig_betas)
-
-    ph1s = np.arctan(betas.T[0])
-    sig_ph1s = np.array(
-        [sig_betas[j, 0] / (1 + betas[j, 0]) for j in range(len(betas))]
-    )
-
-    kperp1s = betas.T[1] * np.cos(ph1s)
-    sig_kperp1s = np.sqrt(
-        (sig_betas.T[1] * np.cos(ph1s)) ** 2
-        + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
-    )
-
-    return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s)
-
-
-def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
-                reference_transition_index: int = 0):
-    """
-    Perform separate orthogonal distance regression for each transition pair.
-
-    Args:
-        isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
-        reference_transition_index (int, default: first transition)
-
-    Returns:
-        betas:       fit parameters (p in linfit)
-        sig_betas:   uncertainties on betas
-        kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
-        ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
-        sig_kperp1s: uncertainties on kperp1s
-        sig_ph1s:    uncertainties on ph1s
-        cov_kperp1_ph1s: covariance matrices for (kperp1, ph1)
-    """
-    lin_model = Model(linfit)
-
-    x = isotopeshiftdata.T[reference_transition_index]
-    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
-
-    sigx = sigisotopeshiftdata.T[reference_transition_index]
-    sigy = np.delete(sigisotopeshiftdata, reference_transition_index, axis=1)
-
-    betas = []
-    sig_betas = []
-    cov_kperp1_ph1s = []
-
-    for i in range(y.shape[1]):
-        data = RealData(x, y.T[i], sx=sigx, sy=sigy.T[i])
-        beta_init = np.polyfit(x, y.T[i], 1)
-        odr = ODR(data, lin_model, beta0=beta_init)
-        out = odr.run()
-
-        # Extract beta and covariance matrix
-        betas.append(out.beta)
-        sig_betas.append(out.sd_beta)
-        cov_beta = out.cov_beta
-
-        # Calculate ph1 and kperp1
-        ph1 = np.arctan(out.beta[0])
-        kperp1 = out.beta[1] * np.cos(ph1)
-
-        # Derivatives for the delta method
-        d_kperp1_d_beta0 = -out.beta[1] * np.sin(ph1)
-        d_kperp1_d_beta1 = np.cos(ph1)
-        d_ph1_d_beta0 = 1 / (1 + out.beta[0]**2)
-        d_ph1_d_beta1 = 0
-
-        # Jacobian matrix J
-        J = np.array([[d_kperp1_d_beta0, d_kperp1_d_beta1],
-                      [d_ph1_d_beta0, d_ph1_d_beta1]])
-
-        # Covariance matrix for (kperp1, ph1)
-        cov_kperp1_ph1 = J @ cov_beta @ J.T
-        cov_kperp1_ph1s.append(cov_kperp1_ph1)
-
-    betas = np.array(betas)
-    sig_betas = np.array(sig_betas)
-
-    ph1s = np.arctan(betas.T[0])
-    sig_ph1s = np.arctan(sig_betas.T[0])
-
-    kperp1s = betas.T[1] * np.cos(ph1s)
-    sig_kperp1s = np.sqrt(
-        (sig_betas.T[1] * np.cos(ph1s)) ** 2
-        + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
-    )
-
-    return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s, cov_kperp1_ph1s)
-
+# def linfit(p, x):
+#     return p[0] * x + p[1]
+#
+#
+# def get_odr_residuals(p, x, y, sx, sy):
+#
+#     v = 1 / np.sqrt(1 + p[0] ** 2) * np.array([-p[0], 1])
+#     z = np.array([x, y]).T
+#     sz = np.array([np.diag([sx[i] ** 2, sy[i] ** 2]) for i in range(len(x))])
+#
+#     residuals = np.array([v @ z[i] - p[1] * v[1] for i in range(len(x))])
+#     sigresiduals = np.sqrt(np.array([v @ sz[i] @ v for i in range(len(x))]))
+#
+#     return residuals, sigresiduals
+#
+#
+# def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
+#     """
+#     Perform linear regression.
+#
+#     Args:
+#         isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
+#         reference_transition_index (int, default: first transition)
+#
+#     Returns:
+#         betas:       fit parameters (p in linfit)
+#         sig_betas:   uncertainties on betas
+#         kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
+#         ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
+#         sig_kperp1s: uncertainties on kperp1s
+#         sig_ph1s:    uncertainties on ph1s
+#
+#     """
+#
+#     x = isotopeshiftdata.T[reference_transition_index]
+#     y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
+#
+#     betas = []
+#     sig_betas = []
+#
+#     for i in range(y.shape[1]):
+#         res = linregress(x, y.T[i])
+#         betas.append([res.slope, res.intercept])
+#         sig_betas.append([res.stderr, res.intercept_stderr])
+#
+#     betas = np.array(betas)
+#
+#     sig_betas = np.array(sig_betas)
+#
+#     ph1s = np.arctan(betas.T[0])
+#     sig_ph1s = np.array(
+#         [sig_betas[j, 0] / (1 + betas[j, 0]) for j in range(len(betas))]
+#     )
+#
+#     kperp1s = betas.T[1] * np.cos(ph1s)
+#     sig_kperp1s = np.sqrt(
+#         (sig_betas.T[1] * np.cos(ph1s)) ** 2
+#         + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
+#     )
+#
+#     return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s)
+#
+#
+# def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
+#                 reference_transition_index: int = 0):
+#     """
+#     Perform separate orthogonal distance regression for each transition pair.
+#
+#     Args:
+#         isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
+#         reference_transition_index (int, default: first transition)
+#
+#     Returns:
+#         betas:       fit parameters (p in linfit)
+#         sig_betas:   uncertainties on betas
+#         kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
+#         ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
+#         sig_kperp1s: uncertainties on kperp1s
+#         sig_ph1s:    uncertainties on ph1s
+#         cov_kperp1_ph1s: covariance matrices for (kperp1, ph1)
+#     """
+#     lin_model = Model(linfit)
+#
+#     x = isotopeshiftdata.T[reference_transition_index]
+#     y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
+#
+#     sigx = sigisotopeshiftdata.T[reference_transition_index]
+#     sigy = np.delete(sigisotopeshiftdata, reference_transition_index, axis=1)
+#
+#     betas = []
+#     sig_betas = []
+#     cov_kperp1_ph1s = []
+#
+#     for i in range(y.shape[1]):
+#         data = RealData(x, y.T[i], sx=sigx, sy=sigy.T[i])
+#         beta_init = np.polyfit(x, y.T[i], 1)
+#         odr = ODR(data, lin_model, beta0=beta_init)
+#         out = odr.run()
+#
+#         # Extract beta and covariance matrix
+#         betas.append(out.beta)
+#         sig_betas.append(out.sd_beta)
+#         cov_beta = out.cov_beta
+#
+#         # Calculate ph1 and kperp1
+#         ph1 = np.arctan(out.beta[0])
+#         kperp1 = out.beta[1] * np.cos(ph1)
+#
+#         # Derivatives for the delta method
+#         d_kperp1_d_beta0 = -out.beta[1] * np.sin(ph1)
+#         d_kperp1_d_beta1 = np.cos(ph1)
+#         d_ph1_d_beta0 = 1 / (1 + out.beta[0]**2)
+#         d_ph1_d_beta1 = 0
+#
+#         # Jacobian matrix J
+#         J = np.array([[d_kperp1_d_beta0, d_kperp1_d_beta1],
+#                       [d_ph1_d_beta0, d_ph1_d_beta1]])
+#
+#         # Covariance matrix for (kperp1, ph1)
+#         cov_kperp1_ph1 = J @ cov_beta @ J.T
+#         cov_kperp1_ph1s.append(cov_kperp1_ph1)
+#
+#     betas = np.array(betas)
+#     sig_betas = np.array(sig_betas)
+#
+#     ph1s = np.arctan(betas.T[0])
+#     sig_ph1s = np.arctan(sig_betas.T[0])
+#
+#     kperp1s = betas.T[1] * np.cos(ph1s)
+#     sig_kperp1s = np.sqrt(
+#         (sig_betas.T[1] * np.cos(ph1s)) ** 2
+#         + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
+#     )
+#
+#     return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s, cov_kperp1_ph1s)
+#
 
 # generate samples
 ##############################################################################
@@ -183,7 +183,7 @@ def generate_paramsamples(means, stdevs, nsamples):
     return multivariate_normal.rvs(means, np.diag(stdevs**2), size=nsamples)
 
 
-def generate_elemsamples(elem, nsamples: int, sample_fitparams:bool=False):
+def generate_elemsamples(elem, nsamples: int):
     """
     Generate ``nsamples`` of the input parameters associated to ``elem`` from
     the normal distributions defined by the means and standard deviations
@@ -195,27 +195,25 @@ def generate_elemsamples(elem, nsamples: int, sample_fitparams:bool=False):
 
 
     """
-    inputparams_samples = generate_paramsamples(
+    inputparam_samples = generate_paramsamples(
         elem.means_input_params, elem.stdevs_input_params, nsamples
     )
 
-    # sampling fit params if needed
-    if sample_fitparams:
-        samples_per_transition = []
-        for kp1, ph1, cov in zip(elem.kp1_init, elem.ph1_init, elem.cov_kperp1_ph1):
-            samples_per_transition.append(np.random.multivariate_normal([kp1, ph1], cov, size=nsamples))
-        fitparams_samples = []
-        for i in range(nsamples):
-            these_fitparams = []
-            for j in range(len(elem.kp1_init)):
-                these_fitparams.append(samples_per_transition[j][i][0])
-            for j in range(len(elem.kp1_init)):
-                these_fitparams.append(samples_per_transition[j][i][1])
-            fitparams_samples.append(these_fitparams)
-    else:
-        fitparams_samples = None
+    # sampling fit params
+    samples_per_transition = []
+    for kp1, ph1, cov in zip(elem.kp1_init, elem.ph1_init, elem.cov_kperp1_ph1):
+        samples_per_transition.append(
+            np.random.multivariate_normal([kp1, ph1], cov, size=nsamples))
+    fitparam_samples = []
+    for i in range(nsamples):
+        these_fitparams = []
+        for j in range(len(elem.kp1_init)):
+            these_fitparams.append(samples_per_transition[j][i][0])
+        for j in range(len(elem.kp1_init)):
+            these_fitparams.append(samples_per_transition[j][i][1])
+        fitparam_samples.append(these_fitparams)
 
-    return inputparams_samples, fitparams_samples
+    return inputparam_samples, fitparam_samples
 
 
 def generate_alphaNP_samples(elem,
@@ -385,7 +383,7 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky"):
     return np.array(llist)
 
 
-def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile, sample_fitparams=False):
+def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
     """
     For elem_collection, compute negative loglikelihood for fixed alphaNP from
     ``nelemsamples`` samples of the input parameters associated to the elements
@@ -398,10 +396,6 @@ def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile, sample_
                           for estimation of loglikelihood.
         min_percentile:   percentile of samples to be used in comuptation of
                           minimum log-likelihood value min_ll
-        sample_fitparams (bool): if `True`, kperp1 and ph1 are sampled from a 
-                           multinormal distribution computed from the initial 
-                           parameter's defintion via ODR. If `False`, the fit 
-                           parameters are kept fixed
     Returns:
         min_ll:           log-likelihood value at min_percentile
 
@@ -416,15 +410,15 @@ def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile, sample_
 
     for elem in elem_collection.elems:
         absdsamples = []
-        inputparams_samples, fitparams_samples = generate_elemsamples(elem, nelemsamples, sample_fitparams=True)
+        inputparams_samples, fitparams_samples = generate_elemsamples(
+            elem, nelemsamples)
 
         for i, inputparam in enumerate(inputparams_samples):
             # generate_elemsamples(elem, nelemsamples)
             elem._update_elem_params(inputparam)
-            if sample_fitparams:
-                these_fitparams = fitparams_samples[i]
-                these_fitparams.append(alphaNP)
-                elem._update_fit_params(these_fitparams)
+            these_fitparams = fitparams_samples[i]
+            these_fitparams.append(alphaNP)
+            elem._update_fit_params(these_fitparams)
             absdsamples.append(elem.absd)
 
         lls = get_llist_elemsamples(np.array(absdsamples),
@@ -440,9 +434,7 @@ def compute_ll_experiments(
         alphasamples,
         nelemsamples,
         min_percentile,
-        cov_decomp_method="cholesky",
-        sample_fitparams=False,
-    ):
+        cov_decomp_method="cholesky"):
 
     """
     From ``nelemsamples`` samples of the input parameters associated to the
@@ -456,11 +448,6 @@ def compute_ll_experiments(
         nelemsamples:      number of element samples
         cov_decomp_method: string specifying method with which the covariance
                            matrix entering the loglikelihood is decomposed.
-        sample_fitparams (bool): if `True`, kperp1 and ph1 are sampled from a 
-                           multinormal distribution computed from the initial 
-                           parameter's defintion via ODR. If `False`, the fit 
-                           parameters are kept fixed
-
     Returns:
         alphasamples (List[float]):   alphaNP samples
         lls (List[float]):            associated log likelihood values
@@ -476,8 +463,7 @@ def compute_ll_experiments(
             alphaNP=alpha,
             elem_collection=elem_collection,
             nelemsamples=nelemsamples,
-            min_percentile=min_percentile,
-            sample_fitparams=sample_fitparams,)
+            min_percentile=min_percentile)
         )
 
     return np.array(alphasamples), np.array(lls)
@@ -525,9 +511,7 @@ def minimise_logL_alphaNP(
         maxiter,
         opt_method,
         bounds=(-1e-5, 1e-5),
-        tol=1e-12,
-        sample_fitparams=False,
-        ):
+        tol=1e-12):
     """
     Scipy minimisation of negative loglikelihood as a function of alphaNP.
 
@@ -538,18 +522,14 @@ def minimise_logL_alphaNP(
             logL_alphaNP,
             bounds=[bounds],
             args=(elem_collection, nelemsamples, min_percentile),
-            maxiter=maxiter,
-            sample_fitparams=sample_fitparams,
-        )
+            maxiter=maxiter)
 
     elif opt_method == "differential_evolution":
         minlogL = differential_evolution(
             logL_alphaNP,
             bounds=[bounds],
             args=(elem_collection, nelemsamples, min_percentile),
-            maxiter=maxiter,
-            sample_fitparams=sample_fitparams,
-        )
+            maxiter=maxiter)
 
     else:
         minlogL = minimize(
@@ -558,9 +538,7 @@ def minimise_logL_alphaNP(
             bounds=[bounds],
             args=(elem_collection, nelemsamples, min_percentile),
             method=opt_method, options={"maxiter": maxiter},
-            tol=tol,
-            sample_fitparams=sample_fitparams,
-        )
+            tol=tol)
 
     return minlogL
 
@@ -842,10 +820,10 @@ def perform_experiments(
         messenger:         run configuration (instance of Config class),
         xind (int):        x-index
         expstr (str):      if "experiment", standard experiment procedure is run,
-                           if "search", the method is used as support method to 
-                           compute the initial search stage, which is determining 
+                           if "search", the method is used as support method to
+                           compute the initial search stage, which is determining
                            the interesting window to search for NP
-        search_mode (str): determine the search mode. It can be chosen among 
+        search_mode (str): determine the search mode. It can be chosen among
                            ["normal", "lingrid", "logrid"]
 
     Returns:
@@ -905,12 +883,10 @@ def perform_experiments(
 
         # compute alphas and LLs for this experiment
         alphas, lls = compute_ll_experiments(
-            elem_collection, 
-            alphasamples, 
-            nelemsamples_exp, 
-            min_percentile, 
-            sample_fitparams=messenger.params.sample_fitparams,
-        )
+            elem_collection,
+            alphasamples,
+            nelemsamples_exp,
+            min_percentile)
 
         alphas_exps.append(alphas)
         bestalphas_exps.append(alphas[np.argmin(lls)])

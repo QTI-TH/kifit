@@ -1,19 +1,22 @@
 import os
 import logging
 import numpy as np
+
+from scipy.odr import ODR, Model, RealData
+from scipy.stats import linregress
+
 from itertools import permutations, combinations, product
 from functools import cache
 
 from kifit.cache_update import update_fct, cached_fct, cached_fct_property
 from kifit.user_elements import user_elems
 
-from kifit.fitools import perform_odr
-
 _data_path = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     '../kifit_data'
 ))
 
+###############################################################################
 
 # Unit conversions
 eV_to_u = 1 / 931494102.42  # conversion of electronvolt to atomic units
@@ -61,6 +64,150 @@ def LeviCivita(dim):
     return list(Levi_Civita_generator(dim))
 
 
+# linear King fit
+##############################################################################
+
+def linfit(p, x):
+    return p[0] * x + p[1]
+
+
+def get_odr_residuals(p, x, y, sx, sy):
+
+    v = 1 / np.sqrt(1 + p[0] ** 2) * np.array([-p[0], 1])
+    z = np.array([x, y]).T
+    sz = np.array([np.diag([sx[i] ** 2, sy[i] ** 2]) for i in range(len(x))])
+
+    residuals = np.array([v @ z[i] - p[1] * v[1] for i in range(len(x))])
+    sigresiduals = np.sqrt(np.array([v @ sz[i] @ v for i in range(len(x))]))
+
+    return residuals, sigresiduals
+
+
+def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
+    """
+    Perform linear regression.
+
+    Args:
+        isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
+        reference_transition_index (int, default: first transition)
+
+    Returns:
+        betas:       fit parameters (p in linfit)
+        sig_betas:   uncertainties on betas
+        kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
+        ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
+        sig_kperp1s: uncertainties on kperp1s
+        sig_ph1s:    uncertainties on ph1s
+
+    """
+
+    x = isotopeshiftdata.T[reference_transition_index]
+    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
+
+    betas = []
+    sig_betas = []
+
+    for i in range(y.shape[1]):
+        res = linregress(x, y.T[i])
+        betas.append([res.slope, res.intercept])
+        sig_betas.append([res.stderr, res.intercept_stderr])
+
+    betas = np.array(betas)
+
+    sig_betas = np.array(sig_betas)
+
+    ph1s = np.arctan(betas.T[0])
+    sig_ph1s = np.array(
+        [sig_betas[j, 0] / (1 + betas[j, 0]) for j in range(len(betas))]
+    )
+
+    kperp1s = betas.T[1] * np.cos(ph1s)
+    sig_kperp1s = np.sqrt(
+        (sig_betas.T[1] * np.cos(ph1s)) ** 2
+        + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
+    )
+
+    return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s)
+
+
+def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
+                reference_transition_index: int = 0):
+    """
+    Perform separate orthogonal distance regression for each transition pair.
+
+    Args:
+        isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
+        reference_transition_index (int, default: first transition)
+
+    Returns:
+        betas:       fit parameters (p in linfit)
+        sig_betas:   uncertainties on betas
+        kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
+        ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
+        sig_kperp1s: uncertainties on kperp1s
+        sig_ph1s:    uncertainties on ph1s
+        cov_kperp1_ph1s: covariance matrices for (kperp1, ph1)
+    """
+    lin_model = Model(linfit)
+
+    x = isotopeshiftdata.T[reference_transition_index]
+    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
+
+    sigx = sigisotopeshiftdata.T[reference_transition_index]
+    sigy = np.delete(sigisotopeshiftdata, reference_transition_index, axis=1)
+
+    betas = []
+    sig_betas = []
+    cov_kperp1_ph1s = []
+
+    for i in range(y.shape[1]):
+        data = RealData(x, y.T[i], sx=sigx, sy=sigy.T[i])
+        beta_init = np.polyfit(x, y.T[i], 1)
+        odr = ODR(data, lin_model, beta0=beta_init)
+        out = odr.run()
+
+        # Extract beta and covariance matrix
+        betas.append(out.beta)
+        sig_betas.append(out.sd_beta)
+        cov_beta = out.cov_beta
+
+        # Calculate ph1 and kperp1
+        ph1 = np.arctan(out.beta[0])
+        # kperp1 = out.beta[1] * np.cos(ph1)
+
+        # Derivatives for the delta method
+        d_kperp1_d_beta0 = -out.beta[1] * np.sin(ph1)
+        d_kperp1_d_beta1 = np.cos(ph1)
+        d_ph1_d_beta0 = 1 / (1 + out.beta[0]**2)
+        d_ph1_d_beta1 = 0
+
+        # Jacobian matrix J
+        J = np.array([[d_kperp1_d_beta0, d_kperp1_d_beta1],
+                      [d_ph1_d_beta0, d_ph1_d_beta1]])
+
+        # Covariance matrix for (kperp1, ph1)
+        cov_kperp1_ph1 = J @ cov_beta @ J.T
+        cov_kperp1_ph1s.append(cov_kperp1_ph1)
+
+    betas = np.array(betas)
+    sig_betas = np.array(sig_betas)
+
+    ph1s = np.arctan(betas.T[0])
+    sig_ph1s = np.arctan(sig_betas.T[0])
+
+    kperp1s = betas.T[1] * np.cos(ph1s)
+    sig_kperp1s = np.sqrt(
+        (sig_betas.T[1] * np.cos(ph1s)) ** 2
+        + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
+    )
+
+    return (betas, sig_betas,
+        kperp1s, ph1s, sig_kperp1s, sig_ph1s, cov_kperp1_ph1s)
+
+
+# Element Collection
+##############################################################################
+
 class ElemCollection:
 
     def __init__(self, elemlist, gkpdims, nmgkpdims):
@@ -82,7 +229,6 @@ class ElemCollection:
         self.len = len(elem_collection)
 
         self._init_Xcoeffs()
-
         #self.check_det_dims(gkpdims, nmgkpdims)
 
     def _init_Xcoeffs(self):
@@ -118,9 +264,11 @@ class ElemCollection:
                 (self.elems[0]).check_det_dims(gkpdims, nmgkpdims, projdims)
 
 
+# Elem
+##############################################################################
+
 class Elem:
     # ADMIN ####################################################################
-
     # Load raw data from data folder
     # VALID_ELEM = ['Ca']
     VALID_ELEM = user_elems
@@ -261,7 +409,9 @@ class Elem:
         # self.ph1 = np.zeros(self.ntransitions - 1)
         (
             _, _,
-            self.kp1_init, self.ph1_init, self.sig_kp1_init, self.sig_ph1_init, self.cov_kperp1_ph1
+            self.kp1_init, self.ph1_init,
+            self.sig_kp1_init, self.sig_ph1_init,
+            self.cov_kperp1_ph1
         ) = perform_odr(
             self.nutil_in, self.sig_nutil_in,
             reference_transition_index=0)

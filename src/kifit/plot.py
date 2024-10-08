@@ -3,14 +3,9 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 
-from kifit.fitools import (
-    get_delchisq_crit,
-    get_odr_residuals,
-    linfit,
-    perform_linreg,
-    perform_odr,
-    collect_fit_X_data
-)
+from kifit.build import get_odr_residuals, linfit, perform_linreg, perform_odr
+
+from kifit.fitools import get_delchisq_crit, collect_fit_X_data
 
 from kifit.detools import get_minpos_maxneg_alphaNP_bounds, collect_det_X_data
 
@@ -322,7 +317,7 @@ def plot_alphaNP_det_bounds(
                 + (f"{minpos:.1e}" if not np.isnan(minpos) else "-")
                 + "]"))
 
-        ax1.axvspan(minpos_num, 10., alpha=.5, color=plot_colour)
+        ax1.axvline(x=minpos_num, ls="--", color=plot_colour)
 
     return ax1, ax2, minpos, maxneg
 
@@ -472,12 +467,10 @@ def plot_alphaNP_ll(
 
         ax1.set_ylim([np.min(delchisqs), np.max(delchisqs)])
 
-
     (xmin, xmax) = ax1.get_xlim()
     ax2.set_xlim([xmin, xmax])
     ax2.set_ylim([-.5, .5])
     ax2.set_yticks([])
-
 
     ax1.set_title(f"x={xind}, {nsamples}" + r" $\alpha_{\mathrm{NP}}$ samples")
 
