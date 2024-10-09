@@ -195,46 +195,66 @@ def plot_mc_output(
     """
     fig, ax = plt.subplots()
 
-    # nsamples = len(alphalist)  # NEW
+    ax.scatter(alphalist, delchisqlist, s=1, alpha=0.5, color=mc_scatter_colour)
+
+    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$")
+    ax.set_ylabel(r"$\Delta \chi^2$")
+
+    plt.title(f"x={xind}, {len(alphalist)}" + r" $\alpha_{\mathrm{NP}}$ samples")
+
+    plotpath = messenger.paths.generate_plot_path("mc_output_" + plotname, xind=xind)
+    plt.savefig(plotpath, dpi=1000)
+    logging.info(f"Saving mc output plot to {plotpath}")
+
+    plt.close()
+
+    return ax
+
+
+def plot_search_output(
+        messenger,
+        alphalist,
+        delchisqlist,
+        delchisqcrit,
+        searchlims,
+        xind=0,
+        logplot=False
+):
+    """
+    Plot output of search phase:
+    2-dimensional scatter plot showing the likelihood associated with the
+    parameter values given in alphalist.
+    The resulting plot is saved in plots directory under plotname.
+
+    """
+    fig, ax = plt.subplots()
 
     ax.scatter(alphalist, delchisqlist, s=1, alpha=0.5, color=mc_scatter_colour)
 
-    # smalll_indices = np.argsort(delchisqlist)  # NEW
-    # small_alphas = np.array([alphalist[ll] for ll in smalll_indices[: int(nsamples * .1)]])  # NEW
-
-    # new_alpha = np.median(small_alphas)  # NEW
-
-    # ax.axvline(x=new_alpha, color="red", lw=1, ls="-",
-            # label=rf"new $\alpha$: {new_alpha:.1e}, minll: {minll:.1e}")  # NEW
-
-    if logplot is True:
+    if logplot is True and min(alphalist) < 0 and max(alphalist) > 0:
         linthresh_x = min(np.abs(alphalist))
         ax.set_xscale("symlog", linthresh=linthresh_x)
         ax.set_yscale("log")
         ax.axvline(x=-linthresh_x, color='k', ls='--', label="linear threshold")
         ax.axvline(x=linthresh_x, color='k', ls='--')
 
-    if expstr == "search":
-        delchisqcrit = np.median(delchisqlist)
-        ax.axhline(y=delchisqcrit, color="r", ls='--',
-            label=r"median $\Delta \chi^2$ samples")
+    ax.axhline(y=delchisqcrit, color="r", ls='--',
+        label=r"median $\Delta \chi^2$ samples")
 
-        alphas_inside = alphalist[np.argwhere(delchisqlist < delchisqcrit).flatten()]
-        ax.axvline(x=min(alphas_inside), color="orange", ls='--',
-            label="search interval")
-        ax.axvline(x=max(alphas_inside), color="orange", ls='--')
+    # alphas_inside = alphalist[np.argwhere(delchisqlist < delchisqcrit).flatten()]
+    print("searchlims", (np.min(searchlims), np.max(searchlims)))
+    ax.axvline(x=np.min(searchlims), color="orange", ls='--', label="search interval")
+    ax.axvline(x=np.max(searchlims), color="orange", ls='--')
 
     ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$")
     ax.set_ylabel(r"$\Delta \chi^2$")
 
     if not ax.get_legend_handles_labels() == ([], []):
-        print("linthresh_x", linthresh_x)
-        print("linthresh_x", linthresh_x)
         plt.legend(loc='upper center')
 
     plt.title(f"x={xind}, {len(alphalist)}" + r" $\alpha_{\mathrm{NP}}$ samples")
 
-    plotpath = messenger.paths.generate_plot_path("mc_output_" + plotname, xind=xind)
+    plotpath = messenger.paths.generate_plot_path("search_output", xind=xind)
     plt.savefig(plotpath, dpi=1000)
     logging.info(f"Saving mc output plot to {plotpath}")
 

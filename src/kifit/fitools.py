@@ -4,8 +4,7 @@ from typing import List
 import numpy as np
 
 from scipy.linalg import cho_factor, cho_solve
-from scipy.odr import ODR, Model, RealData
-from scipy.stats import chi2, linregress, multivariate_normal
+from scipy.stats import chi2, multivariate_normal
 
 from scipy.optimize import (
     minimize,
@@ -755,11 +754,12 @@ def perform_experiments(
         if expstr == "experiment":
             minll_1 = np.percentile(lls, min_percentile)
             delchisqlist = get_delchisq(lls, minll=minll_1)
+            delchisqcrit_search = None
 
         elif expstr == "search":
             delchisqlist = get_delchisq(lls, minll=min(lls))
 
-        if messenger.params.verbose is True or expstr == "search":
+        if messenger.params.verbose is True:
 
             from kifit.plot import plot_mc_output
 
@@ -804,23 +804,39 @@ def perform_experiments(
 
     elif expstr == "search":
         best_alpha = np.median(bestalphas_exps)
-        delchisqs_search = delchisqs_exps + np.min(delchisqs_exps)
-
-        print()
-        print("median ", np.median(delchisqs_search))
-        print("critval", get_delchisq_crit(nsigmas))
-        print("applied", max(
-            np.median(delchisqs_search), get_delchisq_crit(nsigmas)))
+        delchisqs_search = delchisqs_exps  # + np.min(delchisqs_exps)  # ???
+        print("min(delchisq)", np.min(delchisqs_exps))
+        print("mindelchisq s", np.min(delchisqs_search))
         print()
 
-        median_delchisq = max(
-            np.median(delchisqs_search), get_delchisq_crit(nsigmas))
+        # take larger of the two:
+        #  - interval defined by median delchisq samples
+        #  - 5 sigma interval
+        delchisqcrit_search = max(
+            np.median(delchisqs_search), get_delchisq_crit(5))
 
         confints_search = np.array(
             [
-                get_confint(alphas_exps[s], delchisqs_exps[s], median_delchisq)
+                get_confint(alphas_exps[s], delchisqs_exps[s], delchisqcrit_search)
                 for s in range(nexps)
             ])
+
+        from kifit.plot import plot_search_output
+
+        if search_mode == "logrid":
+            logplot = True
+        else:
+            logplot = False
+
+        plot_search_output(
+            messenger,
+            alphalist=alphas,
+            delchisqlist=delchisqlist,
+            delchisqcrit=delchisqcrit_search,
+            searchlims=confints_search,
+            xind=xind,
+            logplot=logplot
+        )
 
         sig_alpha = np.max([
             np.abs(np.nanmax(confints_search) - best_alpha),
