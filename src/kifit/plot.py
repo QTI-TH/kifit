@@ -229,17 +229,21 @@ def plot_search_output(
     """
     fig, ax = plt.subplots()
 
+    alphalist = np.array(alphalist).flatten()
+    delchisqlist = np.array(delchisqlist).flatten()
+
     ax.scatter(alphalist, delchisqlist, s=1, alpha=0.5, color=mc_scatter_colour)
 
-    if logplot is True and min(alphalist) < 0 and max(alphalist) > 0:
-        linthresh_x = min(np.abs(alphalist))
+    if logplot is True and np.min(alphalist) < 0 and np.max(alphalist) > 0:
+        linthresh_x = np.min(np.abs(alphalist))
         ax.set_xscale("symlog", linthresh=linthresh_x)
         ax.set_yscale("log")
         ax.axvline(x=-linthresh_x, color='k', ls='--', label="linear threshold")
         ax.axvline(x=linthresh_x, color='k', ls='--')
 
-    ax.axhline(y=delchisqcrit, color="r", ls='--',
-        label=r"median $\Delta \chi^2$ samples")
+    if delchisqcrit is not None:
+        ax.axhline(y=delchisqcrit, color="r", ls='--',
+            label=r"$\Delta \chi^2\vert_{\mathrm{crit.}}$")
 
     # alphas_inside = alphalist[np.argwhere(delchisqlist < delchisqcrit).flatten()]
     print("searchlims", (np.min(searchlims), np.max(searchlims)))
@@ -254,7 +258,12 @@ def plot_search_output(
 
     plt.title(f"x={xind}, {len(alphalist)}" + r" $\alpha_{\mathrm{NP}}$ samples")
 
-    plotpath = messenger.paths.generate_plot_path("search_output", xind=xind)
+    plotpath = messenger.paths.generate_plot_path(
+        "search_output_"
+        + (f"{messenger.params.search_mode}-search")
+        + (f"{messenger.params.logrid_frac}logridfrac_"
+            if messenger.params.search_mode == "detlogrid" else ""), xind=xind)
+    print("plotpath", plotpath)
     plt.savefig(plotpath, dpi=1000)
     logging.info(f"Saving mc output plot to {plotpath}")
 
@@ -367,6 +376,7 @@ def plot_alphaNP_ll(
     elem_collection.check_det_dims(gkpdims, nmgkpdims, projdims)
 
     if expstr == "experiment":
+        print("this is an experiment")
         mc_output = messenger.paths.read_fit_output(xind)
 
         delchisqs = mc_output['delchisqs_exp']
@@ -375,6 +385,7 @@ def plot_alphaNP_ll(
         delchisqcrit_label = r"$\Delta \chi^2_{\mathrm{crit}}$"
 
     elif expstr == "search":
+        print("this is a search")
         mc_output = messenger.paths.read_search_output(xind)
 
         delchisqs = mc_output['delchisqs_exp']
@@ -495,7 +506,12 @@ def plot_alphaNP_ll(
     ax1.set_title(f"x={xind}, {nsamples}" + r" $\alpha_{\mathrm{NP}}$ samples")
 
     plotpath = messenger.paths.generate_plot_path(
-        "alphaNP_ll" + ("_" + expstr if expstr == "search" else ""), xind=xind)
+        "alphaNP_ll"
+        + ("_" + expstr if expstr == "search" else "")
+        + (f"{messenger.params.search_mode}-search")
+        + (f"{messenger.params.logrid_frac}logridfrac_"
+            if messenger.params.search_mode == "detlogrid" else ""), xind=xind)
+
     plt.savefig(plotpath, dpi=1000)
 
     logging.info(f"Saving alphaNP-logL plot to {plotpath}")

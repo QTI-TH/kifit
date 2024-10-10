@@ -36,6 +36,14 @@ class RunParams:
         return self.__runparams.num_elemsamples_per_alphasample_search
 
     @property
+    def search_mode(self):
+        return self.__runparams.search_mode
+
+    # @property
+    # def num_optigrid_searches(self):
+    #     return self.__runparams.num_optigrid_searches
+
+    @property
     def logrid_frac(self):
         return self.__runparams.logrid_frac
 
@@ -135,6 +143,19 @@ class RunParams:
             help="""no. element samples generated for each alphaNP sample during
             initial search""",
         )
+        parser.add_argument(
+            "--search_mode",
+            default="detlogrid",
+            choices=["detlogrid", "globalogrid"],  # , "optigrid"],
+            help="""method used during search phase. logrid uses input from
+        #     determinant methods, globalopt does not""",
+        )
+        # parser.add_argument(
+        #     "--num_optigrid_searches",
+        #     default=10,
+        #     type=int,
+        #     help="no. searches performed with optima",
+        # )
         parser.add_argument(
             "--logrid_frac",
             default=-5,
@@ -323,7 +344,11 @@ class Paths:
                 + f"{self.__elem_collection_id}_"
                 + f"{self.__params.num_elemsamples_per_alphasample_search}es-search_"
                 + f"{self.__params.num_alphasamples_search}as-search_"
-                + f"{self.__params.logrid_frac}logridfrac_"
+                + f"{self.__params.search_mode}-search_"
+                + (f"{self.__params.logrid_frac}logridfrac_"
+                    if self.__params.search_mode == "detlogrid" else "")
+                # + (f"{self.__params.num_optigrid_searches}searches_"
+                #     if self.__params.search_mode == "optigrid" else "")
                 + f"{self.__params.num_exp}exps_"
                 + f"{self.__params.num_elemsamples_exp}es-exp_"
                 + f"{self.__params.num_alphasamples_exp}as-exp_"
@@ -341,7 +366,11 @@ class Paths:
                 f"{self.__elem_collection_id}_"
                 + f"{self.__params.num_elemsamples_per_alphasample_search}es-search_"
                 + f"{self.__params.num_alphasamples_search}as-search_"
-                + f"{self.__params.logrid_frac}logridfrac_"
+                + f"{self.__params.search_mode}-search_"
+                + (f"{self.__params.logrid_frac}logridfrac_"
+                    if self.__params.search_mode == "detlogrid" else "")
+                # + (f"{self.__params.num_optigrid_searches}searches_"
+                #     if self.__params.search_mode == "optigrid" else "")
                 + f"{self.__params.num_exp}exps_"
                 + f"{self.__params.num_elemsamples_exp}es-exp_"
                 + f"{self.__params.num_alphasamples_exp}as-exp_"
