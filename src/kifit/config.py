@@ -133,6 +133,7 @@ class RunParams:
             "--element_list",
             nargs="+",
             type=str,
+            required=True,
             help="List of strings corresponding to names of data folders",
         )
         parser.add_argument(

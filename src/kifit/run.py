@@ -16,47 +16,27 @@ np.random.seed(1)
 
 class Runner:
 
-    def __init__(self,
-            config: Config,
-            collection: ElemCollection):
-        
-        self.config = config
-        self.collection = collection
+    def __init__(self, run_params: RunParams):
 
-    @classmethod
-    def build(cls, configuration_file: str = None):
-        """Build the Runner class from parser or from configuration file."""
-
-        params = RunParams(configuration_file=configuration_file)
-
-        collection = ElemCollection(
-            params.element_list,
-            params.gkp_dims,
-            params.nmgkp_dims
+        # construct a collection of elements 
+        self.collection = ElemCollection(
+            run_params.element_list,
+            run_params.gkp_dims,
+            run_params.nmgkp_dims
         )
 
-        paths = Paths(params, collection.id, fit_keys, det_keys)
+        # set the config attribute
+        paths = Paths(run_params, self.collection.id, fit_keys, det_keys)
+        self.config = Config(run_params, paths, self.collection.x_vals)
 
-        print("run.py collection.x_vals", collection.x_vals)
-
-        config = Config(params, paths, collection.x_vals)
-
-        return cls(config, collection)
 
     def generate_all_King_plots(self):
-
         for elem in self.collection.elems:
             plot_linfit(elem, self.config)
 
     def run(self):
 
         self.generate_all_King_plots()
-
-        # elem = None
-        #
-        # if self.collection.len == 1:
-        #
-        #     elem = self.collection.elems[0]
 
         for elem in self.collection.elems:
 
@@ -164,9 +144,19 @@ class Runner:
         return formatted_dict
     
 
-    def load_config(self, filepath):
+    def load_config(self, configuration_file: str):
         """Load configuration of a Runner from `filepath` and set it as config."""
         
-        with open(filepath, 'r') as json_file:
-            config_data = json.load(json_file)
+        run_params = RunParams(configuration_file=configuration_file)
+
+        # construct a collection of elements 
+        self.collection = ElemCollection(
+            run_params.element_list,
+            run_params.gkp_dims,
+            run_params.nmgkp_dims
+        )
+
+        # set the config attribute
+        paths = Paths(run_params, self.collection.id, fit_keys, det_keys)
+        self.config = Config(run_params, paths, self.collection.x_vals)
 
