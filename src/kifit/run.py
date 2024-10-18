@@ -1,3 +1,5 @@
+import os
+import json
 import logging
 import numpy as np
 
@@ -144,3 +146,25 @@ class Runner:
         for elem in self.collection.elems:
             print("Element: ", elem.id)
             elem.print_relative_uncertainties
+
+    def dump_config(self, filepath, overwrite=False):
+        """Dump configuration of the Runner into a json file located in `filepath`."""
+
+        if os.path.exists(filepath) and not overwrite:
+            raise FileExistsError(f"File '{filepath}' already exists. Use overwrite=True to overwrite it.")
+
+        runparams_dict = vars(self.config.params._RunParams__runparams)
+        formatted_dict = {key: value for key, value in runparams_dict.items()}
+
+        with open(filepath, 'w') as json_file:
+            json.dump(formatted_dict, json_file, indent=4)
+
+        return formatted_dict
+    
+
+    def load_config(self, filepath):
+        """Load configuration of a Runner from `filepath` and set it as config."""
+        
+        with open(filepath, 'r') as json_file:
+            config_data = json.load(json_file)
+

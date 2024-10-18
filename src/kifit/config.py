@@ -147,15 +147,8 @@ class RunParams:
             "--search_mode",
             default="detlogrid",
             choices=["detlogrid", "globalogrid"],  # , "optigrid"],
-            help="""method used during search phase. logrid uses input from
-        #     determinant methods, globalopt does not""",
+            help="""method used during search phase. logrid uses input from determinant methods, globalopt does not""",
         )
-        # parser.add_argument(
-        #     "--num_optigrid_searches",
-        #     default=10,
-        #     type=int,
-        #     help="no. searches performed with optima",
-        # )
         parser.add_argument(
             "--logrid_frac",
             default=-5,
@@ -199,14 +192,14 @@ class RunParams:
         parser.add_argument(
             "--x0_fit",
             nargs="+",
-            default=[],
+            default=[0],
             type=int,
             help="Target mphi indices for fit",
         )
         parser.add_argument(
             "--x0_det",
             nargs="+",
-            default=[],
+            default=[0],
             type=int,
             help="Target mphi indices for determinants",
         )
@@ -230,7 +223,7 @@ class RunParams:
         parser.add_argument(
             "--nmgkp_dims",
             nargs="+",
-            default=[],
+            default=[3],
             type=int,
             help="List of no-mass generalised King plot dimensions",
         )
@@ -276,6 +269,23 @@ class RunParams:
         )
 
         return parser.parse_args()
+    
+    def load_arguments_from_file(self, json_file):
+        """Load arguments from a JSON file and set them as attributes."""
+        # Get the default arguments from the parser first
+        defaults = vars(self.parse_arguments())
+        
+        # Load the JSON file
+        with open(json_file, 'r') as f:
+            data = json.load(f)
+        
+        # Override defaults with any values in the JSON file
+        for key, value in data.items():
+            if key in defaults:
+                defaults[key] = value
+        
+        # Set the attributes in the __runparams
+        self.__runparams = type('Args', (), defaults)
 
 
 class Paths:
@@ -487,3 +497,5 @@ class Config:
                 raise IndexError("Parsed invalid x0_det index.")
             logging.info("Initialised x range for determinants: %s", self.params.x0_det)
             self.x_vals_det = self.params.x0_det
+
+    
