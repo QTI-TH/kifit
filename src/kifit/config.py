@@ -4,6 +4,11 @@ import numpy as np
 import logging
 from argparse import ArgumentParser, ArgumentTypeError
 
+class CustomNamespace:
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
 
 def check_input_logrid_frac(value):
     intval = int(value)
@@ -20,8 +25,12 @@ def check_input_logrid_frac(value):
 
 
 class RunParams:
-    def __init__(self):
-        self.__runparams = self.parse_arguments()
+    def __init__(self, configuration_file: str = None):
+
+        if configuration_file is not None:
+            self.__runparams = self.load_arguments_from_file(configuration_file)
+        else:
+            self.__runparams = self.parse_arguments()
 
     @property
     def element_list(self):
@@ -38,10 +47,6 @@ class RunParams:
     @property
     def search_mode(self):
         return self.__runparams.search_mode
-
-    # @property
-    # def num_optigrid_searches(self):
-    #     return self.__runparams.num_optigrid_searches
 
     @property
     def logrid_frac(self):
@@ -146,7 +151,7 @@ class RunParams:
         parser.add_argument(
             "--search_mode",
             default="detlogrid",
-            choices=["detlogrid", "globalogrid"],  # , "optigrid"],
+            choices=["detlogrid", "globalogrid"], 
             help="""method used during search phase. logrid uses input from determinant methods, globalopt does not""",
         )
         parser.add_argument(
@@ -272,20 +277,11 @@ class RunParams:
     
     def load_arguments_from_file(self, json_file):
         """Load arguments from a JSON file and set them as attributes."""
-        # Get the default arguments from the parser first
-        defaults = vars(self.parse_arguments())
         
-        # Load the JSON file
         with open(json_file, 'r') as f:
             data = json.load(f)
-        
-        # Override defaults with any values in the JSON file
-        for key, value in data.items():
-            if key in defaults:
-                defaults[key] = value
-        
-        # Set the attributes in the __runparams
-        self.__runparams = type('Args', (), defaults)
+
+        return CustomNamespace(**data)
 
 
 class Paths:

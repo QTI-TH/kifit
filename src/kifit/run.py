@@ -19,13 +19,15 @@ class Runner:
     def __init__(self,
             config: Config,
             collection: ElemCollection):
-
+        
         self.config = config
         self.collection = collection
 
     @classmethod
-    def build(cls):
-        params = RunParams()
+    def build(cls, configuration_file: str = None):
+        """Build the Runner class from parser or from configuration file."""
+
+        params = RunParams(configuration_file=configuration_file)
 
         collection = ElemCollection(
             params.element_list,
