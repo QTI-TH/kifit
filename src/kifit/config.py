@@ -4,6 +4,11 @@ import numpy as np
 import logging
 from argparse import ArgumentParser, ArgumentTypeError
 
+class CustomNamespace:
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
 
 def check_input_logrid_frac(value):
     intval = int(value)
@@ -20,8 +25,12 @@ def check_input_logrid_frac(value):
 
 
 class RunParams:
-    def __init__(self):
-        self.__runparams = self.parse_arguments()
+    def __init__(self, configuration_file: str = None):
+
+        if configuration_file is not None:
+            self.__runparams = self.load_arguments_from_file(configuration_file)
+        else:
+            self.__runparams = self.parse_arguments()
 
     @property
     def element_list(self):
@@ -38,10 +47,6 @@ class RunParams:
     @property
     def search_mode(self):
         return self.__runparams.search_mode
-
-    # @property
-    # def num_optigrid_searches(self):
-    #     return self.__runparams.num_optigrid_searches
 
     @property
     def logrid_frac(self):
@@ -128,6 +133,7 @@ class RunParams:
             "--element_list",
             nargs="+",
             type=str,
+            required=True,
             help="List of strings corresponding to names of data folders",
         )
         parser.add_argument(
@@ -146,16 +152,9 @@ class RunParams:
         parser.add_argument(
             "--search_mode",
             default="detlogrid",
-            choices=["detlogrid", "globalogrid"],  # , "optigrid"],
-            help="""method used during search phase. logrid uses input from
-        #     determinant methods, globalopt does not""",
+            choices=["detlogrid", "globalogrid"], 
+            help="""method used during search phase. logrid uses input from determinant methods, globalopt does not""",
         )
-        # parser.add_argument(
-        #     "--num_optigrid_searches",
-        #     default=10,
-        #     type=int,
-        #     help="no. searches performed with optima",
-        # )
         parser.add_argument(
             "--logrid_frac",
             default=-5,
@@ -199,14 +198,14 @@ class RunParams:
         parser.add_argument(
             "--x0_fit",
             nargs="+",
-            default=[],
+            default=[0],
             type=int,
             help="Target mphi indices for fit",
         )
         parser.add_argument(
             "--x0_det",
             nargs="+",
-            default=[],
+            default=[0],
             type=int,
             help="Target mphi indices for determinants",
         )
@@ -230,7 +229,7 @@ class RunParams:
         parser.add_argument(
             "--nmgkp_dims",
             nargs="+",
-            default=[],
+            default=[3],
             type=int,
             help="List of no-mass generalised King plot dimensions",
         )
@@ -276,6 +275,14 @@ class RunParams:
         )
 
         return parser.parse_args()
+    
+    def load_arguments_from_file(self, json_file):
+        """Load arguments from a JSON file and set them as attributes."""
+        
+        with open(json_file, 'r') as f:
+            data = json.load(f)
+
+        return CustomNamespace(**data)
 
 
 class Paths:
@@ -487,3 +494,5 @@ class Config:
                 raise IndexError("Parsed invalid x0_det index.")
             logging.info("Initialised x range for determinants: %s", self.params.x0_det)
             self.x_vals_det = self.params.x0_det
+
+    
