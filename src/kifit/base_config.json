@@ -1,0 +1,37 @@
+{
+    "element_list": [
+        "Ca_WT_Aarhus_PTB_2024"
+    ],
+    "num_alphasamples_search": 500,
+    "num_elemsamples_per_alphasample_search": 100,
+    "search_mode": "globalogrid",
+    "logrid_frac": -5,
+    "num_exp": 200,
+    "num_elemsamples_exp": 100,
+    "num_alphasamples_exp": 500,
+    "block_size": 20,
+    "min_percentile": 5,
+    "x0_fit": [
+        0
+    ],
+    "x0_det": [
+        0
+    ],
+    "mphivar_fit": false,
+    "mphivar_det": false,
+    "gkp_dims": [
+        3
+    ],
+    "nmgkp_dims": [
+        3
+    ],
+    "proj_dims": [
+        3
+    ],
+    "num_det_samples": 100,
+    "showalldetbounds": true,
+    "showalldetvals": false,
+    "showbestdetbounds": true,
+    "num_sigmas": 2,
+    "verbose": true
+}
