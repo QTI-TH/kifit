@@ -1,7 +1,9 @@
 import logging
+import json
 
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from kifit.build import get_odr_residuals, linfit, perform_linreg, perform_odr
 
@@ -888,3 +890,70 @@ def plot_mphi_alphaNP(
     plt.close()
 
     return fig, ax
+
+
+def plot_bars(messenger, variable_keyword, values_list):
+    """
+    Bar plot which collects results obtained by fixing configuration and 
+    varying only variables targeted by `variable_keyword` according to `values_list`.
+    """
+    plt.figure(figsize=(10, 10 * 6 / 8))
+    
+    central_values, upper_bound, lower_bound = [], [], []
+
+    for value in values_list:
+        # update default configuration
+        update_config_file(
+            file_path="base_config.json", 
+            keyword=variable_keyword,
+            new_value=value,
+        )
+        # update the messenger
+        messenger.load_config("base_config.json")
+        # collect results
+        results = collect_fit_X_data(messenger)
+        print(results)
+        exit()
+
+
+def draw_point(x, y, lb, ub, col, lab):
+    """Helper function for `plot_bars`."""
+    plt.scatter(x, y, s=30, color=col, label=lab)
+    plt.hlines(y, lb, ub, color=col)
+
+
+def draw_set(alphas, lbs, ubs, title, lab, lab_array, keyword):
+    """Helper function for `plot_bars`."""
+    # some decoration
+    colors = sns.color_palette("inferno", n_colors=len(alphas)).as_hex()
+    # some ylabel stuff
+    xticks = [None]
+    for i, l in enumerate(lab_array):
+        xticks.append(str(l))
+    xticks.append(None)
+    
+    plt.figure(figsize=(6, 6*6/8))
+    for i in range(len(alphas)):
+        draw_point(alphas[i], (i+1)*3, lbs[i], ubs[i], colors[i], lab+str(lab_array[i]))
+    plt.title(title)
+    plt.xlabel(r"$\alpha$")
+    plt.ylabel(r"$n$")
+    plt.yticks(np.arange(0,len(lab_array)*3+4,3), xticks)
+    plt.vlines(0, 0, len(lab_array)*3+2, color="black", ls="-", lw=1)
+    plt.savefig(f"{keyword}.png", dpi=1000, bbox_inches="tight")
+
+
+def update_config_file(file_path, keyword, new_value):
+    """
+    Helper function for `plot_bars`. It updates the configuration file dictionary
+    so that new data can be sampled.
+    """
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+    
+    updated_data = {
+        key: (new_value if keyword in key else value) for key, value in data.items()
+    }
+    
+    with open(file_path, 'w') as f:
+        json.dump(updated_data, f, indent=4)
