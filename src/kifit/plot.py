@@ -899,7 +899,7 @@ def plot_bars(messenger, variable_keyword, values_list):
     """
     plt.figure(figsize=(10, 10 * 6 / 8))
     
-    central_values, upper_bound, lower_bound = [], [], []
+    central_values, upper_bounds, lower_bounds = [], [], []
 
     for value in values_list:
         # update default configuration
@@ -910,10 +910,21 @@ def plot_bars(messenger, variable_keyword, values_list):
         )
         # update the messenger
         messenger.load_config("base_config.json")
-        # collect results
-        results = collect_fit_X_data(messenger)
-        print(results)
-        exit()
+        # collect results for x = 0
+        results = messenger.config.paths.read_fit_output(0)
+        central_values.append(results["best_alpha"])
+        upper_bounds.append(results["UB"])
+        lower_bounds.append(results["LB"])
+    
+    draw_set(
+        alphas=central_values,
+        lbs=lower_bounds,
+        ubs=upper_bounds,
+        title="Test title",
+        lab=r"$n=$",
+        lab_array=values_list,
+        keyword=variable_keyword,
+    )
 
 
 def draw_point(x, y, lb, ub, col, lab):
