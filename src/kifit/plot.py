@@ -892,6 +892,48 @@ def plot_mphi_alphaNP(
     return fig, ax
 
 
+
+
+def multi_plot_mphi_alphaNP(messengers_list):
+    """Many messengers can be used here to construct a multi-fit plot."""
+
+    plt.figure(figsize=(10, 10 * 6 / 8))
+    for i, messenger in enumerate(messengers_list):
+        if i == 0:
+            # plot and return common features mphix and linlim
+            mphix, linlim = plot_one_mphi_alphaNP_experiment(messenger, True)
+        else:
+            plot_one_mphi_alphaNP_experiment(messenger)
+    
+    plt.hlines(0, min(mphix), max(mphix), color="black", lw=1)
+    plt.hlines(linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
+    plt.hlines(-linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
+    plt.yscale("symlog", linthresh=linlim)
+    plt.xscale("log")
+    plt.yticks([-1e-1, -1e-6, -1e-10, 0,  1e-10, 1e-6, 1e-1])
+    plt.legend(fontsize=8, ncols=2, loc=2, framealpha=1)
+    plt.ylabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=12)
+    plt.xlabel(r"m$_{\phi}$ [eV]", fontsize=12)
+
+    plt.show()
+
+def plot_one_mphi_alphaNP_experiment(messenger, return_common_features=False):
+    """Helper function to plot many fits together."""
+    # collecting data
+    ub, sig_ub, lb, sig_lb, best_alphas, sig_best_alphas = collect_fit_X_data(messenger)
+    mphix = messenger.config.x_vals_fit
+
+    # setting limits
+    linlim = 10 ** np.floor(np.log10(np.nanmax([np.abs(min(ub)), np.abs(max(lb))])) - 1)
+
+    plt.plot(mphix, ub, lw=1.5, alpha=0.75)
+    plt.plot(mphix, lb, lw=1.5, alpha=0.75)
+
+    if return_common_features:
+        return mphix, linlim
+
+
+
 def plot_bars(messenger, variable_keyword, values_list):
     """
     Bar plot which collects results obtained by fixing configuration and 
@@ -904,12 +946,12 @@ def plot_bars(messenger, variable_keyword, values_list):
     for value in values_list:
         # update default configuration
         update_config_file(
-            file_path="base_config.json", 
+            file_path="./configurations/base_config.json", 
             keyword=variable_keyword,
             new_value=value,
         )
         # update the messenger
-        messenger.load_config("base_config.json")
+        messenger.load_config("./configurations/base_config.json")
         # collect results for x = 0
         results = messenger.config.paths.read_fit_output(0)
         central_values.append(results["best_alpha"])

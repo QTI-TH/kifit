@@ -426,9 +426,10 @@ class Paths:
 
         return 0
 
-    def read_from_path(self, path, keys):
+    def read_from_path(self, path, keys, verbose=False):
         if os.path.exists(path):
-            logging.info("Loading data from %s", path)
+            if verbose:
+                logging.info("Loading data from %s", path)
 
             with open(path) as json_file:
                 res = json.load(json_file)

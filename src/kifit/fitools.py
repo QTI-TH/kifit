@@ -1001,9 +1001,9 @@ def collect_fit_X_data(messenger):
     best_alphas = []
     sig_best_alphas = []
 
-    for x in messenger.x_vals_fit:
+    for x in messenger.config.x_vals_fit:
 
-        fit_output = messenger.paths.read_fit_output(x)
+        fit_output = messenger.config.paths.read_fit_output(x)
 
         UB.append(fit_output["UB"])
         sig_UB.append(fit_output["sig_UB"])
