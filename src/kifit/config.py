@@ -471,7 +471,7 @@ class Config:
         assert isinstance(runparams, RunParams)
         self.paths = paths
         assert isinstance(paths, Paths)
-        print("paths", paths.fit_output_path(0))
+        #print("paths", paths.fit_output_path(0))
 
         self.__init_x_vals(collectionxvals)
 

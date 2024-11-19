@@ -894,20 +894,44 @@ def plot_mphi_alphaNP(
 
 
 
-def multi_plot_mphi_alphaNP(messengers_list):
+def multi_plot_mphi_alphaNP(messengers_list, determinant=True):
     """Many messengers can be used here to construct a multi-fit plot."""
 
+    colors = ["green", "orange", "purple"]
+
     plt.figure(figsize=(10, 10 * 6 / 8))
+
+    if determinant:
+        messenger = messengers_list[0]
+        plot_one_mphi_alphaNP_experiment(
+                messenger, 
+                color="red", 
+                label="Determinant method", 
+                return_common_features=False,
+                det_mode=True,
+            )
     for i, messenger in enumerate(messengers_list):
         if i == 0:
             # plot and return common features mphix and linlim
-            mphix, linlim = plot_one_mphi_alphaNP_experiment(messenger, True)
+            mphix, linlim = plot_one_mphi_alphaNP_experiment(
+                messenger=messenger, 
+                color=colors[i], 
+                label=messenger.config.params.search_mode, 
+                return_common_features=True,
+                det_mode=False,
+            )
         else:
-            plot_one_mphi_alphaNP_experiment(messenger)
+            plot_one_mphi_alphaNP_experiment(
+                messenger, 
+                label=messenger.config.params.search_mode, 
+                color=colors[i],
+                det_mode=False,
+            )
     
     plt.hlines(0, min(mphix), max(mphix), color="black", lw=1)
     plt.hlines(linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
     plt.hlines(-linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
+    plt.plot(mphix, 10**(0.0075*mphix -6), marker="s", color="black", label="Grid limit")
     plt.yscale("symlog", linthresh=linlim)
     plt.xscale("log")
     plt.yticks([-1e-1, -1e-6, -1e-10, 0,  1e-10, 1e-6, 1e-1])
@@ -915,26 +939,33 @@ def multi_plot_mphi_alphaNP(messengers_list):
     plt.ylabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=12)
     plt.xlabel(r"m$_{\phi}$ [eV]", fontsize=12)
 
-    plt.show()
+    plt.savefig("test_fits.png")
 
-def plot_one_mphi_alphaNP_experiment(messenger, return_common_features=False):
+# TODO: experiment is confusing, to be renamed
+def plot_one_mphi_alphaNP_experiment(messenger, color, label, return_common_features=False, det_mode=True):
     """Helper function to plot many fits together."""
     # collecting data
-    ub, sig_ub, lb, sig_lb, best_alphas, sig_best_alphas = collect_fit_X_data(messenger)
-    mphix = messenger.config.x_vals_fit
+    if det_mode:
+        best_alphas, sig_best_alphas, ub, allpos, lb, allneg = collect_det_X_data(
+            messenger.config, 3, "gkp",
+        )
+    else:
+        ub, sig_ub, lb, sig_lb, best_alphas, sig_best_alphas = collect_fit_X_data(messenger)
+
+    mphix = np.array(messenger.config.x_vals_fit)
 
     # setting limits
     linlim = 10 ** np.floor(np.log10(np.nanmax([np.abs(min(ub)), np.abs(max(lb))])) - 1)
 
-    plt.plot(mphix, ub, lw=1.5, alpha=0.75)
-    plt.plot(mphix, lb, lw=1.5, alpha=0.75)
+    plt.plot(mphix, ub, lw=1.5, alpha=0.75, marker="o", color=color, label=label)
+    plt.plot(mphix, lb, lw=1.5, alpha=0.75, color=color)
 
     if return_common_features:
         return mphix, linlim
 
 
 
-def plot_bars(messenger, variable_keyword, values_list):
+def plot_bars(messenger, variable_keyword, values_list, title):
     """
     Bar plot which collects results obtained by fixing configuration and 
     varying only variables targeted by `variable_keyword` according to `values_list`.
@@ -962,7 +993,7 @@ def plot_bars(messenger, variable_keyword, values_list):
         alphas=central_values,
         lbs=lower_bounds,
         ubs=upper_bounds,
-        title="Test title",
+        title=title,
         lab=r"$n=$",
         lab_array=values_list,
         keyword=variable_keyword,
@@ -993,7 +1024,8 @@ def draw_set(alphas, lbs, ubs, title, lab, lab_array, keyword):
     plt.ylabel(r"$n$")
     plt.yticks(np.arange(0,len(lab_array)*3+4,3), xticks)
     plt.vlines(0, 0, len(lab_array)*3+2, color="black", ls="-", lw=1)
-    plt.savefig(f"{keyword}.png", dpi=1000, bbox_inches="tight")
+    plt.xscale("symlog")
+    plt.savefig(f"{keyword}.png", dpi=500, bbox_inches="tight")
 
 
 def update_config_file(file_path, keyword, new_value):

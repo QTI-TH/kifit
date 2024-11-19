@@ -4,7 +4,7 @@ from kifit.plot import multi_plot_mphi_alphaNP
 from kifit.run import Runner
 from kifit.config import RunParams
 
-configurations_path = "./configurations/multifit_configs"
+configurations_path = "./configurations/multifit_oldCa"
 
 messengers_list = []
 

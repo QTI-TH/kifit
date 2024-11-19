@@ -1,0 +1,37 @@
+{
+    "element_list": [
+        "Camin_swap"
+    ],
+    "num_alphasamples_search": 300,
+    "num_elemsamples_per_alphasample_search": 300,
+    "search_mode": "globalogrid",
+    "logrid_frac": -2,
+    "num_exp": 100,
+    "num_elemsamples_exp": 300,
+    "num_alphasamples_exp": 300,
+    "block_size": 10,
+    "min_percentile": 2,
+    "x0_fit": [
+        0
+    ],
+    "x0_det": [
+        0
+    ],
+    "mphivar_fit": false,
+    "mphivar_det": false,
+    "gkp_dims": [
+        3
+    ],
+    "nmgkp_dims": [
+        3
+    ],
+    "proj_dims": [
+        3
+    ],
+    "num_det_samples": 1000,
+    "showalldetbounds": true,
+    "showalldetvals": false,
+    "showbestdetbounds": true,
+    "num_sigmas": 2,
+    "verbose": true
+}
