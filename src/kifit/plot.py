@@ -3,7 +3,6 @@ import json
 
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 from kifit.build import get_odr_residuals, linfit, perform_linreg, perform_odr
 
@@ -903,7 +902,7 @@ def multi_plot_mphi_alphaNP(messengers_list, determinant=True):
 
     if determinant:
         messenger = messengers_list[0]
-        plot_one_mphi_alphaNP_experiment(
+        plot_one_mphi_alphaNP_run(
                 messenger, 
                 color="red", 
                 label="Determinant method", 
@@ -913,7 +912,7 @@ def multi_plot_mphi_alphaNP(messengers_list, determinant=True):
     for i, messenger in enumerate(messengers_list):
         if i == 0:
             # plot and return common features mphix and linlim
-            mphix, linlim = plot_one_mphi_alphaNP_experiment(
+            mphix, linlim = plot_one_mphi_alphaNP_run(
                 messenger=messenger, 
                 color=colors[i], 
                 label=messenger.config.params.search_mode, 
@@ -921,7 +920,7 @@ def multi_plot_mphi_alphaNP(messengers_list, determinant=True):
                 det_mode=False,
             )
         else:
-            plot_one_mphi_alphaNP_experiment(
+            plot_one_mphi_alphaNP_run(
                 messenger, 
                 label=messenger.config.params.search_mode, 
                 color=colors[i],
@@ -942,7 +941,7 @@ def multi_plot_mphi_alphaNP(messengers_list, determinant=True):
     plt.savefig("test_fits.png")
 
 # TODO: experiment is confusing, to be renamed
-def plot_one_mphi_alphaNP_experiment(messenger, color, label, return_common_features=False, det_mode=True):
+def plot_one_mphi_alphaNP_run(messenger, color, label, return_common_features=False, det_mode=True):
     """Helper function to plot many fits together."""
     # collecting data
     if det_mode:
@@ -1009,7 +1008,8 @@ def draw_point(x, y, lb, ub, col, lab):
 def draw_set(alphas, lbs, ubs, title, lab, lab_array, keyword):
     """Helper function for `plot_bars`."""
     # some decoration
-    colors = sns.color_palette("inferno", n_colors=len(alphas)).as_hex()
+    cmap = plt.get_cmap("inferno")
+    colors = [cmap(i / (len(alphas) - 1)) for i in range(len(alphas))]
     # some ylabel stuff
     xticks = [None]
     for i, l in enumerate(lab_array):
