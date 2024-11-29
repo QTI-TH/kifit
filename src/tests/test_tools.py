@@ -1,8 +1,7 @@
 import numpy as np
 from itertools import product, combinations
 
-from kifit.build import Elem
-from kifit.fitools import perform_odr, perform_linreg
+from kifit.build import Elem, perform_odr, perform_linreg
 from kifit.detools import (
     sample_gkp_parts, assemble_gkp_combinations,
     sample_proj_parts, assemble_proj_combinations
@@ -18,7 +17,7 @@ def test_linfit():
     ca = Elem('Ca_testdata')
 
     (betas_odr, sig_betas_odr, kperp1s_odr, ph1s_odr,
-        sig_kperp1s_odr, sig_ph1s_odr) = perform_odr(
+        sig_kperp1s_odr, sig_ph1s_odr, cov_kperp1_ph1s) = perform_odr(
         ca.nutil_in, ca.sig_nutil_in,
         reference_transition_index=0)
 

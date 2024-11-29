@@ -54,7 +54,7 @@ def generate_elemsamples(elem, nsamples: int):
 
 
     """
-    inputparam_samples = generate_paramsamples(
+    inputparamsamples = generate_paramsamples(
         elem.means_input_params, elem.stdevs_input_params, nsamples
     )
 
@@ -63,16 +63,16 @@ def generate_elemsamples(elem, nsamples: int):
     for kp1, ph1, cov in zip(elem.kp1_init, elem.ph1_init, elem.cov_kperp1_ph1):
         samples_per_transition.append(
             np.random.multivariate_normal([kp1, ph1], cov, size=nsamples))
-    fitparam_samples = []
+    fitparamsamples = []
     for i in range(nsamples):
-        these_fitparams = []
+        fitparams = []
         for j in range(len(elem.kp1_init)):
-            these_fitparams.append(samples_per_transition[j][i][0])
+            fitparams.append(samples_per_transition[j][i][0])
         for j in range(len(elem.kp1_init)):
-            these_fitparams.append(samples_per_transition[j][i][1])
-        fitparam_samples.append(these_fitparams)
+            fitparams.append(samples_per_transition[j][i][1])
+        fitparamsamples.append(fitparams)
 
-    return inputparam_samples, fitparam_samples
+    return inputparamsamples, fitparamsamples
 
 
 def objective(trial, elem_collection, nelemsamples, min_percentile,
@@ -94,7 +94,7 @@ def generate_alphaNP_samples(elem,
         search_mode: str = "normal",
         lbmin: float = None, lbmax: float = None,
         ubmin: float = None, ubmax: float = None,
-        logridfrac: float = -17):
+        logridfrac: float = 17):
     """
     Generate ``nsamples`` of alphaNP according to the initial conditions set in
     the instance ``elem`` of the Elem class. alphaNP is either sampled from a
@@ -156,10 +156,21 @@ def generate_alphaNP_samples(elem,
             nnegsamples = nsamples // 2
             nposamples = nsamples - nnegsamples
 
-            negrid = -np.logspace(np.log10(-lbmax) + logridfrac, np.log10(-lbmin),
+            negrid = -np.logspace(
+                np.log10(-lbmax) + logridfrac, np.log10(-lbmin) - logridfrac,
                 num=nnegsamples)[::-1]
-            posgrid = np.logspace(np.log10(ubmin) + logridfrac, np.log10(ubmax),
+            posgrid = np.logspace(
+                np.log10(ubmin) - logridfrac, np.log10(ubmax) + logridfrac,
                 num=nposamples)
+
+            print("posgrid")
+            print((min(posgrid), max(posgrid)))
+            print((ubmin, ubmax))
+
+            print("negrid")
+            print((min(negrid), max(negrid)))
+            print((lbmin, lbmax))
+
 
             logging.info(f"""
             lbmin={lbmin} is negative and ubmax={ubmax} is positive.
@@ -272,15 +283,15 @@ def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
 
     for elem in elem_collection.elems:
         absdsamples = []
-        inputparams_samples, fitparams_samples = generate_elemsamples(
+        inputparamsamples, fitparamsamples = generate_elemsamples(
             elem, nelemsamples)
 
-        for i, inputparam in enumerate(inputparams_samples):
+        for i, inputparams in enumerate(inputparamsamples):
             # generate_elemsamples(elem, nelemsamples)
-            elem._update_elem_params(inputparam)
-            these_fitparams = fitparams_samples[i]
-            these_fitparams.append(alphaNP)
-            elem._update_fit_params(these_fitparams)
+            elem._update_elem_params(inputparams)
+            fitparams = fitparamsamples[i]
+            fitparams.append(alphaNP)
+            elem._update_fit_params(fitparams)
             absdsamples.append(elem.absd)
 
         lls = get_llist_elemsamples(np.array(absdsamples),

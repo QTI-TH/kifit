@@ -13,14 +13,14 @@ class CustomNamespace:
 def check_input_logrid_frac(value):
     intval = int(value)
 
-    if intval > 0:
+    if intval < 0:
         raise ArgumentTypeError(
             f"""{value} is not a valid value for logrid_frac.
-            Provide negative integer.""")
-    elif intval < -10:
+            Provide positive integer.""")
+    elif intval > 10:
         raise ArgumentTypeError(
-            f"""{value} seems like a ridiculously small number for logrid_frac.
-            Give it a larger (but still negative) integer value.""")
+            f"""{value} seems like a ridiculously large number for logrid_frac.
+            Give it a smaller (but still positive) integer value.""")
     return intval
 
 
@@ -152,17 +152,19 @@ class RunParams:
         parser.add_argument(
             "--search_mode",
             default="detlogrid",
-            choices=["detlogrid", "globalogrid"], 
+            choices=["detlogrid", "globalogrid"],
             help="""method used during search phase. logrid uses input from determinant methods, globalopt does not""",
         )
         parser.add_argument(
             "--logrid_frac",
-            default=-5,
+            default=5,
             type=check_input_logrid_frac,
-            help="""log10 of fraction defining the alphaNP scan region for
-            initial search. Should be a negative or zero integer: 0 -> scan
-            region -> 0, -infty -> scan region infinite. Please provide integers
-            larger or equal to -10.""",
+            help="""orders to be added/subtracted from determinant results when
+            defining the alphaNP scan region for initial search.
+            Should be a positive or zero integer:
+            0 -> scan region -> 0,
+            -infty -> scan region infinite.
+            Please provide integers smaller or equal to 10.""",
         )
         parser.add_argument(
             "--num_exp",
@@ -191,7 +193,7 @@ class RunParams:
         parser.add_argument(
             "--min_percentile",
             default=1,
-            choices=range(1, 50),
+            choices=range(50),
             type=int,
             help="Min percentile value used to compute a robust estimation of min(logL)",
         )
@@ -229,7 +231,7 @@ class RunParams:
         parser.add_argument(
             "--nmgkp_dims",
             nargs="+",
-            default=[3],
+            default=[],
             type=int,
             help="List of no-mass generalised King plot dimensions",
         )
@@ -275,10 +277,10 @@ class RunParams:
         )
 
         return parser.parse_args()
-    
+
     def load_arguments_from_file(self, json_file):
         """Load arguments from a JSON file and set them as attributes."""
-        
+
         with open(json_file, 'r') as f:
             data = json.load(f)
 
@@ -495,4 +497,4 @@ class Config:
             logging.info("Initialised x range for determinants: %s", self.params.x0_det)
             self.x_vals_det = self.params.x0_det
 
-    
+

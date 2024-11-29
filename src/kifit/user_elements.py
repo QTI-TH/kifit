@@ -2,6 +2,8 @@ user_elems = [
     "oldCa",
     "Ca_testdata",
     "Camin",
+    "Camin_swap",
+    "Camin_exp",
     "Ca24min",
     "Ca_PTB_2015",
     # "Ca_WT_Aarhus_2020",

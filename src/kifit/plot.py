@@ -227,6 +227,10 @@ def plot_search_output(
     The resulting plot is saved in plots directory under plotname.
 
     """
+    gkpdims = messenger.params.gkp_dims
+    nmgkpdims = messenger.params.nmgkp_dims
+    projdims = messenger.params.proj_dims
+
     fig, ax = plt.subplots()
 
     alphalist = np.array(alphalist).flatten()
@@ -249,6 +253,41 @@ def plot_search_output(
     print("searchlims", (np.min(searchlims), np.max(searchlims)))
     ax.axvline(x=np.min(searchlims), color="orange", ls='--', label="search interval")
     ax.axvline(x=np.max(searchlims), color="orange", ls='--')
+
+    ####
+    for d, dim in enumerate(gkpdims):
+
+        ax, ax2, minpos, maxneg = plot_alphaNP_det_bounds(
+            ax, None,
+            messenger,
+            detstr="gkp",
+            dimindex=d,
+            dim=dim,
+            xind=xind
+        )
+
+    for d, dim in enumerate(nmgkpdims):
+
+        ax, ax2, minpos_global, maxneg_global = plot_alphaNP_det_bounds(
+            ax, None,
+            messenger,
+            detstr="nmgkp",
+            dimindex=d,
+            dim=dim,
+            xind=xind
+        )
+
+    for d, dim in enumerate(projdims):
+
+        ax, ax2, minpos_global, maxneg_global = plot_alphaNP_det_bounds(
+            ax, None,
+            messenger,
+            detstr="proj",
+            dimindex=d,
+            dim=dim,
+            xind=xind
+        )
+    ####
 
     ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$")
     ax.set_ylabel(r"$\Delta \chi^2$")
@@ -312,7 +351,7 @@ def plot_alphaNP_det_bounds(
     minpos_num = np.nan_to_num(minpos, nan=10.)
     maxneg_num = np.nan_to_num(maxneg, nan=-10.)
 
-    if messenger.params.showalldetbounds:
+    if messenger.params.showalldetbounds and ax2 is not None:
 
         ax2.scatter(allpos, np.zeros(len(allpos)),
             s=1, color=plot_colour)
@@ -431,6 +470,7 @@ def plot_alphaNP_ll(
             s=1, alpha=.2, color=fit_scatter_colour, zorder=3)
         ax1.scatter(alphas[exp][np.argmin(delchisqs[exp])],
             np.min(delchisqs[exp]), color=fit_scatter_colour, zorder=3)
+        # red blobs are here
 
     ax1.axhline(y=delchisqcrit, color="r", lw=1, ls="--", label=delchisqcrit_label)
 
