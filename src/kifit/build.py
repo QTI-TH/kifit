@@ -1,19 +1,22 @@
 import os
 import logging
 import numpy as np
+
+from scipy.odr import ODR, Model, RealData
+from scipy.stats import linregress
+
 from itertools import permutations, combinations, product
 from functools import cache
 
 from kifit.cache_update import update_fct, cached_fct, cached_fct_property
 from kifit.user_elements import user_elems
 
-from kifit.fitools import perform_odr
-
 _data_path = os.path.abspath(os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     '../kifit_data'
 ))
 
+###############################################################################
 
 # Unit conversions
 eV_to_u = 1 / 931494102.42  # conversion of electronvolt to atomic units
@@ -61,6 +64,150 @@ def LeviCivita(dim):
     return list(Levi_Civita_generator(dim))
 
 
+# linear King fit
+##############################################################################
+
+def linfit(p, x):
+    return p[0] * x + p[1]
+
+
+def get_odr_residuals(p, x, y, sx, sy):
+
+    v = 1 / np.sqrt(1 + p[0] ** 2) * np.array([-p[0], 1])
+    z = np.array([x, y]).T
+    sz = np.array([np.diag([sx[i] ** 2, sy[i] ** 2]) for i in range(len(x))])
+
+    residuals = np.array([v @ z[i] - p[1] * v[1] for i in range(len(x))])
+    sigresiduals = np.sqrt(np.array([v @ sz[i] @ v for i in range(len(x))]))
+
+    return residuals, sigresiduals
+
+
+def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
+    """
+    Perform linear regression.
+
+    Args:
+        isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
+        reference_transition_index (int, default: first transition)
+
+    Returns:
+        betas:       fit parameters (p in linfit)
+        sig_betas:   uncertainties on betas
+        kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
+        ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
+        sig_kperp1s: uncertainties on kperp1s
+        sig_ph1s:    uncertainties on ph1s
+
+    """
+
+    x = isotopeshiftdata.T[reference_transition_index]
+    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
+
+    betas = []
+    sig_betas = []
+
+    for i in range(y.shape[1]):
+        res = linregress(x, y.T[i])
+        betas.append([res.slope, res.intercept])
+        sig_betas.append([res.stderr, res.intercept_stderr])
+
+    betas = np.array(betas)
+
+    sig_betas = np.array(sig_betas)
+
+    ph1s = np.arctan(betas.T[0])
+    sig_ph1s = np.array(
+        [sig_betas[j, 0] / (1 + betas[j, 0]) for j in range(len(betas))]
+    )
+
+    kperp1s = betas.T[1] * np.cos(ph1s)
+    sig_kperp1s = np.sqrt(
+        (sig_betas.T[1] * np.cos(ph1s)) ** 2
+        + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
+    )
+
+    return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s)
+
+
+def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
+                reference_transition_index: int = 0):
+    """
+    Perform separate orthogonal distance regression for each transition pair.
+
+    Args:
+        isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
+        reference_transition_index (int, default: first transition)
+
+    Returns:
+        betas:       fit parameters (p in linfit)
+        sig_betas:   uncertainties on betas
+        kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
+        ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
+        sig_kperp1s: uncertainties on kperp1s
+        sig_ph1s:    uncertainties on ph1s
+        cov_kperp1_ph1s: covariance matrices for (kperp1, ph1)
+    """
+    lin_model = Model(linfit)
+
+    x = isotopeshiftdata.T[reference_transition_index]
+    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
+
+    sigx = sigisotopeshiftdata.T[reference_transition_index]
+    sigy = np.delete(sigisotopeshiftdata, reference_transition_index, axis=1)
+
+    betas = []
+    sig_betas = []
+    cov_kperp1_ph1s = []
+
+    for i in range(y.shape[1]):
+        data = RealData(x, y.T[i], sx=sigx, sy=sigy.T[i])
+        beta_init = np.polyfit(x, y.T[i], 1)
+        odr = ODR(data, lin_model, beta0=beta_init)
+        out = odr.run()
+
+        # Extract beta and covariance matrix
+        betas.append(out.beta)
+        sig_betas.append(out.sd_beta)
+        cov_beta = out.cov_beta
+
+        # Calculate ph1 and kperp1
+        ph1 = np.arctan(out.beta[0])
+        # kperp1 = out.beta[1] * np.cos(ph1)
+
+        # Derivatives for the delta method
+        d_kperp1_d_beta0 = -out.beta[1] * np.sin(ph1)
+        d_kperp1_d_beta1 = np.cos(ph1)
+        d_ph1_d_beta0 = 1 / (1 + out.beta[0]**2)
+        d_ph1_d_beta1 = 0
+
+        # Jacobian matrix J
+        J = np.array([[d_kperp1_d_beta0, d_kperp1_d_beta1],
+                      [d_ph1_d_beta0, d_ph1_d_beta1]])
+
+        # Covariance matrix for (kperp1, ph1)
+        cov_kperp1_ph1 = J @ cov_beta @ J.T
+        cov_kperp1_ph1s.append(cov_kperp1_ph1)
+
+    betas = np.array(betas)
+    sig_betas = np.array(sig_betas)
+
+    ph1s = np.arctan(betas.T[0])
+    sig_ph1s = np.arctan(sig_betas.T[0])
+
+    kperp1s = betas.T[1] * np.cos(ph1s)
+    sig_kperp1s = np.sqrt(
+        (sig_betas.T[1] * np.cos(ph1s)) ** 2
+        + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
+    )
+
+    return (betas, sig_betas,
+        kperp1s, ph1s, sig_kperp1s, sig_ph1s, cov_kperp1_ph1s)
+
+
+# Element Collection
+##############################################################################
+
 class ElemCollection:
 
     def __init__(self, elemlist, gkpdims, nmgkpdims):
@@ -82,7 +229,6 @@ class ElemCollection:
         self.len = len(elem_collection)
 
         self._init_Xcoeffs()
-
         #self.check_det_dims(gkpdims, nmgkpdims)
 
     def _init_Xcoeffs(self):
@@ -102,7 +248,7 @@ class ElemCollection:
         self.mphis = first_list
         self.x_vals = (self.elems[0]).x_vals
 
-    def check_det_dims(self, gkpdims, nmgkpdims):
+    def check_det_dims(self, gkpdims, nmgkpdims, projdims):
         """
         Check whether the demanded generalised King plot and no-mass generalised
         King plot dimensions are compatible with the data associated to the
@@ -110,17 +256,19 @@ class ElemCollection:
         only take one element at a time.
 
         """
-        if not (not gkpdims and not nmgkpdims):
+        if not (not gkpdims and not nmgkpdims and not projdims):
             if self.len != 1:
                 raise IndexError(
                     "Determinant methods are only valid for single element.")
             else:
-                (self.elems[0]).check_det_dims(gkpdims, nmgkpdims)
+                (self.elems[0]).check_det_dims(gkpdims, nmgkpdims, projdims)
 
+
+# Elem
+##############################################################################
 
 class Elem:
     # ADMIN ####################################################################
-
     # Load raw data from data folder
     # VALID_ELEM = ['Ca']
     VALID_ELEM = user_elems
@@ -195,9 +343,14 @@ class Elem:
             sig_m_ap_0 = self.isotope_data[5]
 
             # ionisation energies in eV
-            Eb = self.Eb_data.T[0] * (-1) * eV_to_u
-            sig_Eb = self.Eb_data.T[1] * (-1) * eV_to_u
-            n_electrons = len(Eb)
+            if self.Eb_data.shape[0] == 0:
+                Eb = np.array([0])
+                sig_Eb = np.array([0])
+                n_electrons = 0
+            else:
+                Eb = self.Eb_data.T[0] * (-1) * eV_to_u
+                sig_Eb = self.Eb_data.T[1] * (-1) * eV_to_u
+                n_electrons = len(Eb)
 
             # nuclear masses
             self.m_a_in = m_a_0 - n_electrons * m_e + np.sum(Eb)
@@ -256,9 +409,11 @@ class Elem:
         # self.ph1 = np.zeros(self.ntransitions - 1)
         (
             _, _,
-            self.kp1_init, self.ph1_init, self.sig_kp1_init, self.sig_ph1_init
+            self.kp1_init, self.ph1_init,
+            self.sig_kp1_init, self.sig_ph1_init,
+            self.cov_kperp1_ph1
         ) = perform_odr(
-            self.mu_norm_isotope_shifts_in, self.sig_mu_norm_isotope_shifts_in,
+            self.nutil_in, self.sig_nutil_in,
             reference_transition_index=0)
 
         self.alphaNP_init = 0.
@@ -270,7 +425,7 @@ class Elem:
         self.sig_alphaNP_init = 1
 
         # self.sig_alphaNP_init = np.absolute(np.max(self.absd) / np.min(
-        #     np.tensordot(self.mu_norm_avec, self.X1[1:], axes=0)))
+        #     np.tensordot(self.gammatilvec, self.X1[1:], axes=0)))
         # print("sig_alphaNP_init", self.sig_alphaNP_init)
 
     @update_fct
@@ -287,6 +442,9 @@ class Elem:
             raise ValueError("""alphaNP is a scalar.""")
         if hasattr(sigalpha, "__len__"):
             raise ValueError("""sig_alphaNP is a scalar.""")
+
+        logging.info(f"Setting alphaNP_init to     {alpha}.")
+        logging.info(f"setting sig_alphaNP_init to {sigalpha}.")
 
         self.alphaNP_init = alpha
         self.sig_alphaNP_init = sigalpha
@@ -441,18 +599,22 @@ class Elem:
 
         return 0
 
-    def check_det_dims(self, gkpdims=[], nmgkpdims=[]):
+    def check_det_dims(self, gkpdims=[], nmgkpdims=[], projdims=[]):
         """
         Check whether Generalised King Plots (No-Mass Generalised King Plots) of
         dimensions gkpdims (nmgkpdims) can be constructed from data of element.
 
         """
+        if self.ntransitions < 2:
+            raise ValueError(
+                """Determinant methods require at least 2 transitions.""")
+
         for dim in gkpdims:
             if dim < 3:
                 raise ValueError("""Generalised King Plot formula is only valid
                 for dim >=3.""")
             if dim > self.nisotopepairs or dim > self.ntransitions + 1:
-                raise ValueError("""dim is larger than dimension of provided
+                raise ValueError("""GKP dim is larger than dimension of provided
                 data.""")
             else:
                 logging.info(f"GKP dimension {dim} is valid.")
@@ -463,9 +625,18 @@ class Elem:
                 only valid for dim >=3.""")
             if dim > self.nisotopepairs or dim > self.ntransitions:
                 raise ValueError(
-                    """dim is larger than dimension of provided data.""")
+                    """NMGKP dim is larger than dimension of provided data.""")
             else:
                 logging.info(f"Parsed NMGKP dimension {dim} is valid.")
+
+        for dim in projdims:
+            if dim < 3:
+                raise ValueError("""Projection method is only valid for dim >=3.""")
+            if dim > self.nisotopepairs:
+                raise ValueError(
+                    """proj dim is larger than provided number of isotope pairs.""")
+            else:
+                logging.info(f"Parsed proj dimension {dim} is valid.")
 
         return (self.nisotopepairs, self.ntransitions)
 
@@ -566,7 +737,7 @@ class Elem:
                 self.m_ap_in)
 
     @cached_fct_property
-    def mu_norm_isotope_shifts_in(self):
+    def nutil_in(self):
         """
         Generate mass normalised isotope shifts from input data
 
@@ -579,7 +750,7 @@ class Elem:
         return np.divide(self.nu_in.T, self.muvec_in).T
 
     @cached_fct_property
-    def mu_norm_isotope_shifts(self):
+    def nutil(self):
         """
         Generate mass normalised isotope shifts
 
@@ -591,13 +762,13 @@ class Elem:
         return np.divide(self.nu.T, self.muvec).T
 
     @cached_fct_property
-    def sig_mu_norm_isotope_shifts_in(self):
+    def sig_nutil_in(self):
         """
         Generate uncertainties on mass normalised isotope shifts and write
         (nisotopepairs x ntransitions)-matrix to file.
 
         """
-        return np.absolute(np.array([[self.mu_norm_isotope_shifts_in[a, i]
+        return np.absolute(np.array([[self.nutil_in[a, i]
             * np.sqrt((self.sig_nu_in[a, i] / self.nu_in[a, i])**2
                 + (self.m_a_in[a]**2 * self.sig_m_ap_in[a]**2 / self.m_ap_in[a]**2
                     + self.m_ap_in[a]**2 * self.sig_m_a_in[a]**2 / self.m_a_in[a]**2)
@@ -626,34 +797,37 @@ class Elem:
                 self.m_ap)
 
     @cached_fct_property
-    def mu_norm_muvec(self):
+    def mutilvec(self):
         """
         Return mu vector, normalised by itself.
-        mu_norm_muvec is an (nisotopepairs)-vector.
+        mutilvec is an (nisotopepairs)-vector.
 
         """
         return np.ones((self.muvec).shape)
 
     @cached_fct_property
-    def avec(self):
+    def gammavec(self):
         """
         Generate nuclear form factor
 
-            a^{AA'} = A - A'
+            gamma^a = gamma^{A_a A_a'} = A_a - A_a',
 
-        for the new physics term. avec is an nisotopepairs-vector.
+        for the new physics term. Here A_a and A_a' are the isotope and the
+        reference isotope of the a-th isotope pair.
+
+        gammavec is an nisotopepairs-vector.
 
         """
         return self.a_nisotope - self.ap_nisotope
 
     @cached_fct_property
-    def mu_norm_avec(self):
+    def gammatilvec(self):
         """
         Generate mass-normalised nuclear form factor h for the new physics term.
         h is an nisotopepairs-vector.
 
         """
-        return self.avec / self.muvec
+        return self.gammavec / self.muvec
 
     # Electronic Factors ######################################################
     @cached_fct_property
@@ -690,6 +864,34 @@ class Elem:
         """
         return np.insert(sec(self.ph1), 0, 0)
 
+    # @cached_fct
+    def Fji(self, j: int, i: int):
+        """
+        Return Fji = Fj / Fi for general i, j.
+
+        """
+        isotopeshiftdata = np.c_[
+            self.nutil_in.T[i],
+            self.nutil_in.T[j]
+        ]
+        sigisotopeshiftdata = np.c_[
+            self.sig_nutil_in.T[i],
+            self.sig_nutil_in.T[j]
+        ]
+
+        betas, _, _, _, _, _, _ = perform_odr(
+            isotopeshiftdata, sigisotopeshiftdata, reference_transition_index=0)
+
+        return betas[0, 0]
+
+    # @cached_fct
+    def Xji(self, j: int, i: int):
+        """
+        Return Xji = Xj - Fji Xi for general i, j.
+
+        """
+        return self.Xvec[j] - self.Fji(j, i) * self.Xvec[i]
+
     @cached_fct_property
     def X1(self):
         """
@@ -700,13 +902,14 @@ class Elem:
 
     # Construction of the Loglikelihood Function ##############################
     @cached_fct_property
-    def np_term(self):
+    def avg_np_term(self):
         """
         Generate the (nisotopepairs x ntransitions)-dimensional new physics term
         starting from theoretical input and fit parameters.
 
         """
-        return self.alphaNP * np.tensordot(self.mu_norm_avec, self.X1, axes=0)
+        return self.alphaNP * np.tensordot(
+            self.gammatilvec - np.average(self.gammatilvec), self.X1, axes=0)
 
     @cached_fct
     def D_a1i(self, a: int, i: int):
@@ -719,8 +922,8 @@ class Elem:
             return 0
 
         elif ((i in self.range_j) and (a in self.range_a)):
-            return (self.nu[a, i] - self.F1[i] * self.nu[a, 0]
-                    - self.muvec[a] * self.np_term[a, i])
+            return (self.nutil[a, i] - self.F1[i] * self.nutil[a, 0]
+                    - self.avg_np_term[a, i])
         else:
             raise IndexError('Index passed to D_a1i is out of range.')
 
@@ -732,12 +935,12 @@ class Elem:
         """
         if ((i == 0) & (a in self.range_a)):
             return (- 1 / self.F1sq * np.sum(np.array([self.F1[j]
-                * (self.D_a1i(a, j) / self.muvec[a]
+                * (self.D_a1i(a, j)
                     - self.secph1[j] * self.Kperp1[j])
                 for j in self.range_j])))
 
         elif ((i in self.range_j) & (a in self.range_a)):
-            return (self.D_a1i(a, i) / self.muvec[a]
+            return (self.D_a1i(a, i)
                     - self.secph1[i] * self.Kperp1[i]
                     + self.F1[i] * self.d_ai(a, 0))
         else:
@@ -762,6 +965,12 @@ class Elem:
         """
         return np.sqrt(np.diag(self.dmat @ self.dmat.T))
 
+    # Determinant Methods
+    ###########################################################################
+
+    # ### GKP #################################################################
+
+    @cached_fct
     def alphaNP_GKP(self, ainds=[0, 1, 2], iinds=[0, 1]):
         """
         Returns value for alphaNP computed using the Generalised King plot
@@ -783,11 +992,11 @@ class Elem:
             raise ValueError("""Element %s does not have the required number of
             transitions.""" % (self.id))
 
-        numat = self.mu_norm_isotope_shifts[np.ix_(ainds, iinds)]
-        mumat = self.mu_norm_muvec[np.ix_(ainds)]
+        numat = self.nutil[np.ix_(ainds, iinds)]
+        mumat = self.mutilvec[np.ix_(ainds)]
         Xmat = self.Xvec[np.ix_(iinds)]  # X-coefficients for a given mphi
 
-        hmat = self.mu_norm_avec[np.ix_(ainds)]
+        hmat = self.gammatilvec[np.ix_(ainds)]
 
         vol_data = np.linalg.det(np.c_[numat, mumat])
 
@@ -798,44 +1007,6 @@ class Elem:
                 np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
                 mumat]))
         alphaNP = np.math.factorial(dim - 2) * np.array(vol_data / vol_alphaNP1)
-
-        return alphaNP
-
-    @cached_fct
-    def alphaNP_NMGKP(self, ainds=[0, 1, 2], iinds=[0, 1, 2]):
-        """
-        Returns value for alphaNP computed using the no-mass Generalised King
-        plot formula with the isotope pairs with indices ainds, the transitions
-        with indices iinds and the X-coefficients associated to the xth mphi
-        value.
-
-        """
-        dim = len(ainds)
-        if dim < 3:
-            raise ValueError("""Generalised King Plot formula is only valid for
-            numbers of isotope pairs >=3.""")
-        if len(iinds) != dim:
-            raise ValueError("""Generalised King Plot formula requires same
-            number of transitions as isotope pairs.""")
-        if max(ainds) > self.nisotopepairs:
-            raise ValueError("""Element %s does not have the required number of
-            isotope pairs.""" % (self.id))
-        if max(iinds) > self.ntransitions:
-            raise ValueError("""Element %s does not have the required number of
-            transitions.""" % (self.id))
-
-        numat = self.mu_norm_isotope_shifts[np.ix_(ainds, iinds)]
-        Xmat = self.Xvec[np.ix_(iinds)]  # X-coefficients for a given mphi
-        hmat = self.mu_norm_avec[np.ix_(ainds)]
-
-        vol_data = np.linalg.det(numat)
-
-        vol_alphaNP1 = 0
-        for i, eps_i in LeviCivita(dim):
-            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
-                Xmat[i[0]] * hmat,
-                np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
-        alphaNP = np.math.factorial(dim - 1) * np.array(vol_data / vol_alphaNP1)
 
         return alphaNP
 
@@ -876,9 +1047,9 @@ class Elem:
         for a_inds, i_inds in product(combinations(self.range_a, dim),
                 combinations(self.range_i, dim - 1)):
             # taking into account ordering
-            numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
-            mumat = self.mu_norm_muvec[np.ix_(a_inds)]
-            hmat = self.mu_norm_avec[np.ix_(a_inds)]
+            numat = self.nutil[np.ix_(a_inds, i_inds)]
+            mumat = self.mutilvec[np.ix_(a_inds)]
+            hmat = self.gammatilvec[np.ix_(a_inds)]
 
             voldatlist.append(np.linalg.det(np.c_[numat, mumat]))
             vol1part = []
@@ -922,6 +1093,45 @@ class Elem:
 
         return alphalist
 
+    # ### NMGKP ###############################################################
+    @cached_fct
+    def alphaNP_NMGKP(self, ainds=[0, 1, 2], iinds=[0, 1, 2]):
+        """
+        Returns value for alphaNP computed using the no-mass Generalised King
+        plot formula with the isotope pairs with indices ainds, the transitions
+        with indices iinds and the X-coefficients associated to the initialised
+        mphi value.
+
+        """
+        dim = len(ainds)
+        if dim < 3:
+            raise ValueError("""Generalised King Plot formula is only valid for
+            numbers of isotope pairs >=3.""")
+        if len(iinds) != dim:
+            raise ValueError("""Generalised King Plot formula requires same
+            number of transitions as isotope pairs.""")
+        if max(ainds) > self.nisotopepairs:
+            raise ValueError("""Element %s does not have the required number of
+            isotope pairs.""" % (self.id))
+        if max(iinds) > self.ntransitions:
+            raise ValueError("""Element %s does not have the required number of
+            transitions.""" % (self.id))
+
+        numat = self.nutil[np.ix_(ainds, iinds)]
+        Xmat = self.Xvec[np.ix_(iinds)]  # X-coefficients for a given mphi
+        hmat = self.gammatilvec[np.ix_(ainds)]
+
+        vol_data = np.linalg.det(numat)
+
+        vol_alphaNP1 = 0
+        for i, eps_i in LeviCivita(dim):
+            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+                Xmat[i[0]] * hmat,
+                np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
+        alphaNP = np.math.factorial(dim - 1) * np.array(vol_data / vol_alphaNP1)
+
+        return alphaNP
+
     @cached_fct
     def alphaNP_NMGKP_part(self, dim):
         """
@@ -961,8 +1171,8 @@ class Elem:
         for a_inds, i_inds in product(combinations(self.range_a, dim),
                 combinations(self.range_i, dim)):
             # taking into account ordering
-            numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
-            hmat = self.mu_norm_avec[np.ix_(a_inds)]
+            numat = self.nutil[np.ix_(a_inds, i_inds)]
+            hmat = self.gammatilvec[np.ix_(a_inds)]
 
             voldatlist.append(np.linalg.det(numat))
             vol1part = []
@@ -1006,6 +1216,120 @@ class Elem:
 
         return alphalist
 
+    # ### projection method ###################################################
+
+    def pvec(self, v1, v2):
+
+        Dmat = np.c_[v1, v2]
+
+        return (Dmat @ np.linalg.inv(Dmat.T @ Dmat) @ Dmat.T) @ self.mutilvec
+
+    def Vproj(self, v0, v1, v2):
+
+        pv = self.pvec(v1, v2)
+
+        return np.linalg.norm(v0 - pv) * np.sqrt(
+            (v1 @ v1) * (v2 @ v2) - (v1 @ v2)**2)
+
+    def alphaNP_proj_Xindep_part(self, ainds=[0, 1, 2], iinds=[0, 1]):
+        """
+        Returns X-coefficient independent part of alphaNP computed using the
+        projection method with the isotope pairs with indices ainds, the
+        transitions with indices iinds.
+
+        """
+        if len(iinds) != 2:
+            raise ValueError(""" Projection method is only valid for data sets
+            with two transitions.""")
+
+        dim = len(ainds)
+        if dim < 3:
+            raise ValueError("""Projection method requires at least 3 isotope
+            pairs.""")
+
+        mnu1 = (self.nutil.T)[0]
+        mnu2 = (self.nutil.T)[1]
+
+        Vexp = self.Vproj(self.mutilvec, mnu1, mnu2)
+        XindepVth = self.Vproj(self.mutilvec, mnu1, self.gammatilvec)
+
+        return Vexp / XindepVth
+
+    def alphaNP_proj(self, ainds=[0, 1, 2], iinds=[0, 1]):
+        """
+        Returns value for alphaNP computed using the projection method with the
+        isotope pairs with indices ainds, the transitions with indices iinds.
+
+        """
+        return (
+            self.alphaNP_proj_Xindep_part(ainds=ainds, iinds=iinds)
+            / self.Xji(j=iinds[1], i=iinds[0]))
+
+    @cached_fct
+    def alphaNP_proj_part(self, dim):
+        """
+        Prepares the ingredients needed for the computation of alphaNP using the
+        projection method with
+
+           (nisotopepairs, ntransitions) = (dim, 2),   dim >= 3.
+
+        The procedure is repeated for all possible combinations of the data that
+        fit into this form.
+
+        Since this part of the computation of alphaNP is independent of the
+        X-coefficients, it only needs to be evaluated once per element and per
+        dim.
+
+        Returns:
+            - list of X-coefficient independent parts of alphaNP, for each
+              permutation of the data (dimension: number of combinations),
+            - xindlist, a list that keeps track of the indices of the required
+              X-coefficients (dimension: number of combinations).
+
+        """
+        if dim < 3:
+            raise ValueError("""Projection method is only valid for dim >=3.""")
+        if dim > self.nisotopepairs:
+            raise ValueError(
+                """proj dim is larger than provided number of isotope pairs.""")
+
+        alphapartlist = []
+        xindlist = []
+
+        for a_inds, i_inds in product(combinations(self.range_a, dim),
+                combinations(self.range_i, 2)):
+            # taking into account ordering
+            alphapartlist.append(self.alphaNP_proj_Xindep_part(ainds=a_inds,
+                iinds=i_inds))
+            xindlist.append(i_inds)
+
+        return np.array(alphapartlist), xindlist
+
+    @cached_fct
+    def alphaNP_proj_combinations(self, dim):
+        """
+        Evaluates alphaNP using the ingredients computed by
+        alphaNP_proj_Xindep_part for dim=dim.
+
+        This part of the computation of alphaNP should be repeated for each set
+        of X-coefficients.
+
+        Returns a list of p alphaNP-values, where p is the number of
+        combinations of the data of dimension
+
+           (nisotopepairs, 2) = (dim, 2),   dim >= 3.
+
+        """
+        alphalist = []
+
+        alphapartlist, xindlist = self.alphaNP_proj_part(dim)
+
+        for p, xind in enumerate(xindlist):
+
+            alphalist.append(alphapartlist[p] / self.Xji(j=xind[1], i=xind[0]))
+
+        return np.array(alphalist)
+
     # @cached_fct
     # def alphaNP_NMGKP(self, dim):
     #     """
@@ -1028,9 +1352,9 @@ class Elem:
     #
     #         # indexlist.append([a_inds, i_inds])
     #
-    #         numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+    #         numat = self.nutil[np.ix_(a_inds, i_inds)]
     #         Xmat = self.Xvec[np.ix_(i_inds)]
-    #         hmat = self.mu_norm_avec[np.ix_(a_inds)]
+    #         hmat = self.gammatilvec[np.ix_(a_inds)]
     #
     #         vol_data = np.linalg.det(numat)
     #
@@ -1069,10 +1393,10 @@ class Elem:
     #
     #         # indexlist.append([a_inds, i_inds])
     #
-    #         numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
-    #         mumat = self.mu_norm_muvec[np.ix_(a_inds)]
+    #         numat = self.nutil[np.ix_(a_inds, i_inds)]
+    #         mumat = self.mutilvec[np.ix_(a_inds)]
     #         Xmat = self.Xvec[np.ix_(i_inds)]
-    #         hmat = self.mu_norm_avec[np.ix_(a_inds)]
+    #         hmat = self.gammatilvec[np.ix_(a_inds)]
     #
     #         vol_data = np.linalg.det(np.c_[numat, mumat])
     #
@@ -1110,9 +1434,9 @@ class Elem:
     #
     #         # indexlist.append([a_inds, i_inds])
     #
-    #         numat = self.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+    #         numat = self.nutil[np.ix_(a_inds, i_inds)]
     #         Xmat = self.Xvec[np.ix_(i_inds)]
-    #         hmat = self.mu_norm_avec[np.ix_(a_inds)]
+    #         hmat = self.gammatilvec[np.ix_(a_inds)]
     #
     #         vol_data = np.linalg.det(numat)
     #

@@ -1,11 +1,14 @@
 from kifit.run import Runner
+from kifit.config import RunParams
 
 
-if __name__ == "__main__":
-    Runner.build().run()
+# set the kifit parameters from parser
+params = RunParams()
 
-    # Runner.build().print_relative_uncertainties()
+# initialize the runner
+runner = Runner(params)
 
-    runner = Runner.build()
-    # runner.generate_all_alphaNP_ll_plots()
-    runner.generate_mphi_alphaNP_plot()
+# run
+runner.run()
+
+# runner.generate_all_alphaNP_ll_plots()

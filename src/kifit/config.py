@@ -2,36 +2,55 @@ import os
 import json
 import numpy as np
 import logging
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
+
+class CustomNamespace:
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+def check_input_logrid_frac(value):
+    intval = int(value)
+
+    if intval < 0:
+        raise ArgumentTypeError(
+            f"""{value} is not a valid value for logrid_frac.
+            Provide positive integer.""")
+    elif intval > 10:
+        raise ArgumentTypeError(
+            f"""{value} seems like a ridiculously large number for logrid_frac.
+            Give it a smaller (but still positive) integer value.""")
+    return intval
 
 
 class RunParams:
-    def __init__(self):
-        self.__runparams = self.parse_arguments()
+    def __init__(self, configuration_file: str = None):
+
+        if configuration_file is not None:
+            self.__runparams = self.load_arguments_from_file(configuration_file)
+        else:
+            self.__runparams = self.parse_arguments()
 
     @property
     def element_list(self):
         return self.__runparams.element_list
 
     @property
-    def output_file_name(self):
-        return self.__output_file_name
+    def num_alphasamples_search(self):
+        return self.__runparams.num_alphasamples_search
 
     @property
-    def optimization_method(self):
-        return self.__runparams.optimization_method
+    def num_elemsamples_per_alphasample_search(self):
+        return self.__runparams.num_elemsamples_per_alphasample_search
 
     @property
-    def maxiter(self):
-        return self.__runparams.maxiter
+    def search_mode(self):
+        return self.__runparams.search_mode
 
     @property
-    def num_searches(self):
-        return self.__runparams.num_searches
-
-    @property
-    def num_elemsamples_search(self):
-        return self.__runparams.num_elemsamples_search
+    def logrid_frac(self):
+        return self.__runparams.logrid_frac
 
     @property
     def num_exp(self):
@@ -78,6 +97,10 @@ class RunParams:
         return self.__runparams.nmgkp_dims
 
     @property
+    def proj_dims(self):
+        return self.__runparams.proj_dims
+
+    @property
     def num_det_samples(self):
         return self.__runparams.num_det_samples
 
@@ -86,12 +109,12 @@ class RunParams:
         return self.__runparams.showalldetbounds
 
     @property
+    def showalldetvals(self):
+        return self.__runparams.showalldetvals
+
+    @property
     def showbestdetbounds(self):
         return self.__runparams.showbestdetbounds
-    
-    @property
-    def init_globalopt(self):
-        return self.__runparams.init_globalopt
 
     @property
     def num_sigmas(self):
@@ -110,43 +133,50 @@ class RunParams:
             "--element_list",
             nargs="+",
             type=str,
+            required=True,
             help="List of strings corresponding to names of data folders",
         )
         parser.add_argument(
-            "--optimization_method",
-            default="Powell",
-            type=str,
-            help="Optimization method used to find the best experiment window",
-        )
-        parser.add_argument(
-            "--maxiter",
+            "--num_alphasamples_search",
             default=1000,
             type=int,
-            help="Max number of iterations for optimization early stopping",
+            help="no. alphaNP samples generated during each search step",
         )
         parser.add_argument(
-            "--num_searches",
-            default=10,
-            type=int,
-            help="# searches (optimizations) run to find the optimal working window",
-        )
-        parser.add_argument(
-            "--num_elemsamples_search",
+            "--num_elemsamples_per_alphasample_search",
             default=100,
             type=int,
-            help="# generated elements during each search step",
+            help="""no. element samples generated for each alphaNP sample during
+            initial search""",
+        )
+        parser.add_argument(
+            "--search_mode",
+            default="detlogrid",
+            choices=["detlogrid", "globalogrid"],
+            help="""method used during search phase. logrid uses input from determinant methods, globalopt does not""",
+        )
+        parser.add_argument(
+            "--logrid_frac",
+            default=5,
+            type=check_input_logrid_frac,
+            help="""orders to be added/subtracted from determinant results when
+            defining the alphaNP scan region for initial search.
+            Should be a positive or zero integer:
+            0 -> scan region -> 0,
+            -infty -> scan region infinite.
+            Please provide integers smaller or equal to 10.""",
         )
         parser.add_argument(
             "--num_exp",
             default=10,
             type=int,
-            help="# experiments after the optimal working window has been found",
+            help="no. experiments after the optimal working window has been found",
         )
         parser.add_argument(
             "--num_elemsamples_exp",
             default=100,
             type=int,
-            help="# generated elements during each final experiment",
+            help="no. element samples generated during each experiment",
         )
         parser.add_argument(
             "--num_alphasamples_exp",
@@ -163,21 +193,21 @@ class RunParams:
         parser.add_argument(
             "--min_percentile",
             default=1,
-            choices=range(1, 100),
+            choices=range(50),
             type=int,
             help="Min percentile value used to compute a robust estimation of min(logL)",
         )
         parser.add_argument(
             "--x0_fit",
             nargs="+",
-            default=[],
+            default=[0],
             type=int,
             help="Target mphi indices for fit",
         )
         parser.add_argument(
             "--x0_det",
             nargs="+",
-            default=[],
+            default=[0],
             type=int,
             help="Target mphi indices for determinants",
         )
@@ -194,7 +224,7 @@ class RunParams:
         parser.add_argument(
             "--gkp_dims",
             nargs="+",
-            default=[],
+            default=[3],
             type=int,
             help="List of generalised King plot dimensions",
         )
@@ -204,6 +234,13 @@ class RunParams:
             default=[],
             type=int,
             help="List of no-mass generalised King plot dimensions",
+        )
+        parser.add_argument(
+            "--proj_dims",
+            nargs="+",
+            default=[3],
+            type=int,
+            help="List of projection method dimensions",
         )
         parser.add_argument(
             "--num_det_samples",
@@ -217,14 +254,14 @@ class RunParams:
             help="If true, the det bounds are shown for all combinations of the data."
         )
         parser.add_argument(
+            "--showalldetvals",
+            action="store_true",
+            help="If true, the det values +/- uncertainties (1 sigma) are plotted."
+        )
+        parser.add_argument(
             "--showbestdetbounds",
             action="store_true",
             help="If true, the best det bounds are shown."
-        )
-        parser.add_argument(
-            "--init_globalopt",
-            action="store_true",
-            help="If true, an initial global optimization is done to determine the optimization bounds."
         )
         parser.add_argument(
             "--num_sigmas",
@@ -235,10 +272,19 @@ class RunParams:
         parser.add_argument(
             "--verbose",
             action="store_true",
-            help="If specified, extra statements are printed and extra plots plotted."
+            help="""If specified, extra statements are printed and extra plots
+            plotted."""
         )
 
         return parser.parse_args()
+
+    def load_arguments_from_file(self, json_file):
+        """Load arguments from a JSON file and set them as attributes."""
+
+        with open(json_file, 'r') as f:
+            data = json.load(f)
+
+        return CustomNamespace(**data)
 
 
 class Paths:
@@ -299,27 +345,53 @@ class Paths:
             + (f"_x{str(xind)}" if xind is not None else "")
             + ".png")
 
+    def search_output_path(self, xind):
+        # path where to save fit results for x=xind
+        search_output_path = os.path.join(
+            self.output_data_path, (
+                "search_output_"
+                + f"{self.__elem_collection_id}_"
+                + f"{self.__params.num_elemsamples_per_alphasample_search}es-search_"
+                + f"{self.__params.num_alphasamples_search}as-search_"
+                + f"{self.__params.search_mode}-search_"
+                + (f"{self.__params.logrid_frac}logridfrac_"
+                    if self.__params.search_mode == "detlogrid" else "")
+                # + (f"{self.__params.num_optigrid_searches}searches_"
+                #     if self.__params.search_mode == "optigrid" else "")
+                + f"{self.__params.num_exp}exps_"
+                + f"{self.__params.num_elemsamples_exp}es-exp_"
+                + f"{self.__params.num_alphasamples_exp}as-exp_"
+                + f"{self.__params.min_percentile}minperc_"
+                + f"blocksize{self.__params.block_size}_"
+                + f"x{xind}.json")
+        )
+
+        return search_output_path
+
     def fit_output_path(self, xind):
         # path where to save fit results for x=xind
         fit_output_path = os.path.join(
             self.output_data_path, (
                 f"{self.__elem_collection_id}_"
-                + f"{self.__params.optimization_method}_"
-                + f"{self.__params.num_searches}searches_"
-                + f"{self.__params.num_elemsamples_search}es-search_"
+                + f"{self.__params.num_elemsamples_per_alphasample_search}es-search_"
+                + f"{self.__params.num_alphasamples_search}as-search_"
+                + f"{self.__params.search_mode}-search_"
+                + (f"{self.__params.logrid_frac}logridfrac_"
+                    if self.__params.search_mode == "detlogrid" else "")
+                # + (f"{self.__params.num_optigrid_searches}searches_"
+                #     if self.__params.search_mode == "optigrid" else "")
                 + f"{self.__params.num_exp}exps_"
                 + f"{self.__params.num_elemsamples_exp}es-exp_"
                 + f"{self.__params.num_alphasamples_exp}as-exp_"
                 + f"{self.__params.min_percentile}minperc_"
-                + f"maxiter{self.__params.maxiter}_"
                 + f"blocksize{self.__params.block_size}_"
-                + ("globalopt_" if self.__params.init_globalopt else "")
-                + f"x{xind}.json")
+                + f"x{xind}.json"
+            )
         )
 
         return fit_output_path
 
-    def det_output_path(self, gkp, dim, xind):
+    def det_output_path(self, detstr, dim, xind):
         """
         Path where to save det results for the element defined by elemstr.
         dim = dimension of det
@@ -330,8 +402,7 @@ class Paths:
         det_output_path = os.path.join(
             self.output_data_path, (
                 f"{self.__elem_collection_id}_"
-                + f"{dim}-dim_"
-                + ("gkp_" if gkp else "nmgkp_")
+                + f"{dim}-dim_" + str(detstr) + "_"
                 + f"{self.__params.num_det_samples}samples_"
                 + f"x{xind}.json")
         )
@@ -371,17 +442,23 @@ class Paths:
         else:
             raise ImportError(f"{path} Does not yet exist. Please run Kifit.")
 
+    def read_search_output(self, x):
+        return self.read_from_path(self.search_output_path(x), self.fit_keys)
+
     def read_fit_output(self, x):
         return self.read_from_path(self.fit_output_path(x), self.fit_keys)
 
-    def read_det_output(self, gkp, dim, x):
-        return self.read_from_path(self.det_output_path(gkp, dim, x), self.det_keys)
+    def read_det_output(self, detstr, dim, x):
+        return self.read_from_path(self.det_output_path(detstr, dim, x), self.det_keys)
+
+    def write_search_output(self, x, results):
+        self.write_to_path(self.search_output_path(x), self.fit_keys, results)
 
     def write_fit_output(self, x, results):
         self.write_to_path(self.fit_output_path(x), self.fit_keys, results)
 
-    def write_det_output(self, gkp, dim, x, results):
-        self.write_to_path(self.det_output_path(gkp, dim, x), self.det_keys, results)
+    def write_det_output(self, detstr, dim, x, results):
+        self.write_to_path(self.det_output_path(detstr, dim, x), self.det_keys, results)
 
 
 class Config:
@@ -419,3 +496,5 @@ class Config:
                 raise IndexError("Parsed invalid x0_det index.")
             logging.info("Initialised x range for determinants: %s", self.params.x0_det)
             self.x_vals_det = self.params.x0_det
+
+

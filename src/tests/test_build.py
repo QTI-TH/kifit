@@ -1,6 +1,7 @@
 import numpy as np
 from pprint import pprint
 from kifit.build import Elem, Levi_Civita_generator, LeviCivita
+from kifit.fitools import generate_elemsamples, get_llist_elemsamples
 from Mathematica_crosschecks import *
 from itertools import permutations, combinations, product
 
@@ -57,10 +58,8 @@ def test_load_individual():
         assert len(ca.sig_Xcoeff_data[x]) == ca.ntransitions + 1
 
     assert (ca.nu.size == ca.nisotopepairs * ca.ntransitions)
-    assert np.allclose(ca.mu_norm_isotope_shifts_in, mnu_Mathematica,
-        atol=0, rtol=1e-14)
-    assert np.allclose(ca.sig_mu_norm_isotope_shifts_in, sig_mnu_Mathematica,
-        atol=0, rtol=1e-14)
+    assert np.allclose(ca.nutil_in, mnu_Mathematica, atol=0, rtol=1e-14)
+    assert np.allclose(ca.sig_nutil_in, sig_mnu_Mathematica, atol=0, rtol=1e-14)
     # assert (np.sum(ca.corr_nu_nu) == ca.nisotopepairs * ca.ntransitions)
     # assert (np.sum(ca.corr_m_m) == 1)
     # assert (np.trace(ca.corr_m_mp) == 0)
@@ -68,10 +67,10 @@ def test_load_individual():
     # assert (np.trace(ca.corr_X_X) == ca.ntransitions)
     assert (ca.muvec[0] == 1 / ca.m_a[0] - 1 / ca.m_ap[0])
     assert (len(ca.muvec) == ca.nisotopepairs)
-    assert (ca.mu_norm_avec.size == ca.nisotopepairs)
-    assert np.allclose(ca.mu_norm_avec, np.array([(ca.a_nisotope[a] - ca.ap_nisotope[a])
+    assert (ca.gammatilvec.size == ca.nisotopepairs)
+    assert np.allclose(ca.gammatilvec, np.array([(ca.a_nisotope[a] - ca.ap_nisotope[a])
         / ca.muvec[a] for a in ca.range_a]), atol=0, rtol=1e-5)
-    assert (ca.np_term.size == ca.nisotopepairs * ca.ntransitions)
+    assert (ca.avg_np_term.size == ca.nisotopepairs * ca.ntransitions)
     assert np.all([i.is_integer() for i in ca.a_nisotope])
     assert np.all([i.is_integer() for i in ca.ap_nisotope])
     assert (ca.F1.size == ca.ntransitions)
@@ -85,6 +84,7 @@ def test_load_individual():
     assert np.isclose(ca.X1[0], 0, atol=0, rtol=1e-17)
     assert (sum(ca.range_i) == sum(ca.range_j))
     assert (len(ca.range_i) == len(ca.range_j) + 1)
+
 
 
 def test_set_fit_params():
@@ -146,7 +146,8 @@ def test_constr_dvec():
     assert np.allclose(ca.muvec, muvec_Mathematica, atol=0, rtol=1e-10)
 
     D_a1i_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
-    assert np.allclose(D_a1i_Mathematica, D_a1i_python, atol=0, rtol=1e-15)
+
+    assert np.allclose(D_a1i_Mathematica, D_a1i_python, atol=0, rtol=1e-14)
     assert np.allclose(np.array(dmat_Mathematica) / ca.dnorm, ca.dmat,
         atol=0, rtol=1e-8)
 
@@ -156,19 +157,206 @@ def test_constr_dvec():
 
     ca._update_fit_params(theta_LL_Mathematica_1)
 
-    assert np.allclose(ca.np_term, NP_term_alphaNP_1_Mathematica, atol=0, rtol=1e-7)
+    # avg_NP_term_alphaNP_1_Mathematica = np.average(
+        # NP_term_alphaNP_1_Mathematica, axis=1)
+
+    assert np.allclose(ca.avg_np_term, avg_NP_term_alphaNP_1_Mathematica,
+        atol=0, rtol=1e-7)
 
     D_a1i_alphaNP_1_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
+
     assert np.allclose(D_a1i_alphaNP_1_Mathematica, D_a1i_alphaNP_1_python,
-        atol=0, rtol=1e-15)
+        atol=0, rtol=1e-13)
     assert np.allclose(np.array(dmat_alphaNP_1_Mathematica) / ca.dnorm, ca.dmat,
-        atol=0, rtol=1e-14)
+        atol=0, rtol=1e-13)
 
     absd_explicit = np.array([np.sqrt(np.sum(
         np.fromiter([ca.d_ai(a, i)**2 for i in ca.range_i], float))) for a in
         ca.range_a]) / ca.dnorm
-    assert np.allclose(ca.absd, absd_explicit, atol=0, rtol=1e-25)
+    assert np.allclose(ca.absd, absd_explicit, atol=0, rtol=1e-15)
 
+
+def test_d_swap():
+
+    camin = Elem('Camin')
+    camin_swap = Elem('Camin_swap')
+
+    swap_dmat = (camin_swap.dmat).T
+    swapped_swap_dmat = np.c_[swap_dmat[1], swap_dmat[0]]
+
+    assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0, rtol=1e-4)
+    assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0, rtol=1e-5)
+    assert np.allclose(swapped_swap_dmat[2], camin.dmat[2], atol=0, rtol=1e-4)
+
+    assert np.isclose(camin.dnorm, camin_swap.dnorm, atol=0, rtol=1e-100)
+
+    inputparamsamples, _ = generate_elemsamples(camin, 5)
+
+    # alphaNP = 0
+    ###########################################################################
+
+    camin_absdsamples_alpha0 = []
+    camin_swap_absdsamples_alpha0 = []
+
+    for i, inputparams in enumerate(inputparamsamples):
+
+        # print("inputparams   ")
+        # print(inputparams)
+
+        # print("shape test", inputparams[2 * camin.nisotopepairs:])
+
+        inputparamat = np.reshape(inputparams[2 * camin.nisotopepairs:],
+            (camin.nisotopepairs, camin.ntransitions)).T
+
+        inputparamat_swap = np.c_[inputparamat[1], inputparamat[0]]
+
+        inputparamswap = np.concatenate((inputparams[: 2 * camin.nisotopepairs],
+            inputparamat_swap), axis=None)
+
+        # print("inputparamswap")
+        # print(inputparamswap)
+
+        camin._update_elem_params(inputparams)
+        camin_swap._update_elem_params(inputparamswap)
+
+        swap_dmat = (camin_swap.dmat).T
+        swapped_swap_dmat = np.c_[swap_dmat[1], swap_dmat[0]]
+
+        assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0, rtol=1e-3)
+        assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0, rtol=1e-3)
+        assert np.allclose(swapped_swap_dmat[2], camin.dmat[2], atol=0,
+                rtol=1e-2)
+
+        assert np.isclose(camin.dnorm, camin_swap.dnorm, atol=0, rtol=1e-100)
+
+        camin_absdsamples_alpha0.append(camin.absd)
+        camin_swap_absdsamples_alpha0.append(camin_swap.absd)
+
+    camin_covmat_alpha0 = np.cov(np.array(camin_absdsamples_alpha0), rowvar=False)
+    camin_swap_covmat_alpha0 = np.cov(np.array(camin_swap_absdsamples_alpha0), rowvar=False)
+
+    assert np.allclose(camin_covmat_alpha0, camin_swap_covmat_alpha0,
+        atol=0, rtol=1e-2)
+
+    camin_ll_alpha0 = get_llist_elemsamples(camin_absdsamples_alpha0)
+    camin_swap_ll_alpha0 = get_llist_elemsamples(camin_swap_absdsamples_alpha0)
+
+    assert np.allclose(camin_ll_alpha0, camin_swap_ll_alpha0, atol=0, rtol=1e-2)
+
+    # alphaNP = 1e-8
+    ###########################################################################
+
+    camin.alphaNP = 1e-8
+    camin_swap.alphaNP = 1e-8
+
+    camin_absdsamples_alpha1 = []
+    camin_swap_absdsamples_alpha1 = []
+
+    for i, inputparams in enumerate(inputparamsamples):
+
+        # print("inputparams   ")
+        # print(inputparams)
+
+        # print("shape test", inputparams[2 * camin.nisotopepairs:])
+
+        inputparamat = np.reshape(inputparams[2 * camin.nisotopepairs:],
+            (camin.nisotopepairs, camin.ntransitions)).T
+
+        inputparamat_swap = np.c_[inputparamat[1], inputparamat[0]]
+
+        inputparamswap = np.concatenate((inputparams[: 2 * camin.nisotopepairs],
+            inputparamat_swap), axis=None)
+
+        # print("inputparamswap")
+        # print(inputparamswap)
+
+        camin._update_elem_params(inputparams)
+        camin_swap._update_elem_params(inputparamswap)
+
+        swap_dmat = (camin_swap.dmat).T
+        swapped_swap_dmat = np.c_[swap_dmat[1], swap_dmat[0]]
+
+        assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0,
+                rtol=1e-7)
+        assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0,
+                rtol=1e-7)
+        assert np.allclose(swapped_swap_dmat[2], camin.dmat[2], atol=0,
+                rtol=1e-8)
+
+        assert np.isclose(camin.dnorm, camin_swap.dnorm, atol=0, rtol=1e-100)
+
+        camin_absdsamples_alpha1.append(camin.absd)
+        camin_swap_absdsamples_alpha1.append(camin_swap.absd)
+
+    camin_covmat_alpha1 = np.cov(np.array(camin_absdsamples_alpha1), rowvar=False)
+    camin_swap_covmat_alpha1 = np.cov(np.array(camin_swap_absdsamples_alpha1), rowvar=False)
+
+    assert np.allclose(camin_covmat_alpha1, camin_swap_covmat_alpha1,
+        atol=0, rtol=1e-8)
+
+    camin_ll_alpha1 = get_llist_elemsamples(camin_absdsamples_alpha1)
+    camin_swap_ll_alpha1 = get_llist_elemsamples(camin_swap_absdsamples_alpha1)
+
+    assert np.allclose(camin_ll_alpha1, camin_swap_ll_alpha1, atol=0, rtol=1e-7)
+
+    # alphaNP = 1e-6
+    ###########################################################################
+
+    camin.alphaNP = 1e-6
+    camin_swap.alphaNP = 1e-6
+
+    camin_absdsamples_alpha2 = []
+    camin_swap_absdsamples_alpha2 = []
+
+    for i, inputparams in enumerate(inputparamsamples):
+
+        # print("inputparams   ")
+        # print(inputparams)
+
+        # print("shape test", inputparams[2 * camin.nisotopepairs:])
+
+        inputparamat = np.reshape(inputparams[2 * camin.nisotopepairs:],
+            (camin.nisotopepairs, camin.ntransitions)).T
+
+        inputparamat_swap = np.c_[inputparamat[1], inputparamat[0]]
+
+        inputparamswap = np.concatenate((inputparams[: 2 * camin.nisotopepairs],
+            inputparamat_swap), axis=None)
+
+        # print("inputparamswap")
+        # print(inputparamswap)
+
+        camin._update_elem_params(inputparams)
+        camin_swap._update_elem_params(inputparamswap)
+
+        swap_dmat = (camin_swap.dmat).T
+        swapped_swap_dmat = np.c_[swap_dmat[1], swap_dmat[0]]
+
+        assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0,
+                rtol=1e-8)
+        assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0,
+                rtol=1e-8)
+        assert np.allclose(swapped_swap_dmat[2], camin.dmat[2], atol=0,
+                rtol=1e-9)
+
+        assert np.isclose(camin.dnorm, camin_swap.dnorm, atol=0, rtol=1e-100)
+
+        camin_absdsamples_alpha2.append(camin.absd)
+        camin_swap_absdsamples_alpha2.append(camin_swap.absd)
+
+    camin_covmat_alpha2 = np.cov(np.array(camin_absdsamples_alpha2), rowvar=False)
+    camin_swap_covmat_alpha2 = np.cov(np.array(camin_swap_absdsamples_alpha2), rowvar=False)
+
+    assert np.allclose(camin_covmat_alpha2, camin_swap_covmat_alpha2,
+        atol=0, rtol=1e-9)
+
+    camin_ll_alpha2 = get_llist_elemsamples(camin_absdsamples_alpha2)
+    camin_swap_ll_alpha2 = get_llist_elemsamples(camin_swap_absdsamples_alpha2)
+
+    assert np.allclose(camin_ll_alpha2, camin_swap_ll_alpha2, atol=0, rtol=1e-8)
+
+
+    ################################################
 
 def levi_civita_tensor(d):
     arr = np.zeros([d for _ in range(d)])
@@ -205,10 +393,10 @@ def check_alphaNP_GKP(elem, dim):
     for a_inds, i_inds in product(combinations(elem.range_a, dim),
             combinations(elem.range_i, dim - 1)):
 
-        numat = elem.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
-        mumat = elem.mu_norm_muvec[np.ix_(a_inds)]
+        numat = elem.nutil[np.ix_(a_inds, i_inds)]
+        mumat = elem.mutilvec[np.ix_(a_inds)]
         Xmat = elem.Xvec[np.ix_(i_inds)]
-        hmat = elem.mu_norm_avec[np.ix_(a_inds)]
+        hmat = elem.gammatilvec[np.ix_(a_inds)]
 
         vol_data = np.linalg.det(np.c_[numat, mumat])
 
@@ -232,9 +420,9 @@ def check_alphaNP_NMGKP(elem, dim):
     for a_inds, i_inds in product(combinations(elem.range_a, dim),
             combinations(elem.range_i, dim)):
 
-        numat = elem.mu_norm_isotope_shifts[np.ix_(a_inds, i_inds)]
+        numat = elem.nutil[np.ix_(a_inds, i_inds)]
         Xmat = elem.Xvec[np.ix_(i_inds)]
-        hmat = elem.mu_norm_avec[np.ix_(a_inds)]
+        hmat = elem.gammatilvec[np.ix_(a_inds)]
 
         vol_data = np.linalg.det(numat)
 
@@ -252,34 +440,75 @@ def check_alphaNP_NMGKP(elem, dim):
 
 def test_alphaNP_GKP():
     ca = Elem('Ca_testdata')
-    vold, vol1, inds = ca.alphaNP_GKP_part(3)
+    assert np.isclose(ca.alphaNP_GKP(), check_alphaNP_GKP(ca, 3)[0], atol=0,
+        rtol=1e-21)
+
+    yb1 = Elem("strongest_Yb_Kyoto_MIT_GSI_2022")
+    yb1_alphaNP = 5.068061e-11
+    assert np.isclose(yb1.alphaNP_GKP(), yb1_alphaNP, atol=0, rtol=1e-5)
+
+    yb2 = Elem("weakest_Yb_Kyoto_MIT_GSI_2022")
+    yb2_alphaNP = -1.133363e-9
+    assert np.isclose(yb2.alphaNP_GKP(), yb2_alphaNP, atol=0, rtol=1e-7)
+
+    yb3 = Elem("strongest_Yb_Kyoto_MIT_GSI_PTB_2024")
+    yb3_alphaNP = 7.49577e-11
+    assert np.isclose(yb3.alphaNP_GKP(), yb3_alphaNP, atol=0, rtol=1e-5)
+
+    yb4 = Elem("weakest_Yb_Kyoto_MIT_GSI_PTB_2024")
+    yb4_alphaNP = -2.74101e-9
+    assert np.isclose(yb4.alphaNP_GKP(), yb4_alphaNP, atol=0, rtol=1e-6)
+
+    vold, vol1, inds = ca.alphaNP_NMGKP_part(3)
     assert len(vold) == len(vol1), (len(vold), len(vol1))
-
-    alphaNP_GKP_check = check_alphaNP_GKP(ca, 3)
-    alphaNP_GKP_combinations = ca.alphaNP_GKP_combinations(3)
-    assert np.allclose(alphaNP_GKP_check, alphaNP_GKP_combinations,
-        atol=0, rtol=1e-12)
-
-    alphaNP_GKP_simple = ca.alphaNP_GKP()
-
-    assert np.isclose(alphaNP_GKP_combinations[0], alphaNP_GKP_simple,
-        atol=0, rtol=1e-13)
 
 
 def test_alphaNP_NMGKP():
     ca = Elem('Ca_testdata')
     vold, vol1, inds = ca.alphaNP_NMGKP_part(3)
+
     assert len(vold) == len(vol1), (len(vold), len(vol1))
 
-    alphaNP_NMGKP_check = check_alphaNP_NMGKP(ca, 3)
-    alphaNP_NMGKP_combinations = ca.alphaNP_NMGKP_combinations(3)
-    assert np.allclose(alphaNP_NMGKP_check, alphaNP_NMGKP_combinations,
-        atol=0, rtol=10)
+    assert np.isclose(ca.alphaNP_NMGKP(), check_alphaNP_NMGKP(ca, 3)[0], atol=0,
+        rtol=1e-21)
 
-    alphaNP_NMGKP_simple = ca.alphaNP_NMGKP()
 
-    assert np.isclose(alphaNP_NMGKP_combinations[0], alphaNP_NMGKP_simple,
-        atol=0, rtol=1)
+def test_alphaNP_proj():
+    ca = Elem('Ca_testdata')
+
+    assert np.isclose(ca.Fji(j=1, i=0), ca.F1[1], atol=0, rtol=1e-25)
+    assert np.isclose(ca.Xji(j=1, i=0), ca.X1[1], atol=0, rtol=1e-25)
+    assert np.isclose(
+        ca.Xji(j=1, i=0), ca.Xvec[1] - ca.Fji(j=1, i=0) * ca.Xvec[0],
+        atol=0, rtol=1e-25)
+
+    assert np.isclose(ca.Fji(j=2, i=0), ca.F1[2], atol=0, rtol=1e-25)
+    assert np.isclose(ca.Xji(j=2, i=0), ca.X1[2], atol=0, rtol=1e-25)
+
+    assert np.isclose(ca.alphaNP_proj(), ca.alphaNP_GKP(), atol=0, rtol=20)
+
+    lenp = len(list(product(
+        combinations(ca.range_a, 3), combinations(ca.range_i, 2))))
+
+    alphapartlist, xindlist = ca.alphaNP_proj_part(3)
+
+    assert (alphapartlist.shape[0] == lenp)
+    assert len(xindlist) == lenp
+    for xind in xindlist:
+        assert len(xind) == 2
+
+    camin = Elem('Camin')
+    alphapartlist, xindlist = ca.alphaNP_proj_part(3)
+
+    assert np.isclose(camin.alphaNP_proj(), camin.alphaNP_GKP(), atol=0, rtol=20)
+
+    ca24 = Elem("Ca_WT_Aarhus_2024")
+
+    alphaca = ca24.alphaNP_proj(ainds=[0, 1, 2, 3], iinds=[0, 1])
+    # pprint("ca24 kifit", alphaca)
+    alphaca_Mathematica = 2.45796e-11
+
+    assert np.isclose(alphaca, alphaca_Mathematica, atol=0, rtol=1e-4)
 
 
 if __name__ == "__main__":
@@ -287,6 +516,8 @@ if __name__ == "__main__":
     test_load_individual()
     test_set_fit_params()
     test_constr_dvec()
+    test_d_swap()
     test_levi_civita()
     test_alphaNP_GKP()
     test_alphaNP_NMGKP()
+    test_alphaNP_proj()

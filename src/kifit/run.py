@@ -1,3 +1,5 @@
+import os
+import json
 import logging
 import numpy as np
 
@@ -14,33 +16,21 @@ np.random.seed(1)
 
 class Runner:
 
-    def __init__(self,
-            config: Config,
-            collection: ElemCollection):
+    def __init__(self, run_params: RunParams):
 
-        self.config = config
-        self.collection = collection
-
-    @classmethod
-    def build(cls):
-        params = RunParams()
-
-        collection = ElemCollection(
-            params.element_list,
-            params.gkp_dims,
-            params.nmgkp_dims
+        # construct a collection of elements 
+        self.collection = ElemCollection(
+            run_params.element_list,
+            run_params.gkp_dims,
+            run_params.nmgkp_dims
         )
 
-        paths = Paths(params, collection.id, fit_keys, det_keys)
+        # set the config attribute
+        paths = Paths(run_params, self.collection.id, fit_keys, det_keys)
+        self.config = Config(run_params, paths, self.collection.x_vals)
 
-        print("run.py collection.x_vals", collection.x_vals)
-
-        config = Config(params, paths, collection.x_vals)
-
-        return cls(config, collection)
 
     def generate_all_King_plots(self):
-
         for elem in self.collection.elems:
             plot_linfit(elem, self.config)
 
@@ -48,7 +38,36 @@ class Runner:
 
         self.generate_all_King_plots()
 
-        elem = None
+        for elem in self.collection.elems:
+
+            for x in self.config.x_vals_det:
+                elem._update_Xcoeffs(x)
+                for dim in self.config.params.gkp_dims:
+
+                    sample_alphaNP_det(
+                        elem=elem,
+                        messenger=self.config,
+                        dim=dim,
+                        detstr="gkp",
+                        xind=x)
+
+                for dim in self.config.params.nmgkp_dims:
+
+                    sample_alphaNP_det(
+                        elem=elem,
+                        messenger=self.config,
+                        dim=dim,
+                        detstr="nmgkp",
+                        xind=x)
+
+                for dim in self.config.params.proj_dims:
+
+                    sample_alphaNP_det(
+                        elem=elem,
+                        messenger=self.config,
+                        dim=dim,
+                        detstr="proj",
+                        xind=x)
 
         for x in self.config.x_vals_fit:
 
@@ -61,50 +80,24 @@ class Runner:
                 xind=x
             )
 
-            if x not in self.config.x_vals_det:
-
-                plot_alphaNP_ll(
-                    self.collection,
-                    messenger=self.config,
-                    xind=x)
-
-        if self.collection.len == 1:
-
-            elem = self.collection.elems[0]
-
-            for x in self.config.x_vals_det:
-
-                for dim in self.config.params.gkp_dims:
-
-                    sample_alphaNP_det(
-                        elem=elem,
-                        messenger=self.config,
-                        dim=dim,
-                        gkp=True,
-                        xind=x)
-
-                for dim in self.config.params.nmgkp_dims:
-
-                    sample_alphaNP_det(
-                        elem=elem,
-                        messenger=self.config,
-                        dim=dim,
-                        gkp=False,
-                        xind=x)
-
-        for x in list(set(self.config.x_vals_fit) & set(self.config.x_vals_det)):
+            plot_alphaNP_ll(
+                self.collection,
+                messenger=self.config,
+                expstr="search",
+                logplot=True,
+                xind=x)
 
             plot_alphaNP_ll(
                 self.collection,
                 messenger=self.config,
+                expstr="experiment",
                 xind=x)
 
         if len(self.config.x_vals_fit) > 1 or len(self.config.x_vals_det) > 1:
 
             plot_mphi_alphaNP(
                 elem_collection=self.collection,
-                messenger=self.config,
-                elem=elem)
+                messenger=self.config)
 
     def generate_all_alphaNP_ll_plots(self):
 
@@ -113,23 +106,57 @@ class Runner:
             plot_alphaNP_ll(
                 self.collection,
                 messenger=self.config,
+                expstr="search",
+                logplot=True,
+                xind=x)
+
+            plot_alphaNP_ll(
+                self.collection,
+                messenger=self.config,
+                expstr="experiment",
                 xind=x)
 
     def generate_mphi_alphaNP_plot(self):
 
-        if self.collection.len == 1:
-            elem = self.collection.elems[0]
-        else:
-            elem = None
-
         if len(self.config.x_vals_fit) > 1 or len(self.config.x_vals_det) > 1:
             plot_mphi_alphaNP(
                 elem_collection=self.collection,
-                messenger=self.config,
-                elem=elem)
+                messenger=self.config)
 
     def print_relative_uncertainties(self):
 
         for elem in self.collection.elems:
             print("Element: ", elem.id)
             elem.print_relative_uncertainties
+
+    def dump_config(self, filepath, overwrite=False):
+        """Dump configuration of the Runner into a json file located in `filepath`."""
+
+        if os.path.exists(filepath) and not overwrite:
+            raise FileExistsError(f"File '{filepath}' already exists. Use overwrite=True to overwrite it.")
+
+        runparams_dict = vars(self.config.params._RunParams__runparams)
+        formatted_dict = {key: value for key, value in runparams_dict.items()}
+
+        with open(filepath, 'w') as json_file:
+            json.dump(formatted_dict, json_file, indent=4)
+
+        return formatted_dict
+    
+
+    def load_config(self, configuration_file: str):
+        """Load configuration of a Runner from `filepath` and set it as config."""
+        
+        run_params = RunParams(configuration_file=configuration_file)
+
+        # construct a collection of elements 
+        self.collection = ElemCollection(
+            run_params.element_list,
+            run_params.gkp_dims,
+            run_params.nmgkp_dims
+        )
+
+        # set the config attribute
+        paths = Paths(run_params, self.collection.id, fit_keys, det_keys)
+        self.config = Config(run_params, paths, self.collection.x_vals)
+

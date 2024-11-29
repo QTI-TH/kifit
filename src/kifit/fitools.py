@@ -4,8 +4,7 @@ from typing import List
 import numpy as np
 
 from scipy.linalg import cho_factor, cho_solve
-from scipy.odr import ODR, Model, RealData
-from scipy.stats import chi2, linregress, multivariate_normal
+from scipy.stats import chi2, multivariate_normal
 
 from scipy.optimize import (
     minimize,
@@ -31,123 +30,6 @@ fit_keys = [
 ]
 
 
-# linear King fit
-##############################################################################
-
-def linfit(p, x):
-    return p[0] * x + p[1]
-
-
-def get_odr_residuals(p, x, y, sx, sy):
-
-    v = 1 / np.sqrt(1 + p[0] ** 2) * np.array([-p[0], 1])
-    z = np.array([x, y]).T
-    sz = np.array([np.diag([sx[i] ** 2, sy[i] ** 2]) for i in range(len(x))])
-
-    residuals = np.array([v @ z[i] - p[1] * v[1] for i in range(len(x))])
-    sigresiduals = np.sqrt(np.array([v @ sz[i] @ v for i in range(len(x))]))
-
-    return residuals, sigresiduals
-
-
-def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
-    """
-    Perform linear regression.
-
-    Args:
-        isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
-        reference_transition_index (int, default: first transition)
-
-    Returns:
-        betas:       fit parameters (p in linfit)
-        sig_betas:   uncertainties on betas
-        kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
-        ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
-        sig_kperp1s: uncertainties on kperp1s
-        sig_ph1s:    uncertainties on ph1s
-
-    """
-
-    x = isotopeshiftdata.T[reference_transition_index]
-    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
-
-    betas = []
-    sig_betas = []
-
-    for i in range(y.shape[1]):
-        res = linregress(x, y.T[i])
-        betas.append([res.slope, res.intercept])
-        sig_betas.append([res.stderr, res.intercept_stderr])
-
-    betas = np.array(betas)
-    sig_betas = np.array(sig_betas)
-
-    ph1s = np.arctan(betas.T[0])
-    sig_ph1s = np.array(
-        [sig_betas[j, 0] / (1 + betas[j, 0]) for j in range(len(betas))]
-    )
-
-    kperp1s = betas.T[1] * np.cos(ph1s)
-    sig_kperp1s = np.sqrt(
-        (sig_betas.T[1] * np.cos(ph1s)) ** 2
-        + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
-    )
-
-    return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s)
-
-
-def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
-        reference_transition_index: int = 0):
-    """
-    Perform separate orthogonal distance regression for each transition pair.
-
-    Args:
-        isotopeshiftdata (normalised. rows=isotope pairs, columns=trans.)
-        reference_transition_index (int, default: first transition)
-
-    Returns:
-        betas:       fit parameters (p in linfit)
-        sig_betas:   uncertainties on betas
-        kperp1s:     Kperp_i1, i=2,...,m (assuming ref. transition index = 0)
-        ph1s:        phi_i1, i=2,...,m (assuming ref. transition index = 0)
-        sig_kperp1s: uncertainties on kperp1s
-        sig_ph1s:    uncertainties on ph1s
-
-    """
-    lin_model = Model(linfit)
-
-    x = isotopeshiftdata.T[reference_transition_index]
-    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
-
-    sigx = sigisotopeshiftdata.T[reference_transition_index]
-    sigy = np.delete(sigisotopeshiftdata, reference_transition_index, axis=1)
-
-    betas = []
-    sig_betas = []
-
-    for i in range(y.shape[1]):
-        data = RealData(x, y.T[i], sx=sigx, sy=sigy.T[i])
-        beta_init = np.polyfit(x, y.T[i], 1)
-        odr = ODR(data, lin_model, beta0=beta_init)
-        out = odr.run()
-        betas.append(out.beta)
-        sig_betas.append(out.sd_beta)
-
-    betas = np.array(betas)
-    sig_betas = np.array(sig_betas)
-
-    ph1s = np.arctan(betas.T[0])
-    sig_ph1s = np.arctan(sig_betas.T[0])
-
-    kperp1s = betas.T[1] * np.cos(ph1s)
-    sig_kperp1s = np.sqrt(
-        (sig_betas.T[1] * np.cos(ph1s)) ** 2
-        + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
-    )
-
-    return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s)
-
-
 # generate samples
 ##############################################################################
 
@@ -170,15 +52,49 @@ def generate_elemsamples(elem, nsamples: int):
        m  ~ N(<m>,  sig[m])   for the nuclear masses
        v  ~ N(<v>,  sig[v])   for the transition frequencies
 
+
     """
-    parameter_samples = generate_paramsamples(
+    inputparamsamples = generate_paramsamples(
         elem.means_input_params, elem.stdevs_input_params, nsamples
     )
-    return parameter_samples
+
+    # sampling fit params
+    samples_per_transition = []
+    for kp1, ph1, cov in zip(elem.kp1_init, elem.ph1_init, elem.cov_kperp1_ph1):
+        samples_per_transition.append(
+            np.random.multivariate_normal([kp1, ph1], cov, size=nsamples))
+    fitparamsamples = []
+    for i in range(nsamples):
+        fitparams = []
+        for j in range(len(elem.kp1_init)):
+            fitparams.append(samples_per_transition[j][i][0])
+        for j in range(len(elem.kp1_init)):
+            fitparams.append(samples_per_transition[j][i][1])
+        fitparamsamples.append(fitparams)
+
+    return inputparamsamples, fitparamsamples
 
 
-def generate_alphaNP_samples(elem, nsamples: int, search_mode: str = "random",
-        lb: float = None, ub: float = None):
+def objective(trial, elem_collection, nelemsamples, min_percentile,
+        pos_alphaNP=True):
+
+    alphaNP = trial.suggest_float('alphaNP', 1e-16, 1, log=True)
+
+    if pos_alphaNP:
+        loss = logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile)
+
+    else:
+        loss = logL_alphaNP(-alphaNP, elem_collection, nelemsamples, min_percentile)
+
+    return loss
+
+
+def generate_alphaNP_samples(elem,
+        nsamples: int,
+        search_mode: str = "normal",
+        lbmin: float = None, lbmax: float = None,
+        ubmin: float = None, ubmax: float = None,
+        logridfrac: float = 17):
     """
     Generate ``nsamples`` of alphaNP according to the initial conditions set in
     the instance ``elem`` of the Elem class. alphaNP is either sampled from a
@@ -186,23 +102,84 @@ def generate_alphaNP_samples(elem, nsamples: int, search_mode: str = "random",
     initial conditions on alphaNP.
 
     """
-    if search_mode == "random":
-        alphaNP_samples = np.random.normal(
-            elem.alphaNP_init, elem.sig_alphaNP_init, nsamples
-        )
-    elif search_mode == "grid":
-        if lb is None or ub is None:
-            alphaNP_samples = np.linspace(
-                elem.alphaNP_init - elem.sig_alphaNP_init,
-                elem.alphaNP_init + elem.sig_alphaNP_init,
-                nsamples,
-            )
+    if search_mode == "normal":
+        if lbmin is not None and ubmax is not None:
+            sigalphainit = np.max([
+                np.abs(elem.alphaNP_init - lbmin),
+                np.abs(ubmax - elem.alphaNP_init)])
+        elif lbmax is not None or ubmin is not None:
+            logging.info(
+                """Ignoring lbmax and ubmin provided for alphaNP.
+                Sampling from normal distribution.""")
         else:
-            alphaNP_samples = np.linspace(
-                lb,
-                ub,
-                nsamples
-            )
+            sigalphainit = elem.sig_alphaNP_init
+        alphaNP_samples = np.random.normal(
+            elem.alphaNP_init, sigalphainit, size=nsamples
+        )
+    elif search_mode == "lingrid":
+        if lbmin is None or ubmax is None:
+            lb = elem.alphaNP_init - elem.sig_alphaNP_init
+            ub = elem.alphaNP_init + elem.sig_alphaNP_init
+        elif lbmax is not None or ubmin is not None:
+            logging.info(
+                """Ignoring lbmax and ubmin provided for alphaNP.
+                Sampling from linear grid.""")
+        alphaNP_samples = np.linspace(
+            lb,
+            ub,
+            num=nsamples
+        )
+    elif search_mode == "globalogrid":
+        posgrid = np.logspace(-15, -1, nsamples)
+        alphaNP_samples = np.concatenate((- posgrid[::-1], posgrid))
+
+    elif search_mode == "detlogrid":
+        if lbmin is None or ubmax is None:
+            lbmin = elem.alphaNP_init - elem.sig_alphaNP_init
+            ubmax = elem.alphaNP_init + elem.sig_alphaNP_init
+
+        if lbmin < 0 and ubmax < 0:
+            alphaNP_samples = -np.logspace(np.log10(-ubmax), np.log10(-lbmin),
+                    num=nsamples)[::-1]
+            logging.info(f"""
+            Ignoring lbmax and ubmin since both lbmin and ubmax are negative.
+            Sampling from logarithmic grid between {lbmin} and {ubmax}.""")
+
+        elif lbmin > 0 and ubmax > 0:
+            alphaNP_samples = np.logspace(np.log10(lbmin), np.log10(ubmax),
+                    num=nsamples)
+            logging.info(f"""
+            Ignoring lbmax and ubmin since both lbmin and ubmax are positive.
+            Sampling from logarithmic grid between {lbmin} and {ubmax}.""")
+
+        elif lbmin < 0 and ubmax > 0:
+            nnegsamples = nsamples // 2
+            nposamples = nsamples - nnegsamples
+
+            negrid = -np.logspace(
+                np.log10(-lbmax) + logridfrac, np.log10(-lbmin) - logridfrac,
+                num=nnegsamples)[::-1]
+            posgrid = np.logspace(
+                np.log10(ubmin) - logridfrac, np.log10(ubmax) + logridfrac,
+                num=nposamples)
+
+            print("posgrid")
+            print((min(posgrid), max(posgrid)))
+            print((ubmin, ubmax))
+
+            print("negrid")
+            print((min(negrid), max(negrid)))
+            print((lbmin, lbmax))
+
+
+            logging.info(f"""
+            lbmin={lbmin} is negative and ubmax={ubmax} is positive.
+            Sampling from logarithmic grids between {min(negrid)} and {max(negrid)},
+            and between {min(posgrid)} and {max(posgrid)}.""")
+
+            alphaNP_samples = np.concatenate([negrid, posgrid])
+        else:
+            raise ValueError(f"Invalid bounds {lb, ub} in generate_alphaNP_samples")
 
     return np.sort(alphaNP_samples)
 
@@ -306,11 +283,15 @@ def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
 
     for elem in elem_collection.elems:
         absdsamples = []
-        elemsamples_elem = generate_elemsamples(elem, nelemsamples)
+        inputparamsamples, fitparamsamples = generate_elemsamples(
+            elem, nelemsamples)
 
-        for elemsamples in elemsamples_elem:
-            generate_elemsamples(elem, nelemsamples)
-            elem._update_elem_params(elemsamples)
+        for i, inputparams in enumerate(inputparamsamples):
+            # generate_elemsamples(elem, nelemsamples)
+            elem._update_elem_params(inputparams)
+            fitparams = fitparamsamples[i]
+            fitparams.append(alphaNP)
+            elem._update_fit_params(fitparams)
             absdsamples.append(elem.absd)
 
         lls = get_llist_elemsamples(np.array(absdsamples),
@@ -340,7 +321,6 @@ def compute_ll_experiments(
         nelemsamples:      number of element samples
         cov_decomp_method: string specifying method with which the covariance
                            matrix entering the loglikelihood is decomposed.
-
     Returns:
         alphasamples (List[float]):   alphaNP samples
         lls (List[float]):            associated log likelihood values
@@ -397,48 +377,44 @@ def get_delchisq_crit(nsigmas=2, dof=1):
 ##############################################################################
 
 
-def minimise_logL_alphaNP(
-        elem_collection,
-        nelemsamples,
-        min_percentile,
-        maxiter,
-        opt_method,
-        bounds=(-1e-5, 1e-5),
-        tol=1e-12
-    ):
-    """
-    Scipy minimisation of negative loglikelihood as a function of alphaNP.
-
-    """
-
-    if opt_method == "annealing":
-        minlogL = dual_annealing(
-            logL_alphaNP,
-            bounds=[bounds],
-            args=(elem_collection, nelemsamples, min_percentile),
-            maxiter=maxiter,
-        )
-
-    elif opt_method == "differential_evolution":
-        minlogL = differential_evolution(
-            logL_alphaNP,
-            bounds=[bounds],
-            args=(elem_collection, nelemsamples, min_percentile),
-            maxiter=maxiter,
-        )
-
-    else:
-        minlogL = minimize(
-            logL_alphaNP,
-            x0=0,
-            bounds=[bounds],
-            args=(elem_collection, nelemsamples, min_percentile),
-            method=opt_method, options={"maxiter": maxiter},
-            tol=tol,
-        )
-
-    return minlogL
-
+# def minimise_logL_alphaNP(
+#         elem_collection,
+#         nelemsamples,
+#         min_percentile,
+#         maxiter,
+#         opt_method,
+#         bounds=(-1e-5, 1e-5),
+#         tol=1e-12):
+#     """
+#     Scipy minimisation of negative loglikelihood as a function of alphaNP.
+#
+#     """
+#
+#     if opt_method == "annealing":
+#         minlogL = dual_annealing(
+#             logL_alphaNP,
+#             bounds=[bounds],
+#             args=(elem_collection, nelemsamples, min_percentile),
+#             maxiter=maxiter)
+#
+#     elif opt_method == "differential_evolution":
+#         minlogL = differential_evolution(
+#             logL_alphaNP,
+#             bounds=[bounds],
+#             args=(elem_collection, nelemsamples, min_percentile),
+#             maxiter=maxiter)
+#
+#     else:
+#         minlogL = minimize(
+#             logL_alphaNP,
+#             x0=0,   # initial guess
+#             bounds=[bounds],
+#             args=(elem_collection, nelemsamples, min_percentile),
+#             method=opt_method, options={"maxiter": maxiter},
+#             tol=tol)
+#
+#     return minlogL
+#
 
 def blocking_bounds(
         messenger,
@@ -599,110 +575,220 @@ def get_confint(alphas, delchisqs, delchisqcrit):
 # searches
 ##############################################################################
 
-def determine_search_interval(
+# def perform_optigrid_search(
+#         elem_collection,
+#         messenger,
+#         xind):
+#
+#     alphaNP_init = elem_collection.elems[0].alphaNP_init
+#     sig_alphaNP_init = elem_collection.elems[0].sig_alphaNP_init
+#
+#     import optuna
+#
+#     num_searches = messenger.params.num_optigrid_searches
+#
+#     best_alphas = []
+#
+#     for search in range(num_searches):
+#         optigridsearch = optuna.create_study(
+#             sampler=optuna.samplers.TPESampler(), direction='minimize')
+#
+#         # optgridsearch.optimize(objective, n_trials=nalphasamples_exp)
+#         optigridsearch.optimize(lambda trial:
+#             objective(trial,
+#                 elem_collection,
+#                 messenger.params.num_elemsamples_per_alphasample_search,
+#                 messenger.params.min_percentile),
+#             n_trials=messenger.params.num_alphasamples_search)
+#
+#         best_alphas.append(optigridsearch.best_trial.params['alphaNP'])
+#
+#     best_alpha = np.median(best_alphas)
+#     sig_alpha = max(best_alphas) - min(best_alphas)
+#
+#     best_delchisqs = []
+#
+#     LB = best_alpha - sig_alpha
+#     sig_LB = None
+#     UB = best_alpha + sig_alpha
+#     sig_UB = None
+#
+#     for elem in elem_collection.elems:
+#         elem.set_alphaNP_init(best_alpha, sig_alpha)
+#
+#     from kifit.plot import plot_search_output
+#
+#     plot_search_output(
+#         messenger,
+#         alphalist=best_alphas,
+#         delchisqlist=np.zeros(len(best_alphas)),
+#         delchisqcrit=None,
+#         searchlims=[LB, UB],
+#         xind=xind,
+#         logplot=True
+#     )
+#
+#     return [
+#         alphaNP_init, sig_alphaNP_init,
+#         np.array(best_alphas), np.array(best_delchisqs),
+#         best_alpha, sig_alpha,
+#         LB, sig_LB, UB, sig_UB,
+#         None,
+#         xind
+#     ]
+
+
+def get_lims_detlogrid(
         elem_collection,
-        messenger):
-    # sampling `nsamples` new elements for each element in the collections
+        messenger,
+        xind):
 
-    nsearches = messenger.params.num_searches
-    nelemsamples_search = messenger.params.num_elemsamples_search
-
-    best_alpha_list = []
-
-    if messenger.params.init_globalopt:
-        logging.info(f"Preliminary global optimization to find reasonable bounds")
-        # build a preliminary collection
-
-        test_lls = []
-        test_alphas = np.linspace(-1, -15, 100)
-        test_alphas = np.concatenate((-test_alphas, test_alphas[::-1]))
-        for i in range(len(test_alphas)):
-            test_lls.append(logL_alphaNP(
-                alphaNP=test_alphas[i],
-                elem_collection=elem_collection,
-                nelemsamples=nelemsamples_search,
-                min_percentile=messenger.params.min_percentile
-            ))
-
-        print(test_lls)
-        minll_here = np.min(test_lls)
-        llcrit_here = minll_here + 1e5
-        indices = np.where(test_lls < llcrit_here)[0]
-
-        ok_lls = np.array(test_lls)[indices]
-        ok_alphas = np.array(test_alphas)[indices]
-        print(indices)
-        
-        print(f"MIN: {minll_here}")
-        print(f"LL crit: {llcrit_here}")
-        print(f"OK LLS: {ok_lls}")
-        print(f"OK ALPHAS: {ok_alphas}")
-
-        import matplotlib.pyplot as plt
-        plt.figure(figsize=(5,8))
-        plt.plot(test_alphas, test_lls)
-        plt.savefig("ciao.png")
-        plt.figure(figsize=(5,8))
-        plt.plot(ok_alphas, ok_lls)
-        plt.savefig("ciao_reduced.png")
-        exit()
-        
-        prelim_result = minimise_logL_alphaNP(
-            elem_collection=elem_collection,
-            nelemsamples=1000, 
-            opt_method="differential_evolution",
-            min_percentile=5,        
-            maxiter=1000,
-            bounds=(-1e-2, 1e-2),
-            tol=1e-12,
-        )
-
-        if abs(prelim_result.x) > 1e-3:
-            bound_scale = 1e-2
-        else:
-            bound_scale = abs(prelim_result.x) * 1000
-        logging.info(f"Foundend best value: {prelim_result.x}, setting bounds to {bound_scale}")
-    else:
-        logging.info(f"Initial global optimization has been skipped.")
-        bound_scale = 1e-5
-
-    for search in range(nsearches):
-
-        logging.info(f"Iterative search {search + 1}/{nsearches}")
-
-        res_min = minimise_logL_alphaNP(
-            elem_collection=elem_collection,
-            nelemsamples=nelemsamples_search,
-            min_percentile=messenger.params.min_percentile,
-            maxiter=messenger.params.maxiter,
-            opt_method=messenger.params.optimization_method,
-            bounds=(-bound_scale, bound_scale)
-        )
-
-        if res_min.success:
-            best_alpha_list.append(res_min.x[0])
-
-        logging.info(f"res_min: {res_min}")
-
-    best_alpha = np.median(best_alpha_list)
-
-    sig_best_alpha = (max(best_alpha_list) - min(best_alpha_list))
+    det_maxpos = []
+    det_minpos = []
+    det_maxneg = []
+    det_mineg = []
 
     for elem in elem_collection.elems:
-        elem.set_alphaNP_init(best_alpha, sig_best_alpha)
+        for dim in set(messenger.params.gkp_dims + [3]):
+            det_output = messenger.paths.read_det_output("gkp", dim, xind)
+            det_maxpos.append(max(det_output["allpos"]))
+            det_minpos.append(min(det_output["allpos"]))
+            det_maxneg.append(max(det_output["allneg"]))
+            det_mineg.append(min(det_output["allneg"]))
 
-    logging.info(f"best_alpha search stage: {best_alpha}({sig_best_alpha})")
+        for dim in messenger.params.nmgkp_dims:
+            det_output = messenger.paths.read_det_output("nmgkp", dim, xind)
+            det_maxpos.append(max(det_output["allpos"]))
+            det_minpos.append(min(det_output["allpos"]))
+            det_maxneg.append(max(det_output["allneg"]))
+            det_mineg.append(min(det_output["allneg"]))
 
-    return best_alpha, sig_best_alpha
+        for dim in messenger.params.proj_dims:
+            det_output = messenger.paths.read_det_output("proj", dim, xind)
+            det_maxpos.append(max(det_output["allpos"]))
+            det_minpos.append(min(det_output["allpos"]))
+            det_maxneg.append(max(det_output["allneg"]))
+            det_mineg.append(min(det_output["allneg"]))
+
+    init_maxpos = np.nanmax(det_maxpos)
+    init_minpos = np.nanmin(det_minpos)
+    init_maxneg = np.nanmax(det_maxneg)
+    init_mineg = np.nanmin(det_mineg)
+
+    if np.isnan(init_maxpos) or np.isnan(init_mineg):
+        init_maxpos = np.nanmax([init_maxpos, np.abs(init_mineg)])
+        init_mineg = - init_maxpos
+
+    if np.isnan(init_minpos) or np.isnan(init_maxneg):
+        init_minpos = np.nanmax([init_minpos, np.abs(init_maxneg)])
+        init_maxneg = - init_minpos
+
+    return init_mineg, init_maxneg, init_minpos, init_maxpos
+
+
+def determine_search_interval(
+        elem_collection,
+        messenger,
+        xind):
+
+    # if messenger.params.search_mode == "optigrid":
+    #
+    #     search_output = perform_optigrid_search(
+    #         elem_collection=elem_collection,
+    #         messenger=messenger,
+    #         xind=xind)
+
+    if messenger.params.search_mode == "detlogrid":
+
+        (lbmin, lbmax, ubmin, ubmax) = get_lims_detlogrid(
+            elem_collection=elem_collection,
+            messenger=messenger,
+            xind=xind)
+
+        search_output = perform_experiments(
+            elem_collection=elem_collection,
+            messenger=messenger,
+            xind=xind,
+            expstr="search",
+            lbmin=lbmin, lbmax=lbmax,
+            ubmin=ubmin, ubmax=ubmax
+        )
+
+    else:
+
+        logging.info("Global logrid search to determine search interval.")
+
+        search_output = perform_experiments(
+            elem_collection=elem_collection,
+            messenger=messenger,
+            xind=xind,
+            expstr="search")
+
+    return search_output
 
 
 # experiments
 ##############################################################################
 
+def organise_search_results(messenger, nexps, alphas, delchisqs, bestalphas, xind):
+
+    print("organise_search_results")
+    print("alphas.shape", np.array(alphas).shape)
+
+    # alphas = np.array(alphas).flatten()
+    # delchisqs = np.array(delchisqs).flatten()
+
+    best_alpha = np.median(bestalphas)
+
+    # take larger of the two:
+    #  - interval defined by median delchisq samples
+    #  - 5 sigma interval
+    delchisqcrit_search = max(np.median(delchisqs), get_delchisq_crit(5))
+
+    search_interval = np.array(
+        [
+            get_confint(alphas[s], delchisqs[s], delchisqcrit_search)
+            for s in range(nexps)
+        ])
+
+    from kifit.plot import plot_search_output
+
+    if (messenger.params.search_mode == "detlogrid"
+            or messenger.params.search_mode == "globalogrid"):
+        logplot = True
+    else:
+        logplot = False
+
+    plot_search_output(
+        messenger,
+        alphalist=alphas,
+        delchisqlist=delchisqs,
+        delchisqcrit=delchisqcrit_search,
+        searchlims=search_interval,
+        xind=xind,
+        logplot=logplot
+    )
+
+    sig_alpha = np.max([
+        np.abs(np.nanmax(search_interval) - best_alpha),
+        np.abs(best_alpha - np.nanmin(search_interval))])
+
+    LB = best_alpha - sig_alpha
+    sig_LB = None
+    UB = best_alpha + sig_alpha
+    sig_UB = None
+    logging.info(f"best_alpha search stage: {best_alpha}({sig_alpha})")
+
+    return (best_alpha, sig_alpha, LB, sig_LB, UB, sig_UB)
+
+
 def perform_experiments(
         elem_collection,
         messenger,
-        xind=0):
+        xind=0,
+        expstr="experiment",
+        lbmin=None, lbmax=None,
+        ubmin=None, ubmax=None):
     """
     Perform the experiments for the element collection elem_collection and the
     configuration specified by the messenger.
@@ -711,6 +797,10 @@ def perform_experiments(
         elem_collection:   element collection (instance of ElemCollection class)
         messenger:         run configuration (instance of Config class),
         xind (int):        x-index
+        expstr (str):      if "experiment", standard experiment procedure is run,
+                           if "search", the method is used as support method to
+                           compute the initial search stage, which is determining
+                           the interesting window to search for NP
 
     Returns:
         fit output (list): list of results that are also written to the fit
@@ -718,10 +808,22 @@ def perform_experiments(
                            N.B.: This output should fit to the fit_keys
                            specified in fitools.py
     """
-    nexps = messenger.params.num_exp
-    nelemsamples_exp = messenger.params.num_elemsamples_exp
-    nalphasamples_exp = messenger.params.num_alphasamples_exp
     min_percentile = messenger.params.min_percentile
+
+    if expstr == "search":
+
+        nexps = 1
+        nelemsamples_exp = messenger.params.num_elemsamples_per_alphasample_search
+        nalphasamples_exp = messenger.params.num_alphasamples_search
+        sample_mode = messenger.params.search_mode
+
+        logging.info(f"{sample_mode} search to determine search interval.")
+
+    elif expstr == "experiment":
+        nexps = messenger.params.num_exp
+        nelemsamples_exp = messenger.params.num_elemsamples_exp
+        nalphasamples_exp = messenger.params.num_alphasamples_exp
+        sample_mode = "normal"
 
     # we can use one of the elements as reference, since alphaNP is shared
 
@@ -732,19 +834,21 @@ def perform_experiments(
     allalphasamples = generate_alphaNP_samples(
         elem_collection.elems[0],
         nexps * nalphasamples_exp,
-        search_mode="random"
-    )
+        search_mode=sample_mode,
+        lbmin=lbmin, lbmax=lbmax,
+        ubmin=ubmin, ubmax=ubmax,
+        logridfrac=messenger.params.logrid_frac)
 
     # shuffle the sample
     np.random.shuffle(allalphasamples)
 
     # want all experiments (-> setups of the elemsamples) to be treated on equal
-    # footing -> compute delchisq separetely
+    # footing -> compute delchisq separately
 
     alphas_exps, lls_exps, bestalphas_exps, delchisqs_exps = [], [], [], []
 
     for exp in range(nexps):
-        logging.info(f"Running experiment {exp+1}/{nexps}")
+        logging.info(f"Running {expstr} {exp+1}/{nexps}")
 
         # collect data for a single experiment
         alphasamples = allalphasamples[
@@ -753,54 +857,73 @@ def perform_experiments(
 
         # compute alphas and LLs for this experiment
         alphas, lls = compute_ll_experiments(
-            elem_collection, alphasamples, nelemsamples_exp, min_percentile,
-        )
+            elem_collection,
+            alphasamples,
+            nelemsamples_exp,
+            min_percentile)
 
         alphas_exps.append(alphas)
         bestalphas_exps.append(alphas[np.argmin(lls)])
         lls_exps.append(lls)
 
-        minll_1 = np.percentile(lls, min_percentile)
+        if expstr == "experiment":
+            minll_1 = np.percentile(lls, min_percentile)
+            delchisqlist = get_delchisq(lls, minll=minll_1)
 
-        delchisqlist = get_delchisq(lls, minll=minll_1)
+        elif expstr == "search":
+            delchisqlist = get_delchisq(lls, minll=min(lls))
 
         if messenger.params.verbose is True:
 
             from kifit.plot import plot_mc_output
 
+            if (sample_mode == "detlogrid" or sample_mode == "globalogrid"):
+                logplot = True
+            else:
+                logplot = False
+
             plot_mc_output(
                 messenger,
                 alphalist=alphas,
                 delchisqlist=delchisqlist,
-                minll=minll_1,
-                plotname=f"exp_{exp}",
-                xind=xind
+                expstr=expstr,
+                plotname=f"{expstr}_{exp}",
+                xind=xind,
+                logplot=logplot
             )
 
         delchisqs_exps.append(delchisqlist)
 
     nsigmas = messenger.params.num_sigmas
 
-    delchisqcrit = get_delchisq_crit(nsigmas)
+    # using results of all experiments, compute confidence intervals
 
-    confints_exps = np.array(
-        [
-            get_confint(alphas_exps[s], delchisqs_exps[s], delchisqcrit)
-            for s in range(nexps)
-        ]
-    )
+    if expstr == "experiment":
+        delchisqcrit = get_delchisq_crit(nsigmas)
 
-    (best_alpha, sig_alpha,
-        LB, sig_LB, UB, sig_UB) = \
-        get_bestalphaNP_and_bounds(
-            messenger,
-            bestalphas_exps,
-            confints_exps)
+        confints_exps = np.array(
+            [
+                get_confint(alphas_exps[s], delchisqs_exps[s], delchisqcrit)
+                for s in range(nexps)
+            ])
 
-    logging.info(f"LB     x={xind}: {LB}")
-    logging.info(f"sig_LB x={xind}: {sig_LB}")
-    logging.info(f"UB     x={xind}: {UB}")
-    logging.info(f"sig_UB x={xind}: {sig_UB}")
+        (best_alpha, sig_alpha, LB, sig_LB, UB, sig_UB) = \
+            get_bestalphaNP_and_bounds(
+                messenger,
+                bestalphas_exps,
+                confints_exps)
+
+    # using results of search phase, determine search interval
+
+    elif expstr == "search":
+
+        (best_alpha, sig_alpha,
+            LB, sig_LB, UB, sig_UB) = organise_search_results(
+                messenger,
+                nexps, alphas_exps, delchisqs_exps, bestalphas_exps, xind)
+
+    else:
+        raise ValueError(f"Invalid expstr {expstr}.")
 
     for elem in elem_collection.elems:
         elem.set_alphaNP_init(best_alpha, sig_alpha)
@@ -848,17 +971,20 @@ def sample_alphaNP_fit(
 
     logging.info(f"scipy minimisation for x={xind}")
 
-    alpha_optimizer, sig_alpha_optimizer = determine_search_interval(
+    search_output = determine_search_interval(
         elem_collection=elem_collection,
         messenger=messenger,
+        xind=xind
     )
+
+    messenger.paths.write_search_output(xind, search_output)
 
     logging.info(f"Experiments for x={xind}")
 
     fit_output = perform_experiments(
         elem_collection=elem_collection,
         messenger=messenger,
-        xind=xind,
+        xind=xind
     )
 
     messenger.paths.write_fit_output(xind, fit_output)

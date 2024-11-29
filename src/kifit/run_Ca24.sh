@@ -4,11 +4,10 @@
 
 
 python3 main.py --element_list "Ca_WT_Aarhus_PTB_2024"\
-                --optimization_method "Powell" \
-                --maxiter 600 \
-                --num_searches 20 \
-                --num_elemsamples_search 500 \
-                --num_exp 20\
+                --num_alphasamples_search 500\
+                --num_elemsamples_per_alphasample_search 500 \
+                --logrid_frac -5\
+                --num_exp 50\
                 --block_size  10\
                 --min_percentile 5\
                 --num_sigmas 2\
@@ -17,8 +16,9 @@ python3 main.py --element_list "Ca_WT_Aarhus_PTB_2024"\
                 --x0_fit $(seq 0 25 800) \
                 --gkp_dims 3\
                 --nmgkp_dims 3\
+                --proj_dims 3\
                 --num_det_samples 1000 \
                 --x0_det $(seq 0 25 800)\
-                --showbestdetbounds \
                 --showalldetbounds \
+                --showbestdetbounds \
                 --verbose
