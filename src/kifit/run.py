@@ -18,12 +18,15 @@ class Runner:
 
     def __init__(self, run_params: RunParams):
 
-        # construct a collection of elements 
+        # construct a collection of elements
         self.collection = ElemCollection(
-            run_params.element_list,
-            run_params.gkp_dims,
-            run_params.nmgkp_dims
+            run_params.element_list #,
+            # run_params.gkp_dims,
+            # run_params.nmgkp_dims
         )
+
+        print("elem collection elem list")
+        print(run_params.element_list)
 
         # set the config attribute
         paths = Paths(run_params, self.collection.id, fit_keys, det_keys)
@@ -142,18 +145,18 @@ class Runner:
             json.dump(formatted_dict, json_file, indent=4)
 
         return formatted_dict
-    
+
 
     def load_config(self, configuration_file: str):
         """Load configuration of a Runner from `filepath` and set it as config."""
-        
+
         run_params = RunParams(configuration_file=configuration_file)
 
-        # construct a collection of elements 
+        # construct a collection of elements
         self.collection = ElemCollection(
-            run_params.element_list,
-            run_params.gkp_dims,
-            run_params.nmgkp_dims
+            run_params.element_list #,
+            # run_params.gkp_dims,
+            # run_params.nmgkp_dims
         )
 
         # set the config attribute

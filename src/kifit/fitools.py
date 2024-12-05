@@ -112,7 +112,10 @@ def generate_alphaNP_samples(elem,
                 """Ignoring lbmax and ubmin provided for alphaNP.
                 Sampling from normal distribution.""")
         else:
+            # print("here we go")
             sigalphainit = elem.sig_alphaNP_init
+            # print("alphainit   ", elem.alphaNP_init)
+            # print("sigalphainit", sigalphainit)
         alphaNP_samples = np.random.normal(
             elem.alphaNP_init, sigalphainit, size=nsamples
         )
@@ -224,7 +227,7 @@ def spectraLL(absd, covmat, lam=0):
 
 # when to compute them
 
-def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky"):
+def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky", lam=0.):
     """
     Since the loglikelihood is estimated numerically, it requires a list of
     samples of the input parameters.
@@ -243,6 +246,8 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky"):
     # estimate covariance matrix using absdsamples, computed for fixed alpha value
     cov_absd = np.cov(np.array(absdsamples), rowvar=False)
 
+    # print("det(covmat)", np.linalg.det(cov_absd))
+
     if cov_decomp_method == "cholesky":
         LL = choLL
     elif cov_decomp_method == "spectral":
@@ -251,7 +256,7 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky"):
     llist = []
 
     for absd in absdsamples:
-        llist.append(LL(absd, cov_absd))
+        llist.append(LL(absd, cov_absd, lam=lam))
 
     return np.array(llist)
 
@@ -354,6 +359,7 @@ def get_delchisq(llist, minll=None):
         minll = min(llist)
 
     if len(llist) > 0:
+        llist = np.array(llist)
         delchisqlist = 2 * (llist - minll)
 
         return delchisqlist
@@ -704,6 +710,12 @@ def determine_search_interval(
             elem_collection=elem_collection,
             messenger=messenger,
             xind=xind)
+        print("lims_detlogrid")
+        print("lbmin", lbmin)
+        print("lbmax", lbmax)
+        print("ubmin", ubmin)
+        print("ubmax", ubmax)
+        print()
 
         search_output = perform_experiments(
             elem_collection=elem_collection,
@@ -831,6 +843,11 @@ def perform_experiments(
     alphaNP_init = elem_collection.elems[0].alphaNP_init
     sig_alphaNP_init = elem_collection.elems[0].sig_alphaNP_init
 
+    print("lbmin", lbmin)
+    print("lbmax", lbmax)
+    print("ubmin", ubmin)
+    print("ubmax", ubmax)
+
     allalphasamples = generate_alphaNP_samples(
         elem_collection.elems[0],
         nexps * nalphasamples_exp,
@@ -871,7 +888,7 @@ def perform_experiments(
             delchisqlist = get_delchisq(lls, minll=minll_1)
 
         elif expstr == "search":
-            delchisqlist = get_delchisq(lls, minll=min(lls))
+            delchisqlist = get_delchisq(lls, minll=None)
 
         if messenger.params.verbose is True:
 
@@ -980,6 +997,9 @@ def sample_alphaNP_fit(
     messenger.paths.write_search_output(xind, search_output)
 
     logging.info(f"Experiments for x={xind}")
+
+    print("alphaNP_init before exps", elem.alphaNP_init)
+    print("sig_alphaNP             ", elem.sig_alphaNP_init)
 
     fit_output = perform_experiments(
         elem_collection=elem_collection,

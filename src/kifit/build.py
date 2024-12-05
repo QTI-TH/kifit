@@ -83,7 +83,7 @@ def get_odr_residuals(p, x, y, sx, sy):
     return residuals, sigresiduals
 
 
-def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
+def perform_linreg(isotopeshiftdata):  # , reference_transition_index: int = 0):
     """
     Perform linear regression.
 
@@ -101,8 +101,9 @@ def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
 
     """
 
-    x = isotopeshiftdata.T[reference_transition_index]
-    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
+    x = isotopeshiftdata.T[0]  # [reference_transition_index]
+    y = np.delete(isotopeshiftdata, 0, axis=1)
+    # y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
 
     betas = []
     sig_betas = []
@@ -130,8 +131,8 @@ def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
     return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s)
 
 
-def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
-                reference_transition_index: int = 0):
+def perform_odr(isotopeshiftdata, sigisotopeshiftdata):
+#, reference_transition_index: int = 0):
     """
     Perform separate orthogonal distance regression for each transition pair.
 
@@ -150,11 +151,14 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
     """
     lin_model = Model(linfit)
 
-    x = isotopeshiftdata.T[reference_transition_index]
-    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
+    x = isotopeshiftdata.T[0]  # [reference_transition_index]
+    y = np.delete(isotopeshiftdata, 0, axis=1)
+    # y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
 
-    sigx = sigisotopeshiftdata.T[reference_transition_index]
-    sigy = np.delete(sigisotopeshiftdata, reference_transition_index, axis=1)
+    sigx = sigisotopeshiftdata.T[0]
+    sigy = np.delete(sigisotopeshiftdata, 0, axis=1)
+    # sigx = sigisotopeshiftdata.T[reference_transition_index]
+    # sigy = np.delete(sigisotopeshiftdata, reference_transition_index, axis=1)
 
     betas = []
     sig_betas = []
@@ -210,7 +214,7 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
 
 class ElemCollection:
 
-    def __init__(self, elemlist, gkpdims, nmgkpdims):
+    def __init__(self, elemlist):
         elem_collection = []
         elem_collection_id = ""
 
@@ -279,7 +283,8 @@ class Elem:
         'nu_in', 'sig_nu_in', 'isotope_data', 'Eb_data',
         'Xcoeff_data', 'sig_Xcoeff_data']
 
-    def __init__(self, element: str):
+    def __init__(self, element: str,
+                 reference_transition_index=0, rescale_nu_j=None):
         """
         Load all data files associated to element and initialises Elem.
         instance.
@@ -290,37 +295,85 @@ class Elem:
                     to src/kifit/user_elems""".format(element))
 
         logging.info("Loading raw data")
+
         self.id = element
-        self._init_elemdata()
+        self.reference_transition_index = reference_transition_index
+        self._init_elemdata(rescale_nu_j=rescale_nu_j)
         self._init_masses()
         self._init_Xcoeffs()
         self._init_MC()
         self._init_fit_params()
 
-    def __load(self, atr: str, file_type: str, file_path: str):
+    def __transform_Xcoeffs(self, val):
+
+        if self.reference_transition_index > 0:
+
+            mphi = val.T[0]
+            xs = val[:, 1:]
+            x0 = xs.T[self.reference_transition_index]
+            xj = np.delete(xs, self.reference_transition_index, axis=1)
+
+            val = np.c_[x0, xj]
+
+        return val
+
+    def __transform_nus(self, val, rescale_nu_j=None):
+
+        x = val.T[self.reference_transition_index]
+        y = np.delete(val, self.reference_transition_index, axis=1)
+
+        if rescale_nu_j is not None:
+
+            rescale_nu_j = float(rescale_nu_j)
+            y = rescale_nu_j * y
+
+        val = np.c_[x, y]
+
+        return val
+
+
+    def __init_input(self, atr: str, file_path: str,
+                     rescale_nu_j=None):
+
         logging.info('Loading attribute {} for element {} from {}'.format(
             atr, self.id, file_path))
+
         val = np.loadtxt(file_path)
 
         if ((atr == 'Xcoeff_data') or (atr == 'sig_Xcoeff_data')):
 
             val = val.reshape(-1, self.ntransitions + 1)
+            val = self.__transform_Xcoeffs(val)
+
+        elif ((atr == 'nu_in') or (atr == 'sig_nu_in')):
+
+            val = self.__transform_nus(val, rescale_nu_j=rescale_nu_j)
 
         setattr(self, atr, val)
 
-    def _init_elemdata(self):
+    def _init_elemdata(self, rescale_nu_j=None):
         # load data from elem folder
-        for (i, file_type) in enumerate(self.INPUT_FILES):
-            if len(self.INPUT_FILES) != len(self.elem_init_atr):
-                raise NameError("""Number of INPUT_FILES does not match number
-                of elem_init_atr.""")
+        # for (i, file_type) in enumerate(self.INPUT_FILES):
+        #     if len(self.INPUT_FILES) != len(self.elem_init_atr):
+        #         raise NameError("""Number of INPUT_FILES does not match number
+        #         of elem_init_atr.""")
+        #
+        #     file_name = file_type + '_' + self.id + '.dat'
+        #     file_path = os.path.join(_data_path, self.id, file_name)
+        #
+        #     self.__load(self.elem_init_atr[i], file_type, file_path)
+        #
+        file_path = {filetype: os.path.join(_data_path, self.id,
+                                            filetype + '_' + self.id + '.dat')
+                     for filetype in self.INPUT_FILES}
 
-            file_name = file_type + '_' + self.id + '.dat'
-            file_path = os.path.join(_data_path, self.id, file_name)
+        self.__init_input('nu_in', file_path['nu'], rescale_nu_j=rescale_nu_j)
+        self.__init_input('sig_nu_in', file_path['sig_nu'], rescale_nu_j=rescale_nu_j)
+        self.__init_input('isotope_data', file_path['isotopes'])
+        self.__init_input('Eb_data', file_path['binding_energies'])
+        self.__init_input('Xcoeff_data', file_path['Xcoeffs'])
+        self.__init_input('sig_Xcoeff_data', file_path['sig_Xcoeffs'])
 
-            # if not os.path.exists(file_path):
-            #     raise ImportError(f"Path {file_path} does not exist.")
-            self.__load(self.elem_init_atr[i], file_type, file_path)
 
     def _init_masses(self):
         """
@@ -413,8 +466,8 @@ class Elem:
             self.sig_kp1_init, self.sig_ph1_init,
             self.cov_kperp1_ph1
         ) = perform_odr(
-            self.nutil_in, self.sig_nutil_in,
-            reference_transition_index=0)
+            self.nutil_in, self.sig_nutil_in)
+            # reference_transition_index=0)
 
         self.alphaNP_init = 0.
 
@@ -503,6 +556,10 @@ class Elem:
         self.kp1 = thetas[:self.ntransitions - 1]
         self.ph1 = thetas[self.ntransitions - 1: 2 * self.ntransitions - 2]
         self.alphaNP = thetas[-1]
+        # print("updated")
+        # print("kp1", self.kp1)
+        # print("ph1", self.ph1)
+        # print("alphaNP", self.alphaNP)
 
         if ((len(self.kp1) != self.ntransitions - 1) or (len(self.ph1) != self.ntransitions - 1)):
             raise AttributeError("""Passed fit parameters do not have appropriate dimensions""")

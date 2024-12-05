@@ -547,9 +547,9 @@ def plot_alphaNP_ll(
 
     plotpath = messenger.paths.generate_plot_path(
         "alphaNP_ll"
-        + ("_" + expstr if expstr == "search" else "")
+        + ("_" + expstr if expstr == "search_" else "_")
         + (f"{messenger.params.search_mode}-search")
-        + (f"{messenger.params.logrid_frac}logridfrac_"
+        + (f"{messenger.params.logrid_frac}logridfrac"
             if messenger.params.search_mode == "detlogrid" else ""), xind=xind)
 
     plt.savefig(plotpath, dpi=1000)

@@ -1,7 +1,7 @@
 import numpy as np
 from itertools import product, combinations
 
-from kifit.build import Elem, perform_odr, perform_linreg
+from kifit.build import Elem
 from kifit.detools import (
     sample_gkp_parts, assemble_gkp_combinations,
     sample_proj_parts, assemble_proj_combinations
@@ -10,40 +10,6 @@ from kifit.detools import (
 np.random.seed(1)
 
 # import matplotlib.pyplot as plt
-
-
-def test_linfit():
-
-    ca = Elem('Ca_testdata')
-
-    (betas_odr, sig_betas_odr, kperp1s_odr, ph1s_odr,
-        sig_kperp1s_odr, sig_ph1s_odr, cov_kperp1_ph1s) = perform_odr(
-        ca.nutil_in, ca.sig_nutil_in,
-        reference_transition_index=0)
-
-    (betas_linreg, sig_betas_linreg, kperp1s_linreg, ph1s_linreg,
-        sig_kperp1s_linreg, sig_ph1s_linreg) = perform_linreg(
-        ca.nutil_in, reference_transition_index=0)
-
-    assert betas_odr.shape == (ca.ntransitions - 1, 2)
-    assert betas_linreg.shape == (ca.ntransitions - 1, 2)
-
-    assert np.all(np.isclose(betas_odr, betas_linreg, atol=0, rtol=1e-2))
-    assert np.all(np.isclose(sig_betas_odr, sig_betas_linreg, atol=0, rtol=1))
-    assert np.all(np.isclose(kperp1s_odr, kperp1s_linreg, atol=0, rtol=1e-2))
-    assert np.all(np.isclose(ph1s_odr, ph1s_linreg, atol=0, rtol=1e-2))
-    assert np.all(np.isclose(sig_kperp1s_odr, sig_kperp1s_linreg, atol=0, rtol=1))
-    assert np.all(np.isclose(sig_ph1s_odr, sig_ph1s_linreg, atol=0, rtol=1))
-
-    xvals = ca.nutil_in.T[0]
-    yvals = ca.nutil_in[:, 1:]
-
-    betas_dat = np.array([np.polyfit(xvals, yvals[:, i], 1) for i in
-        range(yvals.shape[1])])
-
-    assert betas_dat.shape == (ca.ntransitions -1, 2)
-    assert np.all(np.isclose(betas_dat, betas_odr, atol=0, rtol=1e-2))
-
 
 def test_GKP_combinations():
 
@@ -317,7 +283,6 @@ def test_proj_combinations():
 
 
 if __name__ == "__main__":
-    test_linfit()
     test_GKP_combinations()
     test_NMGKP_combinations()
     test_proj_combinations()
