@@ -288,7 +288,7 @@ class Elem:
         'Xcoeff_data', 'sig_Xcoeff_data']
 
     def __init__(self, element: str,
-                 reference_transition_index=0, rescale_nu_j=None):
+                 reference_transition_index=0):
         """
         Load all data files associated to element and initialises Elem.
         instance.
@@ -302,7 +302,7 @@ class Elem:
 
         self.id = element
         self.reference_transition_index = reference_transition_index
-        self._init_elemdata(rescale_nu_j=rescale_nu_j)
+        self._init_elemdata()
         self._init_masses()
         self._init_Xcoeffs()
         self._init_MC()
@@ -321,23 +321,17 @@ class Elem:
 
         return val
 
-    def __transform_nus(self, val, rescale_nu_j=None):
+    def __transform_nus(self, val):
 
         x = val.T[self.reference_transition_index]
         y = np.delete(val, self.reference_transition_index, axis=1)
-
-        if rescale_nu_j is not None:
-
-            rescale_nu_j = float(rescale_nu_j)
-            y = rescale_nu_j * y
 
         val = np.c_[x, y]
 
         return val
 
 
-    def __init_input(self, atr: str, file_path: str,
-                     rescale_nu_j=None):
+    def __init_input(self, atr: str, file_path: str):
 
         logging.info('Loading attribute {} for element {} from {}'.format(
             atr, self.id, file_path))
@@ -351,11 +345,11 @@ class Elem:
 
         elif ((atr == 'nu_in') or (atr == 'sig_nu_in')):
 
-            val = self.__transform_nus(val, rescale_nu_j=rescale_nu_j)
+            val = self.__transform_nus(val)
 
         setattr(self, atr, val)
 
-    def _init_elemdata(self, rescale_nu_j=None):
+    def _init_elemdata(self):
         # load data from elem folder
         # for (i, file_type) in enumerate(self.INPUT_FILES):
         #     if len(self.INPUT_FILES) != len(self.elem_init_atr):
@@ -371,8 +365,8 @@ class Elem:
                                             filetype + '_' + self.id + '.dat')
                      for filetype in self.INPUT_FILES}
 
-        self.__init_input('nu_in', file_path['nu'], rescale_nu_j=rescale_nu_j)
-        self.__init_input('sig_nu_in', file_path['sig_nu'], rescale_nu_j=rescale_nu_j)
+        self.__init_input('nu_in', file_path['nu'])
+        self.__init_input('sig_nu_in', file_path['sig_nu'])
         self.__init_input('isotope_data', file_path['isotopes'])
         self.__init_input('Eb_data', file_path['binding_energies'])
         self.__init_input('Xcoeff_data', file_path['Xcoeffs'])
