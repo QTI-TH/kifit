@@ -214,16 +214,20 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata):
 
 class ElemCollection:
 
-    def __init__(self, elemlist):
+    def __init__(self, elemlist, reference_transition_index_list=None):
         elem_collection = []
         elem_collection_id = ""
 
-        for elemstr in elemlist[:-1]:
-            elem = Elem(str(elemstr))
+        if reference_transition_index_list is None:
+            reference_transition_index_list = np.ones(len(elemlist))
+
+        for elemstr, ref_trans_ind in zip(elemlist[:-1],
+                                          reference_transition_index_list[:-1]):
+            elem = Elem(str(elemstr), ref_trans_ind)
             elem_collection.append(elem)
             elem_collection_id += elem.id + "_"
 
-        elem = Elem(str(elemlist[-1]))
+        elem = Elem(str(elemlist[-1]), reference_transition_index_list[-1])
         elem_collection.append(elem)
         elem_collection_id += elem.id
 
@@ -313,7 +317,7 @@ class Elem:
             x0 = xs.T[self.reference_transition_index]
             xj = np.delete(xs, self.reference_transition_index, axis=1)
 
-            val = np.c_[x0, xj]
+            val = np.c_[mphi, x0, xj]
 
         return val
 
@@ -937,7 +941,7 @@ class Elem:
         ]
 
         betas, _, _, _, _, _, _ = perform_odr(
-            isotopeshiftdata, sigisotopeshiftdata, reference_transition_index=0)
+            isotopeshiftdata, sigisotopeshiftdata)
 
         return betas[0, 0]
 

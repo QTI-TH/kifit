@@ -97,12 +97,10 @@ def test_linfit():
 
     (betas_odr, sig_betas_odr, kperp1s_odr, ph1s_odr,
         sig_kperp1s_odr, sig_ph1s_odr, cov_kperp1_ph1s) = perform_odr(
-        ca.nutil_in, ca.sig_nutil_in,
-        reference_transition_index=0)
+        ca.nutil_in, ca.sig_nutil_in)
 
     (betas_linreg, sig_betas_linreg, kperp1s_linreg, ph1s_linreg,
-        sig_kperp1s_linreg, sig_ph1s_linreg) = perform_linreg(
-        ca.nutil_in, reference_transition_index=0)
+        sig_kperp1s_linreg, sig_ph1s_linreg) = perform_linreg(ca.nutil_in)
 
     assert betas_odr.shape == (ca.ntransitions - 1, 2)
     assert betas_linreg.shape == (ca.ntransitions - 1, 2)
@@ -212,6 +210,32 @@ def test_constr_dvec():
         ca.range_a]) / ca.dnorm
     assert np.allclose(ca.absd, absd_explicit, atol=0, rtol=1e-15)
 
+
+def test_swap_elem():
+
+    camin_ref1 = Elem('Camin', reference_transition_index=1)
+    camin_swap = Elem('Camin_swap')
+
+    assert np.allclose(camin_ref1.nu, camin_swap.nu, atol=0,
+                       rtol=1e-20)
+    assert np.allclose(camin_ref1.sig_nu, camin_swap.sig_nu, atol=0,
+                       rtol=1e-20)
+
+    assert np.allclose(camin_ref1.Xvec, camin_swap.Xvec, atol=0,
+                       rtol=1e-20)
+    assert np.allclose(camin_ref1.sig_Xvec, camin_swap.sig_Xvec, atol=0,
+                       rtol=1e-20)
+    assert np.allclose(camin_ref1.mphi, camin_swap.mphi, atol=0,
+                       rtol=1e-20)
+
+    assert np.allclose(camin_ref1.m_a_in, camin_swap.m_a_in, atol=0,
+                       rtol=1e-20)
+    assert np.allclose(camin_ref1.sig_m_a_in, camin_swap.sig_m_a_in, atol=0,
+                       rtol=1e-20)
+    assert np.allclose(camin_ref1.m_ap_in, camin_swap.m_ap_in, atol=0,
+                       rtol=1e-20)
+    assert np.allclose(camin_ref1.sig_m_ap_in, camin_swap.sig_m_ap_in, atol=0,
+                       rtol=1e-20)
 
 def levi_civita_tensor(d):
     arr = np.zeros([d for _ in range(d)])
@@ -372,6 +396,7 @@ if __name__ == "__main__":
     test_linfit()
     test_set_fit_params()
     test_constr_dvec()
+    test_swap_elem()
     test_levi_civita()
     test_alphaNP_GKP()
     test_alphaNP_NMGKP()

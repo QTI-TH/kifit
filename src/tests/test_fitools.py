@@ -1,25 +1,50 @@
 import numpy as np
+import logging
 import os
 
 from kifit.build import Elem
 from kifit.fitools import (
     generate_elemsamples, generate_alphaNP_samples,
-    get_llist_elemsamples, get_delchisq)
+    get_llist_elemsamples, get_delchisq, get_delchisq_crit, get_confint)
+from kifit.detools import (
+    sample_gkp_parts, assemble_gkp_combinations,
+    sample_proj_parts, assemble_proj_combinations
+)
+
 np.random.seed(1)
 
+plotfolder = os.path.abspath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "test_output"))
+if not os.path.exists(plotfolder):
+    logging.info("Creating file at ", plotfolder)
+    os.mkdir(plotfolder)
 
-# next add test of swap camin_swap vs camin, ref trans 1
+def swap_inputparams(inputparams, nisotopepairs, ntransitions):
+
+    inputparamat = np.reshape(inputparams[2 * nisotopepairs:],
+        (nisotopepairs, ntransitions)).T
+
+    inputparamat_swap = np.c_[inputparamat[1], inputparamat[0]]
+
+    inputparamswap = np.concatenate((inputparams[: 2 * nisotopepairs],
+        inputparamat_swap), axis=None)
+
+    return inputparamswap
+
+def swap_dmat(dmat):
+
+    swap_dmat = (dmat).T
+
+    return np.c_[swap_dmat[1], swap_dmat[0]]
+
 
 def test_d_swap_varying_inputparams():
 
     camin = Elem('Camin')
     camin_swap = Elem('Camin_swap')
 
-    camin_kp1_orig = camin.kp1
-    camin_ph1_orig = camin.ph1
-
-    swap_dmat = (camin_swap.dmat).T
-    swapped_swap_dmat = np.c_[swap_dmat[1], swap_dmat[0]]
+    swapped_swap_dmat = swap_dmat(camin_swap.dmat)
 
     assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0, rtol=1e-4)
     assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0, rtol=1e-5)
@@ -37,19 +62,14 @@ def test_d_swap_varying_inputparams():
 
     for i, inputparams in enumerate(inputparamsamples):
 
-        inputparamat = np.reshape(inputparams[2 * camin.nisotopepairs:],
-            (camin.nisotopepairs, camin.ntransitions)).T
-
-        inputparamat_swap = np.c_[inputparamat[1], inputparamat[0]]
-
-        inputparamswap = np.concatenate((inputparams[: 2 * camin.nisotopepairs],
-            inputparamat_swap), axis=None)
+        inputparamswap = swap_inputparams(inputparams,
+                                          camin.nisotopepairs,
+                                          camin.ntransitions)
 
         camin._update_elem_params(inputparams)
         camin_swap._update_elem_params(inputparamswap)
 
-        swap_dmat = (camin_swap.dmat).T
-        swapped_swap_dmat = np.c_[swap_dmat[1], swap_dmat[0]]
+        swapped_swap_dmat = swap_dmat(camin_swap.dmat)
 
         assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0, rtol=1e-3)
         assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0, rtol=1e-3)
@@ -84,19 +104,14 @@ def test_d_swap_varying_inputparams():
 
     for i, inputparams in enumerate(inputparamsamples):
 
-        inputparamat = np.reshape(inputparams[2 * camin.nisotopepairs:],
-            (camin.nisotopepairs, camin.ntransitions)).T
-
-        inputparamat_swap = np.c_[inputparamat[1], inputparamat[0]]
-
-        inputparamswap = np.concatenate((inputparams[: 2 * camin.nisotopepairs],
-            inputparamat_swap), axis=None)
+        inputparamswap = swap_inputparams(inputparams,
+                                          camin.nisotopepairs,
+                                          camin.ntransitions)
 
         camin._update_elem_params(inputparams)
         camin_swap._update_elem_params(inputparamswap)
 
-        swap_dmat = (camin_swap.dmat).T
-        swapped_swap_dmat = np.c_[swap_dmat[1], swap_dmat[0]]
+        swapped_swap_dmat = swap_dmat(camin_swap.dmat)
 
         assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0, rtol=1e-7)
         assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0, rtol=1e-7)
@@ -131,19 +146,14 @@ def test_d_swap_varying_inputparams():
 
     for i, inputparams in enumerate(inputparamsamples):
 
-        inputparamat = np.reshape(inputparams[2 * camin.nisotopepairs:],
-            (camin.nisotopepairs, camin.ntransitions)).T
-
-        inputparamat_swap = np.c_[inputparamat[1], inputparamat[0]]
-
-        inputparamswap = np.concatenate((inputparams[: 2 * camin.nisotopepairs],
-            inputparamat_swap), axis=None)
+        inputparamswap = swap_inputparams(inputparams,
+                                          camin.nisotopepairs,
+                                          camin.ntransitions)
 
         camin._update_elem_params(inputparams)
         camin_swap._update_elem_params(inputparamswap)
 
-        swap_dmat = (camin_swap.dmat).T
-        swapped_swap_dmat = np.c_[swap_dmat[1], swap_dmat[0]]
+        swapped_swap_dmat = swap_dmat(camin_swap.dmat)
 
         assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0, rtol=1e-8)
         assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0, rtol=1e-8)
@@ -207,14 +217,9 @@ def Elem_swap_loop(
 
             # update inputparams
             inputparams = inputparamsamples[i]
-
-            inputparamat = np.reshape(inputparams[2 * elem.nisotopepairs:],
-                (elem.nisotopepairs, elem.ntransitions)).T
-
-            inputparamat_swap = np.c_[inputparamat[1], inputparamat[0]]
-
-            inputparamswap = np.concatenate((inputparams[: 2 * elem.nisotopepairs],
-                inputparamat_swap), axis=None)
+            inputparamswap = swap_inputparams(inputparams,
+                                              elem.nisotopepairs,
+                                              elem.ntransitions)
 
             elem._update_elem_params(inputparams)
             elem_swap._update_elem_params(inputparamswap)
@@ -320,7 +325,9 @@ def swap_varying_elemparams(only_inputparams = False):
     else:
         varstr = "elemparamvar"
 
-    plotpath = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+
+
+    plotpath = os.path.join(plotfolder,
                             f"mc_output_Camin_Camin_swap_x{camin.x}_{varstr}.pdf")
     plt.savefig(plotpath, dpi=1000)
 
@@ -328,7 +335,7 @@ def swap_varying_elemparams(only_inputparams = False):
         ax.set_ylim(0, 10)
         ax.set_xlim(-1e-10, 1e-10)
 
-    plotpath = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+    plotpath = os.path.join(plotfolder,
                             f"mc_output_Camin_Camin_swap_x{camin.x}_{varstr}_zoom.pdf")
     plt.savefig(plotpath, dpi=1000)
 
@@ -402,18 +409,149 @@ def test_lam():
             + r" $\alpha_{\mathrm{NP}}$ samples")
     plt.legend()
 
-    plotpath = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+    plotpath = os.path.join(plotfolder,
                             f"mc_output_Camin_lam_x{camin.x}.pdf")
     plt.savefig(plotpath, dpi=1000)
 
     ax.set_ylim(0, 1)
     ax.set_xlim(-.5e-10, .5e-10)
 
-    plotpath = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+    plotpath = os.path.join(plotfolder,
                             f"mc_output_Camin_lam_x{camin.x}_zoom.pdf")
     plt.savefig(plotpath, dpi=1000)
 
 
+def get_det_vals(elem, nsamples, dim, method_tag):
+
+    (
+        meanvd, sigvd, meanv1, sigv1, xindlist
+    ) = sample_gkp_parts(elem, nsamples, dim, method_tag)
+
+    alphas, sigalphas = assemble_gkp_combinations(
+        elem, meanvd, sigvd, meanv1, sigv1, xindlist, dim, method_tag)
+
+    UB = alphas + 2 * sigalphas
+    LB = alphas - 2 * sigalphas
+
+    return (alphas, LB, UB)
+
+
+def test_rescale_nu_j():
+    rescale_factors = [-1e6, -1e3, -1, -1e-3, 1e-3, 1, 1e3, 1e6]
+    # sigalpha = [5e-14, 5e-11, 5e-10, 1e-9]
+    sigalpha = [1.5e-10, 1.5e-10, 1e-10, 1e-13, 1e-13, 1e-10, 1.5e-10, 1.5e-10]
+    # sigalpha = 5e-11 * np.ones(4)
+
+    nalphasamples = 100  # 500
+    nelemsamples = 100
+    min_percentile = 0
+    delchisqcrit = get_delchisq_crit(2)
+
+    alphalist = []
+    delchisqlist = []
+    confintlist = []
+
+    philist = []
+
+    alphalist_det = []
+    LBlist_det = []
+    UBlist_det = []
+
+    for f, fac in enumerate(rescale_factors):
+
+        camin = Elem('Camin', rescale_nu_j=fac)
+
+        alphas, LB, UB = get_det_vals(camin, nelemsamples, 3, "gkp")
+        alphalist_det.append(alphas)
+        LBlist_det.append(LB)
+        UBlist_det.append(UB)
+
+        philist.append(camin.ph1[0] / np.pi)
+
+        camin.set_alphaNP_init(0, sigalpha[f])
+        alphasamples = generate_alphaNP_samples(
+                camin,
+                nalphasamples,
+                search_mode="normal")
+
+        inputparamsamples, fitparamsamples = generate_elemsamples(camin, nelemsamples)
+
+        delchisq_fac = []
+
+        for alphaNP in alphasamples:
+
+            camin_absdsamples = []
+
+            for inputparams, fitparams in zip(inputparamsamples, fitparamsamples):
+
+                camin._update_fit_params([fitparams[0], fitparams[1], alphaNP])
+                # camin.alphaNP = alphaNP
+                camin._update_elem_params(inputparams)
+                camin_absdsamples.append(camin.absd)
+
+            camin_ll = get_llist_elemsamples(camin_absdsamples)
+            delchisq_fac.append(np.percentile(camin_ll, min_percentile))
+
+        delchisqsamples = get_delchisq(delchisq_fac, minll=None)
+
+        alphalist.append(alphasamples)
+        delchisqlist.append(delchisqsamples)
+        confintlist.append(get_confint(alphasamples, delchisqsamples, delchisqcrit))
+
+    import matplotlib.pyplot as plt
+
+    alphalist_det = np.array(alphalist).flatten()
+    LBlist_det = np.array(LBlist_det).flatten()
+    UBlist_det = np.array(UBlist_det).flatten()
+
+    # fig, ax = plt.subplots()
+
+    for f, fac in enumerate(rescale_factors):
+        fig, ax = plt.subplots()
+        print("confintlist[f]", confintlist[f])
+        ax.scatter(alphalist[f], delchisqlist[f],
+        # label="r=" + str(fac) + r", $F_{21}$=" + str(F21list[f]),
+            label=(r"$\alpha_{\mathrm{NP}}\in$"
+                   + f"[{confintlist[f][0]:.1e},{confintlist[f][1]:.1e}]"),
+                   s=5)
+
+        # fit 2-sigma region
+        ax.axhline(y=delchisqcrit, color="r", lw=1, ls="--")
+        ax.axvline(x=confintlist[f][0], color="orange", lw=1, ls="--")
+        ax.axvline(x=confintlist[f][1], color="orange", lw=1, ls="--")
+
+        # determinant 2-sigma region
+        ax.axvline(x=alphalist_det[f], ls="--", color='purple',
+                   label=("dim-3 GKP: "
+                          + r"$\langle\alpha_{\mathrm{NP}}\rangle = $ "
+                + (f"{alphalist_det[f]:.1e}" if not np.isnan(alphalist_det[f])
+                   else "-")))
+
+        ax.axvline(x=LBlist_det[f], ls="--", color='b',
+                   label=("dim-3 GKP: "
+                          + r"$\alpha_{\mathrm{NP}}\in$ ["
+                + (f"{LBlist_det[f]:.1e}" if not np.isnan(LBlist_det[f]) else "-")
+                + ", "
+                + (f"{UBlist_det[f]:.1e}" if not np.isnan(UBlist_det[f]) else "-")
+                + "]"))
+
+        ax.axvline(x=UBlist_det[f], ls="--", color='b')
+
+        # admin
+        ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$")
+        ax.set_ylabel(r"$\Delta \chi^2$")
+
+        ax.set_xlim(2 * confintlist[f][0], 2 * confintlist[f][1])
+        ax.set_ylim(0, 10)
+        plt.title("r=" + str(fac) + r", $\phi_{21}$="
+                  + str(format(philist[f], '.4f')) + r"$\pi$")
+        plt.legend(loc='upper center')
+        plotpath = os.path.join(plotfolder,
+                                f"mc_output_rescalenuj{f}_x{camin.x}.pdf")
+        plt.savefig(plotpath, dpi=1000)
+
 if __name__ == "__main__":
+    test_d_swap_varying_inputparams()
     test_swap()
     test_lam()
+    test_rescale_nu_j()
