@@ -75,7 +75,7 @@ def test_load_individual():
     assert (ca.gammatilvec.size == ca.nisotopepairs)
     assert np.allclose(ca.gammatilvec, np.array([(ca.a_nisotope[a] - ca.ap_nisotope[a])
         / ca.muvec[a] for a in ca.range_a]), atol=0, rtol=1e-5)
-    assert (ca.avg_np_term.size == ca.nisotopepairs * ca.ntransitions)
+    assert (ca.diff_np_term.size == ca.nisotopepairs * ca.ntransitions)
     assert np.all([i.is_integer() for i in ca.a_nisotope])
     assert np.all([i.is_integer() for i in ca.ap_nisotope])
     assert (ca.F1.size == ca.ntransitions)
@@ -195,7 +195,7 @@ def test_constr_dvec():
     # avg_NP_term_alphaNP_1_Mathematica = np.average(
         # NP_term_alphaNP_1_Mathematica, axis=1)
 
-    assert np.allclose(ca.avg_np_term, avg_NP_term_alphaNP_1_Mathematica,
+    assert np.allclose(ca.diff_np_term, diff_NP_term_alphaNP_1_Mathematica,
         atol=0, rtol=1e-7)
 
     D_a1i_alphaNP_1_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]

@@ -333,14 +333,14 @@ def swap_varying_elemparams(only_inputparams = False):
 
     fig, ax = plt.subplots()
 
-    ax.scatter(alphasamples, camin_delchisq_caminfit, alpha=0.5, color='r',
-               label="Camin Caminfit", s=15)
-    ax.scatter(alphasamples, camin_swap_delchisq_caminfit, alpha=0.5,
-               color='b', label="Camin_swap Caminfit", s=5)
-    ax.scatter(alphasamples, camin_delchisq_caminswapfit, alpha=0.5, color='orange',
-               label="Camin Caminswapfit", s=15)
-    ax.scatter(alphasamples, camin_swap_delchisq_caminswapfit, alpha=0.5,
-               color='c', label="Camin_swap Caminswapfit", s=5)
+    ax.scatter(alphasamples, camin_delchisq_caminfit, color='r',
+               label="Ca 01, Ca 01 samples", s=15)
+    ax.scatter(alphasamples, camin_swap_delchisq_caminfit, color='b',
+               label="Ca 10, Ca 01 samples", s=5)
+    ax.scatter(alphasamples, camin_delchisq_caminswapfit, color='orange',
+               label="Ca 01, Ca 10 samples", s=15)
+    ax.scatter(alphasamples, camin_swap_delchisq_caminswapfit, color='c',
+               label="Ca 10, Ca 10 samples", s=5)
 
     # fit 2-sigma region
     ax.axhline(y=0, color="k", lw=1, ls="-")
@@ -359,18 +359,18 @@ def swap_varying_elemparams(only_inputparams = False):
             camin, nelemsamples, 3, "gkp")
 
 
-    detext = ("dim-3 GKP: \n"
-              + "Camin:      "
-              + r"$\alpha_{\mathrm{NP}}\in$ ["
-              + (f"{camin_LB_det[0]:.1e}" if not np.isnan(camin_LB_det[0]) else "-")
-              + ", "
-              + (f"{camin_UB_det[0]:.1e}" if not np.isnan(camin_UB_det[0]) else "-")
+    detext = (r"$\bf{dim~3~GKP:}$" + "\n "
+              + "Ca 01:\n"
+              + r"$\langle\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\rangle =$"
+              + f"{camin_alpha_det[0]:.1e}\n"
+              + r"$\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\in$ ["
+              + f"{camin_LB_det[0]:.1e}, {camin_UB_det[0]:.1e}"
               + "]\n"
-              + "Camin_swap:"
-              + r"$\alpha_{\mathrm{NP}}\in$ ["
-              + (f"{camin_swap_LB_det[0]:.1e}" if not np.isnan(camin_swap_LB_det[0]) else "-")
-              + ", "
-              + (f"{camin_swap_UB_det[0]:.1e}" if not np.isnan(camin_swap_UB_det[0]) else "-")
+              + "Ca 10:\n"
+              + r"$\langle\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\rangle =$"
+              + f"{camin_alpha_det[0]:.1e}\n"
+              + r"$\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\in$ ["
+              + f"{camin_swap_LB_det[0]:.1e}, {camin_swap_UB_det[0]:.1e}"
               + "]")
 
     light_grey = "#D7D7D7"
@@ -582,7 +582,7 @@ def test_elemvar_vs_elemfitvar():
     plt.savefig(plotpath, dpi=1000)
 
 if __name__ == "__main__":
-    # test_d_swap_varying_inputparams()
+    test_d_swap_varying_inputparams()
     test_swap()
-    # test_lam()
-    # test_elemvar_vs_elemfitvar()
+    test_lam()
+    test_elemvar_vs_elemfitvar()

@@ -152,7 +152,7 @@ D_a1i_Mathematica = [
 #     ]
 # ]
 
-avg_NP_term_alphaNP_1_Mathematica = [
+diff_NP_term_alphaNP_1_Mathematica = [
     [
         0,
         -3.9585231663233307203011098339582390230746503894028e16,

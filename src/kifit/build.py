@@ -957,12 +957,13 @@ class Elem:
 
     # Construction of the Loglikelihood Function ##############################
     @cached_fct_property
-    def avg_np_term(self):
+    def diff_np_term(self):
         """
         Generate the (nisotopepairs x ntransitions)-dimensional new physics term
         starting from theoretical input and fit parameters.
 
         """
+        # avg_np_term
         return self.alphaNP * np.tensordot(
             self.gammatilvec - np.average(self.gammatilvec), self.X1, axes=0)
 
@@ -978,7 +979,7 @@ class Elem:
 
         elif ((i in self.range_j) and (a in self.range_a)):
             return (self.nutil[a, i] - self.F1[i] * self.nutil[a, 0]
-                    - self.avg_np_term[a, i])
+                    - self.diff_np_term[a, i])
         else:
             raise IndexError('Index passed to D_a1i is out of range.')
 
