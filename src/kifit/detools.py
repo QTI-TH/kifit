@@ -1,4 +1,5 @@
 import numpy as np
+from math import factorial
 
 from itertools import (
     product,
@@ -208,9 +209,9 @@ def assemble_gkp_combinations(
     """
 
     if detstr == "gkp":
-        fac = np.math.factorial(dim - 2)
+        fac = factorial(dim - 2)
     elif detstr == "nmgkp":
-        fac = np.math.factorial(dim - 1)
+        fac = factorial(dim - 1)
     else:
         raise ValueError("""Invalid detstr in assemble_gkp_combinations:
         Only gkp or nmgkp are valid here.""")

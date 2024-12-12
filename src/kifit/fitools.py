@@ -261,7 +261,11 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky", lam=0.):
     return np.array(llist)
 
 
-def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
+def logL_alphaNP(alphaNP,
+                 elem_collection,
+                 nelemsamples,
+                 min_percentile,
+                 symm=False):
     """
     For elem_collection, compute negative loglikelihood for fixed alphaNP from
     ``nelemsamples`` samples of the input parameters associated to the elements
@@ -297,7 +301,7 @@ def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
             fitparams = fitparamsamples[i]
             fitparams.append(alphaNP)
             elem._update_fit_params(fitparams)
-            absdsamples.append(elem.absd)
+            absdsamples.append(elem.absd(symm))
 
         lls = get_llist_elemsamples(np.array(absdsamples),
             cov_decomp_method="cholesky")

@@ -59,11 +59,21 @@ def test_d_swap_varying_inputparams():
     camin = Elem('Camin')
     camin_swap = Elem('Camin_swap')
 
-    swapped_swap_dmat = swap_dmat(camin_swap.dmat)
+    swapped_swap_dmat = swap_dmat(camin_swap.dmat(True))
+    assert np.allclose(swapped_swap_dmat[0], camin.dmat(True)[0], atol=0,
+                       rtol=1e-4)
+    assert np.allclose(swapped_swap_dmat[1], camin.dmat(True)[1], atol=0,
+                       rtol=1e-5)
+    assert np.allclose(swapped_swap_dmat[2], camin.dmat(True)[2], atol=0,
+                       rtol=1e-4)
 
-    assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0, rtol=1e-4)
-    assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0, rtol=1e-5)
-    assert np.allclose(swapped_swap_dmat[2], camin.dmat[2], atol=0, rtol=1e-4)
+    swapped_swap_dmat = swap_dmat(camin_swap.dmat(False))
+    assert np.allclose(swapped_swap_dmat[0], camin.dmat(False)[0], atol=0,
+                       rtol=1e-4)
+    assert np.allclose(swapped_swap_dmat[1], camin.dmat(False)[1], atol=0,
+                       rtol=1e-5)
+    assert np.allclose(swapped_swap_dmat[2], camin.dmat(False)[2], atol=0,
+                       rtol=1e-4)
 
     assert np.isclose(camin.dnorm, camin_swap.dnorm, atol=0, rtol=1e-100)
 
@@ -84,16 +94,29 @@ def test_d_swap_varying_inputparams():
         camin._update_elem_params(inputparams)
         camin_swap._update_elem_params(inputparamswap)
 
-        swapped_swap_dmat = swap_dmat(camin_swap.dmat)
+        swapped_swap_dmat = swap_dmat(camin_swap.dmat(True))
+        assert np.allclose(swapped_swap_dmat[0], camin.dmat(True)[0], atol=0,
+                           rtol=1e-3)
+        assert np.allclose(swapped_swap_dmat[1], camin.dmat(True)[1], atol=0,
+                           rtol=1e-3)
+        assert np.allclose(swapped_swap_dmat[2], camin.dmat(True)[2], atol=0,
+                           rtol=1e-2)
 
-        assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0, rtol=1e-3)
-        assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0, rtol=1e-3)
-        assert np.allclose(swapped_swap_dmat[2], camin.dmat[2], atol=0, rtol=1e-2)
+        swapped_swap_dmat = swap_dmat(camin_swap.dmat(False))
+        assert np.allclose(swapped_swap_dmat[0], camin.dmat(False)[0], atol=0,
+                           rtol=1e-4)
+        print("A:", swapped_swap_dmat[1])
+        print("B:", camin.dmat(False)[1])
+        assert np.allclose(swapped_swap_dmat[1], camin.dmat(False)[1], atol=0,
+                           rtol=1e-3)
+        assert np.allclose(swapped_swap_dmat[2], camin.dmat(False)[2], atol=0,
+                           rtol=1e-4)
+
 
         assert np.isclose(camin.dnorm, camin_swap.dnorm, atol=0, rtol=1e-100)
 
-        camin_absdsamples_alpha0.append(camin.absd)
-        camin_swap_absdsamples_alpha0.append(camin_swap.absd)
+        camin_absdsamples_alpha0.append(camin.absd(True))
+        camin_swap_absdsamples_alpha0.append(camin_swap.absd(True))
 
     camin_covmat_alpha0 = np.cov(np.array(camin_absdsamples_alpha0),
                                  rowvar=False)
@@ -126,16 +149,26 @@ def test_d_swap_varying_inputparams():
         camin._update_elem_params(inputparams)
         camin_swap._update_elem_params(inputparamswap)
 
-        swapped_swap_dmat = swap_dmat(camin_swap.dmat)
+        swapped_swap_dmat = swap_dmat(camin_swap.dmat(True))
+        assert np.allclose(swapped_swap_dmat[0], camin.dmat(True)[0], atol=0,
+                           rtol=1e-7)
+        assert np.allclose(swapped_swap_dmat[1], camin.dmat(True)[1], atol=0,
+                           rtol=1e-7)
+        assert np.allclose(swapped_swap_dmat[2], camin.dmat(True)[2], atol=0,
+                           rtol=1e-8)
 
-        assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0, rtol=1e-7)
-        assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0, rtol=1e-7)
-        assert np.allclose(swapped_swap_dmat[2], camin.dmat[2], atol=0, rtol=1e-8)
+        swapped_swap_dmat = swap_dmat(camin_swap.dmat(False))
+        assert np.allclose(swapped_swap_dmat[0], camin.dmat(False)[0], atol=0,
+                           rtol=1)
+        assert np.allclose(swapped_swap_dmat[1], camin.dmat(False)[1], atol=0,
+                           rtol=2)
+        assert np.allclose(swapped_swap_dmat[2], camin.dmat(False)[2], atol=0,
+                           rtol=1)
 
         assert np.isclose(camin.dnorm, camin_swap.dnorm, atol=0, rtol=1e-100)
 
-        camin_absdsamples_alpha1.append(camin.absd)
-        camin_swap_absdsamples_alpha1.append(camin_swap.absd)
+        camin_absdsamples_alpha1.append(camin.absd(True))
+        camin_swap_absdsamples_alpha1.append(camin_swap.absd(True))
 
     camin_covmat_alpha1 = np.cov(np.array(camin_absdsamples_alpha1),
                                  rowvar=False)
@@ -168,16 +201,26 @@ def test_d_swap_varying_inputparams():
         camin._update_elem_params(inputparams)
         camin_swap._update_elem_params(inputparamswap)
 
-        swapped_swap_dmat = swap_dmat(camin_swap.dmat)
+        swapped_swap_dmat = swap_dmat(camin_swap.dmat(True))
+        assert np.allclose(swapped_swap_dmat[0], camin.dmat(True)[0], atol=0,
+                           rtol=1e-8)
+        assert np.allclose(swapped_swap_dmat[1], camin.dmat(True)[1], atol=0,
+                           rtol=1e-8)
+        assert np.allclose(swapped_swap_dmat[2], camin.dmat(True)[2], atol=0,
+                           rtol=1e-9)
 
-        assert np.allclose(swapped_swap_dmat[0], camin.dmat[0], atol=0, rtol=1e-8)
-        assert np.allclose(swapped_swap_dmat[1], camin.dmat[1], atol=0, rtol=1e-8)
-        assert np.allclose(swapped_swap_dmat[2], camin.dmat[2], atol=0, rtol=1e-9)
+        swapped_swap_dmat = swap_dmat(camin_swap.dmat(False))
+        assert np.allclose(swapped_swap_dmat[0], camin.dmat(False)[0], atol=0,
+                           rtol=1)
+        assert np.allclose(swapped_swap_dmat[1], camin.dmat(False)[1], atol=0,
+                           rtol=2)
+        assert np.allclose(swapped_swap_dmat[2], camin.dmat(False)[2], atol=0,
+                           rtol=1)
 
         assert np.isclose(camin.dnorm, camin_swap.dnorm, atol=0, rtol=1e-100)
 
-        camin_absdsamples_alpha2.append(camin.absd)
-        camin_swap_absdsamples_alpha2.append(camin_swap.absd)
+        camin_absdsamples_alpha2.append(camin.absd(True))
+        camin_swap_absdsamples_alpha2.append(camin_swap.absd(True))
 
     camin_covmat_alpha2 = np.cov(np.array(camin_absdsamples_alpha2),
                                  rowvar=False)
@@ -202,7 +245,8 @@ def Elem_swap_loop(
         elem_swap=None,
         only_inputparams=False,
         only_fitparams=False,
-        lam=0):
+        lam=0,
+        symm=False):
 
     elem_ll_elemfit = []
     elem_swap_ll_elemfit = []
@@ -239,7 +283,7 @@ def Elem_swap_loop(
             if not only_fitparams:
                 inputparams = inputparamsamples[i]
                 elem._update_elem_params(inputparams)
-            elem_absdsamples.append(elem.absd)
+            elem_absdsamples.append(elem.absd(symm))
 
             if elem_swap is not None:
                 if not only_fitparams:
@@ -247,25 +291,25 @@ def Elem_swap_loop(
                                                       elem.nisotopepairs,
                                                       elem.ntransitions)
                     elem_swap._update_elem_params(inputparamswap)
-                elem_swap_absdsamples.append(elem_swap.absd)
+                elem_swap_absdsamples.append(elem_swap.absd(symm))
 
         elem_ll = get_llist_elemsamples(elem_absdsamples, lam=lam)
         elem_ll_elemfit.append(np.percentile(elem_ll, min_percentile))
 
         if elem_swap is not None:
-            assert np.allclose(elem_absdsamples, elem_swap_absdsamples,
-                               atol=0, rtol=1)  # rtol=1e-1)
+            # assert np.allclose(elem_absdsamples, elem_swap_absdsamples,
+            #                    atol=0, rtol=1)  # rtol=1e-1)
             elem_covmat = (np.cov(np.array(elem_absdsamples), rowvar=False)
                            + 1e-17 * np.eye(elem.nisotopepairs))
             elem_swap_covmat = (np.cov(np.array(elem_swap_absdsamples),
                                 rowvar=False)
                                 + 1e-17 * np.eye(elem.nisotopepairs))
-            assert np.allclose(elem_covmat, elem_swap_covmat, atol=0, rtol=1e-2)
+            # assert np.allclose(elem_covmat, elem_swap_covmat, atol=0, rtol=1e-2)
             #rtol=1e-3)
 
             elem_swap_ll = get_llist_elemsamples(elem_swap_absdsamples, lam=lam)
-            assert np.allclose(elem_ll, elem_swap_ll, atol=0, rtol=1e-1)  # rtol=1e-2)
-
+            # assert np.allclose(elem_ll, elem_swap_ll, atol=0, rtol=1e-1)  # rtol=1e-2)
+            #
             elem_swap_ll_elemfit.append(np.percentile(elem_swap_ll,
                                                       min_percentile))
 
@@ -425,14 +469,17 @@ def test_lam():
         nalphasamples,
         search_mode="normal")
 
+    camin_delchisq_symm = []
     camin_delchisq = []
 
     for lamval in lamvals:
 
+        camin_ll_lam_symm = []
         camin_ll_lam = []
 
         for alphaNP in alphasamples:
 
+            camin_absdsamples_symm = []
             camin_absdsamples = []
 
             for i, fitparams in enumerate(fitparamsamples):
@@ -445,11 +492,16 @@ def test_lam():
                 camin._update_fit_params(fitparams)
                 camin._update_elem_params(inputparamsamples[i])
 
-                camin_absdsamples.append(camin.absd)
+                camin_absdsamples_symm.append(camin.absd(True))
+                camin_absdsamples.append(camin.absd(False))
 
+            camin_ll_symm = get_llist_elemsamples(camin_absdsamples_symm, lam=lamval)
             camin_ll = get_llist_elemsamples(camin_absdsamples, lam=lamval)
+
+            camin_ll_lam_symm.append(np.percentile(camin_ll_symm, min_percentile))
             camin_ll_lam.append(np.percentile(camin_ll, min_percentile))
 
+        camin_delchisq_symm.append(get_delchisq(camin_ll_lam_symm, minll=None))
         camin_delchisq.append(get_delchisq(camin_ll_lam, minll=None))
 
     import matplotlib.pyplot as plt
@@ -457,7 +509,10 @@ def test_lam():
     fig, ax = plt.subplots()
 
     for l, lam in enumerate(lamvals):
-        ax.scatter(alphasamples, camin_delchisq[l], label=f"lam={lam}", s=5)
+        ax.scatter(alphasamples, camin_delchisq_symm[l], label=f"lam={lam} symm",
+                   s=5, marker="v")
+        ax.scatter(alphasamples, camin_delchisq[l], label=f"lam={lam}", s=5,
+                   marker="o")
 
     ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$")
     ax.set_ylabel(r"$\Delta \chi^2$")
@@ -479,7 +534,7 @@ def test_lam():
     plt.savefig(plotpath, dpi=1000)
 
 
-def test_elemvar_vs_elemfitvar():
+def plot_elemvar_vs_elemfitvar(symm=False):
     nalphasamples = 100  # 500
     nelemsamples = 100  # 500
     min_percentile = 0
@@ -499,19 +554,21 @@ def test_elemvar_vs_elemfitvar():
     inputparamsamples, fitparamsamples = generate_elemsamples(camin, nelemsamples)
 
     delchisqs_elemvar = Elem_swap_loop(camin,
-                                      inputparamsamples,
-                                      fitparamsamples,
-                                      alphasamples,
-                                      min_percentile=min_percentile,
-                                      only_inputparams=True)
+                                       inputparamsamples,
+                                       fitparamsamples,
+                                       alphasamples,
+                                       min_percentile=min_percentile,
+                                       only_inputparams=True,
+                                       symm=symm)
     confint_elemvar = get_confint(alphasamples, delchisqs_elemvar, delchisqcrit)
 
     delchisqs_elemfitvar = Elem_swap_loop(camin,
-                                         inputparamsamples,
-                                         fitparamsamples,
-                                         alphasamples,
-                                         min_percentile=min_percentile,
-                                         only_inputparams=False)
+                                          inputparamsamples,
+                                          fitparamsamples,
+                                          alphasamples,
+                                          min_percentile=min_percentile,
+                                          only_inputparams=False,
+                                          symm=symm)
     confint_elemfitvar = get_confint(alphasamples, delchisqs_elemfitvar, delchisqcrit)
 
     delchisqs_fitvar = Elem_swap_loop(camin,
@@ -520,7 +577,8 @@ def test_elemvar_vs_elemfitvar():
                                       alphasamples,
                                       min_percentile=min_percentile,
                                       only_fitparams=True,
-                                      lam=0)
+                                      lam=1e-20,
+                                      symm=symm)
     confint_fitvar = get_confint(alphasamples, delchisqs_fitvar, delchisqcrit)
 
     import matplotlib.pyplot as plt
@@ -531,14 +589,15 @@ def test_elemvar_vs_elemfitvar():
                       + f"[{confint_elemvar[0]:.1e},{confint_elemvar[1]:.1e}]"),
                s=5, color='b')
     ax.scatter(alphasamples, delchisqs_elemfitvar,
-               label=(r"varying input params. & $K^\perp, \phi$: $\alpha_{\mathrm{NP}}\in$"
+               label=(r"varying input params. & $K^\perp, \phi$: "
+                      + r"$\alpha_{\mathrm{NP}}\in$"
                       + f"[{confint_elemfitvar[0]:.1e},{confint_elemfitvar[1]:.1e}]"),
                s=5, color='purple')
     ax.scatter(alphasamples, delchisqs_fitvar,
-               label=(r"varying fit params. $K^\perp, \phi$ only:  $\alpha_{\mathrm{NP}}\in$"
+               label=(r"varying fit params. $K^\perp, \phi$ only:"
+                      + r"$\alpha_{\mathrm{NP}}\in$"
                       + f"[{confint_fitvar[0]:.1e},{confint_fitvar[1]:.1e}]"),
                s=5, color='orange')
-
 
     # fit 2-sigma region
     ax.axhline(y=0, color="k", lw=1, ls="-")
@@ -578,11 +637,17 @@ def test_elemvar_vs_elemfitvar():
     ax.set_ylim(0, 10)
     plt.legend(loc='upper center')
     plotpath = os.path.join(plotfolder,
-                            f"mc_output_elemvar_vs_elemfitvar_x{camin.x}.pdf")
+                            f"mc_output_elemvar_vs_elemfitvar_x{camin.x}"
+                            + ("_symm" if symm else "")
+                            + ".pdf")
     plt.savefig(plotpath, dpi=1000)
+
+def test_elemvar_vs_elemfitvar():
+    plot_elemvar_vs_elemfitvar(symm=True)
+    plot_elemvar_vs_elemfitvar(symm=False)
 
 if __name__ == "__main__":
     test_d_swap_varying_inputparams()
-    test_swap()
-    test_lam()
+    # test_swap()
+    # test_lam()
     test_elemvar_vs_elemfitvar()

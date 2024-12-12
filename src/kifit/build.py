@@ -1,6 +1,7 @@
 import os
 import logging
 import numpy as np
+from math import factorial
 
 from scipy.odr import ODR, Model, RealData
 from scipy.stats import linregress
@@ -811,7 +812,7 @@ class Elem:
 
             nu / mu.
 
-        and write (nisotopepairs x ntransitions)-matrix to file.
+        This is a (nisotopepairs x ntransitions)-matrix.
 
         """
         return np.divide(self.nu.T, self.muvec).T
@@ -819,8 +820,8 @@ class Elem:
     @cached_fct_property
     def sig_nutil_in(self):
         """
-        Generate uncertainties on mass normalised isotope shifts and write
-        (nisotopepairs x ntransitions)-matrix to file.
+        Generate uncertainties on mass normalised isotope shifts.
+        Returns a (nisotopepairs x ntransitions)-matrix.
 
         """
         return np.absolute(np.array([[self.nutil_in[a, i]
@@ -956,19 +957,26 @@ class Elem:
         return (self.Xvec - self.F1 * self.Xvec[0])
 
     # Construction of the Loglikelihood Function ##############################
-    @cached_fct_property
-    def diff_np_term(self):
+    @cached_fct
+    def diff_np_term(self, symm: bool):
         """
         Generate the (nisotopepairs x ntransitions)-dimensional new physics term
         starting from theoretical input and fit parameters.
 
         """
-        # avg_np_term
-        return self.alphaNP * np.tensordot(
-            self.gammatilvec - np.average(self.gammatilvec), self.X1, axes=0)
+        if symm:
+            return self.alphaNP * np.tensordot(
+                self.gammatilvec - np.average(self.gammatilvec), self.X1, axes=0)
+
+        else:
+            np_term_1 = np.tensordot(self.gammatilvec, self.X1, axes=0)
+            avg_a_np_term_1 = (
+                    np.sum(np_term_1 * self.sig_nutil_in, axis=0) /
+                    np.sum(self.sig_nutil_in, axis=0))
+            return self.alphaNP * (np_term_1 - avg_a_np_term_1)
 
     @cached_fct
-    def D_a1i(self, a: int, i: int):
+    def D_a1i(self, a: int, i: int, symm: bool):
         """
         Returns object D_{1j}^a, where a is an isotope pair index and j is a
         transition index.
@@ -979,47 +987,47 @@ class Elem:
 
         elif ((i in self.range_j) and (a in self.range_a)):
             return (self.nutil[a, i] - self.F1[i] * self.nutil[a, 0]
-                    - self.diff_np_term[a, i])
+                    - self.diff_np_term(symm)[a, i])
         else:
             raise IndexError('Index passed to D_a1i is out of range.')
 
     @cached_fct
-    def d_ai(self, a: int, i: int):
+    def d_ai(self, a: int, i: int, symm: bool):
         """
         Returns element d_i^{AA'} of the n-vector d^{AA'}.
 
         """
         if ((i == 0) & (a in self.range_a)):
             return (- 1 / self.F1sq * np.sum(np.array([self.F1[j]
-                * (self.D_a1i(a, j)
+                * (self.D_a1i(a, j, symm)
                     - self.secph1[j] * self.Kperp1[j])
                 for j in self.range_j])))
 
         elif ((i in self.range_j) & (a in self.range_a)):
-            return (self.D_a1i(a, i)
+            return (self.D_a1i(a, i, symm)
                     - self.secph1[i] * self.Kperp1[i]
-                    + self.F1[i] * self.d_ai(a, 0))
+                    + self.F1[i] * self.d_ai(a, 0, symm))
         else:
             raise IndexError('Index passed to d_ai is out of range.')
 
-    @cached_fct_property
-    def dmat(self):
+    @cached_fct
+    def dmat(self, symm: bool):
         """
         Return full distances matrix.
 
         """
         return (np.array([[
-            self.d_ai(a, i) for i in self.range_i] for a in self.range_a])
+            self.d_ai(a, i, symm) for i in self.range_i] for a in self.range_a])
             / self.dnorm)
 
-    @cached_fct_property
-    def absd(self):
+    @cached_fct
+    def absd(self, symm: bool):
         """
         Returns (nisotopepairs)-vector of Euclidean norms of the
         (ntransitions)-vectors d^{AA'}.
 
         """
-        return np.sqrt(np.diag(self.dmat @ self.dmat.T))
+        return np.sqrt(np.diag(self.dmat(symm) @ (self.dmat(symm)).T))
 
     # Determinant Methods
     ###########################################################################
@@ -1062,7 +1070,7 @@ class Elem:
                 Xmat[i[0]] * hmat,
                 np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
                 mumat]))
-        alphaNP = np.math.factorial(dim - 2) * np.array(vol_data / vol_alphaNP1)
+        alphaNP = factorial(dim - 2) * np.array(vol_data / vol_alphaNP1)
 
         return alphaNP
 
@@ -1145,7 +1153,7 @@ class Elem:
         for p, xpinds in enumerate(xindlist):
             vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
             alphalist.append(voldat[p] / vol1p)
-        alphalist = np.math.factorial(dim - 2) * alphalist
+        alphalist = factorial(dim - 2) * alphalist
 
         return alphalist
 
@@ -1184,7 +1192,7 @@ class Elem:
             vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
                 Xmat[i[0]] * hmat,
                 np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
-        alphaNP = np.math.factorial(dim - 1) * np.array(vol_data / vol_alphaNP1)
+        alphaNP = factorial(dim - 1) * np.array(vol_data / vol_alphaNP1)
 
         return alphaNP
 
@@ -1268,7 +1276,7 @@ class Elem:
         for p, xpinds in enumerate(xindlist):
             vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
             alphalist.append(voldat[p] / vol1p)
-        alphalist = np.math.factorial(dim - 2) * alphalist
+        alphalist = factorial(dim - 2) * alphalist
 
         return alphalist
 

@@ -75,7 +75,8 @@ def test_load_individual():
     assert (ca.gammatilvec.size == ca.nisotopepairs)
     assert np.allclose(ca.gammatilvec, np.array([(ca.a_nisotope[a] - ca.ap_nisotope[a])
         / ca.muvec[a] for a in ca.range_a]), atol=0, rtol=1e-5)
-    assert (ca.diff_np_term.size == ca.nisotopepairs * ca.ntransitions)
+    assert (ca.diff_np_term(False).size == ca.nisotopepairs * ca.ntransitions)
+    assert (ca.diff_np_term(True).size == ca.nisotopepairs * ca.ntransitions)
     assert np.all([i.is_integer() for i in ca.a_nisotope])
     assert np.all([i.is_integer() for i in ca.ap_nisotope])
     assert (ca.F1.size == ca.ntransitions)
@@ -180,10 +181,10 @@ def test_constr_dvec():
         secph1nit_LL_Mathematica)), (ca.secph1, secph1nit_LL_Mathematica)
     assert np.allclose(ca.muvec, muvec_Mathematica, atol=0, rtol=1e-10)
 
-    D_a1i_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
+    D_a1i_python = [[ca.D_a1i(a, i, True) for i in ca.range_i] for a in ca.range_a]
 
     assert np.allclose(D_a1i_Mathematica, D_a1i_python, atol=0, rtol=1e-14)
-    assert np.allclose(np.array(dmat_Mathematica) / ca.dnorm, ca.dmat,
+    assert np.allclose(np.array(dmat_Mathematica) / ca.dnorm, ca.dmat(True),
         atol=0, rtol=1e-8)
 
     # with NP
@@ -195,20 +196,21 @@ def test_constr_dvec():
     # avg_NP_term_alphaNP_1_Mathematica = np.average(
         # NP_term_alphaNP_1_Mathematica, axis=1)
 
-    assert np.allclose(ca.diff_np_term, diff_NP_term_alphaNP_1_Mathematica,
+    assert np.allclose(ca.diff_np_term(True), diff_NP_term_alphaNP_1_Mathematica,
         atol=0, rtol=1e-7)
 
-    D_a1i_alphaNP_1_python = [[ca.D_a1i(a, i) for i in ca.range_i] for a in ca.range_a]
+    D_a1i_alphaNP_1_python = [[ca.D_a1i(a, i, True) for i in ca.range_i] for a in ca.range_a]
 
     assert np.allclose(D_a1i_alphaNP_1_Mathematica, D_a1i_alphaNP_1_python,
         atol=0, rtol=1e-13)
-    assert np.allclose(np.array(dmat_alphaNP_1_Mathematica) / ca.dnorm, ca.dmat,
-        atol=0, rtol=1e-13)
+    assert np.allclose(np.array(dmat_alphaNP_1_Mathematica) / ca.dnorm,
+                       ca.dmat(True), atol=0, rtol=1e-13)
 
     absd_explicit = np.array([np.sqrt(np.sum(
-        np.fromiter([ca.d_ai(a, i)**2 for i in ca.range_i], float))) for a in
-        ca.range_a]) / ca.dnorm
-    assert np.allclose(ca.absd, absd_explicit, atol=0, rtol=1e-15)
+        np.fromiter([ca.d_ai(a, i, True)**2
+                     for i in ca.range_i], float)))
+                              for a in ca.range_a]) / ca.dnorm
+    assert np.allclose(ca.absd(True), absd_explicit, atol=0, rtol=1e-15)
 
 
 def test_swap_elem():
