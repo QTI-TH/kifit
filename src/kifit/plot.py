@@ -47,8 +47,7 @@ def plot_linfit(elem, messenger, magnifac=1, resmagnifac=1, plot_path=None):
 
     betas_odr, sig_betas_odr, kperp1s, ph1s, sig_kperp1s, sig_ph1s, _ = perform_odr(
         elem.nutil_in,
-        elem.sig_nutil_in,
-        reference_transition_index=0,
+        elem.sig_nutil_in
     )
 
     (
@@ -58,8 +57,7 @@ def plot_linfit(elem, messenger, magnifac=1, resmagnifac=1, plot_path=None):
         ph1s_linreg,
         sig_kperp1s_linreg,
         sig_ph1s_linreg,
-    ) = perform_linreg(elem.nutil_in,
-        reference_transition_index=0)
+    ) = perform_linreg(elem.nutil_in)
 
     xvals = elem.nutil_in.T[0]
     sigxvals = elem.sig_nutil_in.T[0]

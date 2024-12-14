@@ -166,15 +166,6 @@ def generate_alphaNP_samples(elem,
                 np.log10(ubmin) - logridfrac, np.log10(ubmax) + logridfrac,
                 num=nposamples)
 
-            print("posgrid")
-            print((min(posgrid), max(posgrid)))
-            print((ubmin, ubmax))
-
-            print("negrid")
-            print((min(negrid), max(negrid)))
-            print((lbmin, lbmax))
-
-
             logging.info(f"""
             lbmin={lbmin} is negative and ubmax={ubmax} is positive.
             Sampling from logarithmic grids between {min(negrid)} and {max(negrid)},
@@ -714,12 +705,6 @@ def determine_search_interval(
             elem_collection=elem_collection,
             messenger=messenger,
             xind=xind)
-        print("lims_detlogrid")
-        print("lbmin", lbmin)
-        print("lbmax", lbmax)
-        print("ubmin", ubmin)
-        print("ubmax", ubmax)
-        print()
 
         search_output = perform_experiments(
             elem_collection=elem_collection,
@@ -747,9 +732,6 @@ def determine_search_interval(
 ##############################################################################
 
 def organise_search_results(messenger, nexps, alphas, delchisqs, bestalphas, xind):
-
-    print("organise_search_results")
-    print("alphas.shape", np.array(alphas).shape)
 
     # alphas = np.array(alphas).flatten()
     # delchisqs = np.array(delchisqs).flatten()
@@ -846,11 +828,6 @@ def perform_experiments(
     # also save output of search stage to data file
     alphaNP_init = elem_collection.elems[0].alphaNP_init
     sig_alphaNP_init = elem_collection.elems[0].sig_alphaNP_init
-
-    print("lbmin", lbmin)
-    print("lbmax", lbmax)
-    print("ubmin", ubmin)
-    print("ubmax", ubmax)
 
     allalphasamples = generate_alphaNP_samples(
         elem_collection.elems[0],
@@ -1001,9 +978,6 @@ def sample_alphaNP_fit(
     messenger.paths.write_search_output(xind, search_output)
 
     logging.info(f"Experiments for x={xind}")
-
-    print("alphaNP_init before exps", elem.alphaNP_init)
-    print("sig_alphaNP             ", elem.sig_alphaNP_init)
 
     fit_output = perform_experiments(
         elem_collection=elem_collection,

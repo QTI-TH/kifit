@@ -37,6 +37,10 @@ class RunParams:
         return self.__runparams.element_list
 
     @property
+    def reference_transitions(self):
+        return self.__runparams.reference_transitions
+
+    @property
     def num_alphasamples_search(self):
         return self.__runparams.num_alphasamples_search
 
@@ -135,6 +139,14 @@ class RunParams:
             type=str,
             required=True,
             help="List of strings corresponding to names of data folders",
+        )
+        parser.add_argument(
+            "--reference_transitions",
+            nargs="+",
+            type=int,
+            required=False,
+            help="""List of reference transition indices for the data sets defined
+            in element_list""",
         )
         parser.add_argument(
             "--num_alphasamples_search",

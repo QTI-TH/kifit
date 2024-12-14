@@ -20,9 +20,8 @@ class Runner:
 
         # construct a collection of elements
         self.collection = ElemCollection(
-            run_params.element_list #,
-            # run_params.gkp_dims,
-            # run_params.nmgkp_dims
+            run_params.element_list,
+            run_params.reference_transitions
         )
 
         print("elem collection elem list")
