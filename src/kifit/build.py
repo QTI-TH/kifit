@@ -224,7 +224,6 @@ class ElemCollection:
 
         for elemstr, ref_trans_ind in zip(elemlist[:-1],
                                           reference_transitions[:-1]):
-            print("ref_trans_ind", ref_trans_ind)
             elem = Elem(str(elemstr), ref_trans_ind)
             elem_collection.append(elem)
             elem_collection_id += elem.id + "_"
@@ -324,7 +323,6 @@ class Elem:
         return val
 
     def __transform_nus(self, val):
-        print("rti in transf", self.reference_transition_index)
 
         x = val.T[self.reference_transition_index]
         y = np.delete(val, self.reference_transition_index, axis=1)

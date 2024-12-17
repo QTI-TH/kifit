@@ -12,6 +12,8 @@ from kifit.detools import (
 )
 
 np.random.seed(1)
+fsize = 12
+axislabelsize = 15
 
 plotfolder = os.path.abspath(
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -105,8 +107,6 @@ def test_d_swap_varying_inputparams():
         swapped_swap_dmat = swap_dmat(camin_swap.dmat(False))
         assert np.allclose(swapped_swap_dmat[0], camin.dmat(False)[0], atol=0,
                            rtol=1e-4)
-        print("A:", swapped_swap_dmat[1])
-        print("B:", camin.dmat(False)[1])
         assert np.allclose(swapped_swap_dmat[1], camin.dmat(False)[1], atol=0,
                            rtol=1e-3)
         assert np.allclose(swapped_swap_dmat[2], camin.dmat(False)[2], atol=0,
@@ -323,7 +323,7 @@ def Elem_swap_loop(
                                                   minll=None)
         return elem_delchisq_elemfit, elem_swap_delchisq_elemfit
 
-def swap_varying_elemparams(only_inputparams = False):
+def swap_varying_elemparams(only_inputparams=False, symm=False):
 
     # varying both input parameters and fit parameters
 
@@ -357,7 +357,8 @@ def swap_varying_elemparams(only_inputparams = False):
         alphasamples,
         min_percentile,
         elem_swap=camin_swap,
-        only_inputparams = only_inputparams)
+        only_inputparams=only_inputparams,
+        symm=symm)
     camin_confint = get_confint(alphasamples, camin_delchisq_caminfit, delchisqcrit)
 
     camin_swap_delchisq_caminswapfit, camin_delchisq_caminswapfit = Elem_swap_loop(
@@ -367,7 +368,8 @@ def swap_varying_elemparams(only_inputparams = False):
         alphasamples,
         min_percentile,
         elem_swap=camin_swap,
-        only_inputparams = only_inputparams)
+        only_inputparams=only_inputparams,
+        symm=symm)
     camin_swap_confint = get_confint(alphasamples,
                                      camin_swap_delchisq_caminswapfit,
                                      delchisqcrit)
@@ -394,8 +396,9 @@ def swap_varying_elemparams(only_inputparams = False):
     ax.axvline(x=camin_swap_confint[0], color="green", lw=1, ls="--")
     ax.axvline(x=camin_swap_confint[1], color="green", lw=1, ls="--")
 
-    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$")
-    ax.set_ylabel(r"$\Delta \chi^2$")
+    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
+                  fontsize=axislabelsize)
+    ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
 
     camin_alpha_det, camin_LB_det, camin_UB_det = get_det_vals(
             camin, nelemsamples, 3, "gkp")
@@ -421,30 +424,35 @@ def swap_varying_elemparams(only_inputparams = False):
     textbox_props = dict(boxstyle='round', facecolor="white", edgecolor=light_grey)
     anchored_text = AnchoredText(detext, loc="upper right", frameon=False,
                                  prop=dict(bbox=textbox_props))
-    ax.add_artist(anchored_text)
-    plt.legend(loc="upper left")
+    # ax.add_artist(anchored_text)
+    # plt.legend(loc="upper left")
+    plt.legend(loc="upper center", fontsize=fsize)
+    ax.tick_params(axis="both", which="major", labelsize=fsize)
+    ax.xaxis.get_offset_text().set_fontsize(fsize)
 
-    if only_inputparams:
-        varstr = "inputparamvar"
-    else:
-        varstr = "elemparamvar"
+    varstr = "inputparamvar" if only_inputparams else "elemparamvar"
+    symmstr = "symm_" if symm else ""
 
-    plotpath = os.path.join(plotfolder,
-                            f"mc_output_Camin_Camin_swap_x{camin.x}_{varstr}.pdf")
+    plotpath = os.path.join(
+        plotfolder,
+        f"mc_output_Camin_01_10_{symmstr}x{camin.x}_{varstr}.pdf")
     plt.savefig(plotpath, dpi=1000)
 
     # if not only_inputparams:
-    ax.set_ylim(0, 10)
+    ax.set_ylim(0, 20)
     ax.set_xlim(-1e-10, 1e-10)
 
-    plotpath = os.path.join(plotfolder,
-                            f"mc_output_Camin_Camin_swap_x{camin.x}_{varstr}_zoom.pdf")
+    plotpath = os.path.join(
+        plotfolder,
+        f"mc_output_Camin_10_01_{symmstr}x{camin.x}_{varstr}_zoom.pdf")
     plt.savefig(plotpath, dpi=1000)
 
 
 def test_swap():
-    swap_varying_elemparams(only_inputparams = False)
-    swap_varying_elemparams(only_inputparams = True)
+    swap_varying_elemparams(only_inputparams=False, symm=False)
+    swap_varying_elemparams(only_inputparams=True, symm=False)
+    swap_varying_elemparams(only_inputparams=False, symm=True)
+    swap_varying_elemparams(only_inputparams=True, symm=True)
 
 
 def test_lam():
@@ -514,13 +522,17 @@ def test_lam():
         ax.scatter(alphasamples, camin_delchisq[l], label=f"lam={lam}", s=5,
                    marker="o")
 
-    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$")
-    ax.set_ylabel(r"$\Delta \chi^2$")
+    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
+                  fontsize=axislabelsize)
+    ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
 
-    plt.legend()
+    plt.legend(fontsize=fsize)
 
     ax.set_ylim(0, 1)
     ax.set_xlim(-.5e-10, .5e-10)
+
+    ax.tick_params(axis="both", which="major", labelsize=fsize)
+    ax.xaxis.get_offset_text().set_fontsize(fsize)
 
     plotpath = os.path.join(plotfolder,
                             f"mc_output_Camin_lam_x{camin.x}.pdf")
@@ -528,6 +540,8 @@ def test_lam():
 
     ax.set_ylim(0, 1)
     ax.set_xlim(-.5e-10, .5e-10)
+    ax.tick_params(axis="both", which="major", labelsize=fsize)
+    ax.xaxis.get_offset_text().set_fontsize(fsize)
 
     plotpath = os.path.join(plotfolder,
                             f"mc_output_Camin_lam_x{camin.x}_zoom.pdf")
@@ -591,7 +605,8 @@ def plot_elemvar_vs_elemfitvar(symm=False):
     ax.scatter(alphasamples, delchisqs_elemfitvar,
                label=(r"varying input params. & $K^\perp, \phi$: "
                       + r"$\alpha_{\mathrm{NP}}\in$"
-                      + f"[{confint_elemfitvar[0]:.1e},{confint_elemfitvar[1]:.1e}]"),
+                      +
+                      f"[{confint_elemfitvar[0]:.1e},{confint_elemfitvar[1]:.1e}]"),
                s=5, color='purple')
     ax.scatter(alphasamples, delchisqs_fitvar,
                label=(r"varying fit params. $K^\perp, \phi$ only:"
@@ -628,14 +643,17 @@ def plot_elemvar_vs_elemfitvar(symm=False):
             + (f"{LB_det[0]:.1e}" if not np.isnan(LB_det[0]) else "-")
             + ", "
             + (f"{UB_det[0]:.1e}" if not np.isnan(UB_det[0]) else "-")
-            + "]", fontsize=10)
+            + "]", fontsize=fsize)
 
     # admin
-    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$")
-    ax.set_ylabel(r"$\Delta \chi^2$")
+    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
+                  fontsize=axislabelsize)
+    ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
     ax.set_xlim(2 * confint_elemfitvar[0], 2 * confint_elemfitvar[1])
     ax.set_ylim(0, 10)
-    plt.legend(loc='upper center')
+    ax.tick_params(axis="both", which="major", labelsize=fsize)
+    ax.xaxis.get_offset_text().set_fontsize(fsize)
+    plt.legend(loc='upper center', fontsize=fsize)
     plotpath = os.path.join(plotfolder,
                             f"mc_output_elemvar_vs_elemfitvar_x{camin.x}"
                             + ("_symm" if symm else "")
@@ -648,6 +666,6 @@ def test_elemvar_vs_elemfitvar():
 
 if __name__ == "__main__":
     test_d_swap_varying_inputparams()
-    # test_swap()
-    # test_lam()
+    test_swap()
+    test_lam()
     test_elemvar_vs_elemfitvar()
