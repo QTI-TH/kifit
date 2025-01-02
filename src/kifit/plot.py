@@ -1,5 +1,6 @@
 import logging
 import json
+import os
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -893,55 +894,74 @@ def plot_mphi_alphaNP(
 
 
 
-def multi_plot_mphi_alphaNP(messengers_list, determinant=True):
+def multi_plot_mphi_alphaNP(
+        messengers_list, 
+        show_determinant_for=[], 
+        img_name="multifit_plot"
+    ):
     """Many messengers can be used here to construct a multi-fit plot."""
 
-    colors = ["green", "orange", "purple"]
+    
+    color_codes = construct_color_codes(messengers_list)
 
-    plt.figure(figsize=(10, 10 * 6 / 8))
+    plt.figure(figsize=(5, 5 * 6 / 8))
 
-    if determinant:
-        messenger = messengers_list[0]
-        plot_one_mphi_alphaNP_run(
-                messenger, 
-                color="red", 
-                label="Determinant method", 
-                return_common_features=False,
-                det_mode=True,
-            )
     for i, messenger in enumerate(messengers_list):
+        if len(messenger.config.params.element_list) > 1:
+            name = "Combination Ca-Yb"
+        else:
+            name = messenger.config.params.element_list[0]
         if i == 0:
             # plot and return common features mphix and linlim
             mphix, linlim = plot_one_mphi_alphaNP_run(
                 messenger=messenger, 
-                color=colors[i], 
-                label=messenger.config.params.search_mode, 
+                color=color_codes[name], 
+                label=name, 
                 return_common_features=True,
                 det_mode=False,
             )
         else:
             plot_one_mphi_alphaNP_run(
                 messenger, 
-                label=messenger.config.params.search_mode, 
-                color=colors[i],
+                label=name, 
+                color=color_codes[name],
                 det_mode=False,
             )
+
+    if len(show_determinant_for) != 0:
+        for i, messenger in enumerate(messengers_list):
+            name = messengers_list[i].config.params.element_list[0]
+            if name in show_determinant_for:
+                plot_one_mphi_alphaNP_run(
+                        messenger, 
+                        color=color_codes[name], 
+                        label=f"Det - {name}", 
+                        return_common_features=False,
+                        det_mode=True,
+                        marker="x",
+                    )
     
     plt.hlines(0, min(mphix), max(mphix), color="black", lw=1)
     plt.hlines(linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
     plt.hlines(-linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
-    plt.plot(mphix, 10**(0.0075*mphix -6), marker="s", color="black", label="Grid limit")
     plt.yscale("symlog", linthresh=linlim)
     plt.xscale("log")
     plt.yticks([-1e-1, -1e-6, -1e-10, 0,  1e-10, 1e-6, 1e-1])
-    plt.legend(fontsize=8, ncols=2, loc=2, framealpha=1)
-    plt.ylabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=12)
-    plt.xlabel(r"m$_{\phi}$ [eV]", fontsize=12)
+    plt.legend(fontsize=9.5, loc=2, framealpha=1)
+    plt.ylabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=14)
+    plt.xlabel(r"m$_{\phi}$ [eV]", fontsize=14)
 
-    plt.savefig("test_fits.png")
+    plt.savefig(f"{img_name}.png", dpi=200, bbox_inches="tight")
 
 # TODO: experiment is confusing, to be renamed
-def plot_one_mphi_alphaNP_run(messenger, color, label, return_common_features=False, det_mode=True):
+def plot_one_mphi_alphaNP_run(
+        messenger, 
+        color, 
+        label, 
+        return_common_features=False, 
+        det_mode=True,
+        marker=None,
+    ):
     """Helper function to plot many fits together."""
     # collecting data
     if det_mode:
@@ -951,13 +971,19 @@ def plot_one_mphi_alphaNP_run(messenger, color, label, return_common_features=Fa
     else:
         ub, sig_ub, lb, sig_lb, best_alphas, sig_best_alphas = collect_fit_X_data(messenger)
 
+    if marker is None:
+        marker = "o"
+        markersize = None
+    if marker == "x":
+        markersize = 10
+
     mphix = np.array(messenger.config.x_vals_fit)
 
     # setting limits
     linlim = 10 ** np.floor(np.log10(np.nanmax([np.abs(min(ub)), np.abs(max(lb))])) - 1)
 
-    plt.plot(mphix, ub, lw=1.5, alpha=0.75, marker="o", color=color, label=label)
-    plt.plot(mphix, lb, lw=1.5, alpha=0.75, color=color)
+    plt.plot(mphix, ub, lw=1.5, alpha=0.85, marker=marker, color=color, label=label, markersize=markersize)
+    plt.plot(mphix, lb, lw=1.5, alpha=0.85, color=color)
 
     if return_common_features:
         return mphix, linlim
@@ -1042,3 +1068,25 @@ def update_config_file(file_path, keyword, new_value):
     
     with open(file_path, 'w') as f:
         json.dump(updated_data, f, indent=4)
+
+
+def construct_color_codes(messengers_list):
+    """
+    Construct a color code associating a color to an element name. 
+    The folder has to contain a series of json files in the form returned by 
+    the kifit code after executing a kifit run.
+    """
+
+    colors = ["#c49318", "#7a52a3", "#40874d"]
+
+    result_dict = {}
+    for idx, messenger in enumerate(messengers_list):
+        element_list =  messenger.config.params.element_list
+        if len(element_list) == 1:
+            key = element_list[0]
+        else:
+            key = "Combination Ca-Yb"
+
+        result_dict[key] = colors[idx % len(colors)]
+
+    return result_dict
