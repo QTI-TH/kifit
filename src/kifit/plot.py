@@ -23,7 +23,7 @@ default_colour = [
 ]
 
 mc_scatter_colour = 'C0'
-fit_scatter_colour = 'orangered'
+# fit_scatter_colour = 'orangered'
 fit_colour = 'orange'
 gkp_colour = 'blue'
 nmgkp_colour = 'darkgreen'
@@ -152,8 +152,7 @@ def plot_linfit(elem, messenger, magnifac=1, resmagnifac=1, plot_path=None):
     ax3.set_ylabel(r"Lin. Reg. Resid.")
 
     plt.tight_layout()
-    plt.savefig(messenger.paths.generate_plot_path("linfit", elemid=elem.id),
-        dpi=1000)
+    plt.savefig(messenger.paths.generate_plot_path("linfit", elemid=elem.id))
 
     return fig, ax1, ax2, ax3
 
@@ -176,7 +175,7 @@ def blocking_plot(
     plt.ylabel("Estimation")
 
     plotpath = messenger.paths.generate_plot_path(plotname)
-    plt.savefig(plotpath, dpi=1000)
+    plt.savefig(plotpath)
     logging.info(f"Saving blocking plot to {plotpath}")
 
 
@@ -206,7 +205,7 @@ def plot_mc_output(
     plt.title(f"x={xind}, {len(alphalist)}" + r" $\alpha_{\mathrm{NP}}$ samples")
 
     plotpath = messenger.paths.generate_plot_path("mc_output_" + plotname, xind=xind)
-    plt.savefig(plotpath, dpi=1000)
+    plt.savefig(plotpath)
     logging.info(f"Saving mc output plot to {plotpath}")
 
     plt.close()
@@ -310,7 +309,7 @@ def plot_search_output(
             if messenger.params.search_mode == "detlogrid" else ""), xind=xind)
 
     ax.tick_params(axis="both", which="major", labelsize=fsize)
-    plt.savefig(plotpath, dpi=1000)
+    plt.savefig(plotpath)
     logging.info(f"Saving mc output plot to {plotpath}")
 
     plt.close()
@@ -466,17 +465,17 @@ def plot_alphaNP_ll(
         elif expstr == "search":
             bound_label = "search interval"
 
-        ax1.axvspan(lb, ub, alpha=.2, color=fit_scatter_colour, label=bound_label)
+        ax1.axvspan(lb, ub, alpha=.2, color=mc_scatter_colour, label=bound_label)
 
     if siglb is not None and sigub is not None:
-        ax1.axvspan(lb - siglb, lb + siglb, alpha=.7, color=fit_scatter_colour)
-        ax1.axvspan(ub - sigub, ub + sigub, alpha=.7, color=fit_scatter_colour)
+        ax1.axvspan(lb - siglb, lb + siglb, alpha=.7, color=mc_scatter_colour)
+        ax1.axvspan(ub - sigub, ub + sigub, alpha=.7, color=mc_scatter_colour)
 
     for exp in range(nexps):
         ax1.scatter(alphas[exp], delchisqs[exp],
-            s=1, alpha=.2, color=fit_scatter_colour, zorder=3)
+            s=1, alpha=.2, color=mc_scatter_colour, zorder=3)
         ax1.scatter(alphas[exp][np.argmin(delchisqs[exp])],
-            np.min(delchisqs[exp]), color=fit_scatter_colour, zorder=3)
+            np.min(delchisqs[exp]), color=mc_scatter_colour, s=2, zorder=3)
         # red blobs are here
 
     ax1.axhline(y=delchisqcrit, color="r", lw=1, ls="--", label=delchisqcrit_label)
@@ -545,7 +544,13 @@ def plot_alphaNP_ll(
 
         ax1.set_ylim([np.min(delchisqs), np.max(delchisqs)])
 
+    # for exp fig draft
+    # else:
+    #     ax1.set_xlim([-2e-10, 2e-10])
+    #     ax1.set_ylim([-1, 20])
+
     (xmin, xmax) = ax1.get_xlim()
+    ax1.set_xticks([])
     ax2.set_xlim([xmin, xmax])
     ax2.set_ylim([-.5, .5])
     ax2.set_yticks([])
@@ -560,7 +565,7 @@ def plot_alphaNP_ll(
             if messenger.params.search_mode == "detlogrid" else ""), xind=xind)
 
     ax1.tick_params(axis="both", which="major", labelsize=fsize)
-    plt.savefig(plotpath, dpi=1000)
+    plt.savefig(plotpath)
 
     logging.info(f"Saving alphaNP-logL plot to {plotpath}")
     plt.close()
@@ -932,7 +937,7 @@ def plot_mphi_alphaNP(
     plotpath = messenger.paths.generate_plot_path("mphi_alphaNP")
 
     ax.tick_params(axis="both", which="major", labelsize=fsize)
-    fig.savefig(plotpath, dpi=1000)
+    fig.savefig(plotpath)
     logging.info(f"Saving mphi-alphaNP plot to {plotpath}")
 
     plt.close()

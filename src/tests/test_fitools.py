@@ -6,10 +6,8 @@ from kifit.build import Elem
 from kifit.fitools import (
     generate_elemsamples, generate_alphaNP_samples,
     get_llist_elemsamples, get_delchisq, get_delchisq_crit, get_confint)
-from kifit.detools import (
-    sample_gkp_parts, assemble_gkp_combinations,
-    sample_proj_parts, assemble_proj_combinations
-)
+from kifit.detools import (sample_gkp_combinations, sample_proj_combinations,
+                           generate_alphaNP_dets)
 
 np.random.seed(1)
 fsize = 12
@@ -24,12 +22,11 @@ if not os.path.exists(plotfolder):
 
 def get_det_vals(elem, nsamples, dim, method_tag):
 
-    (
-        meanvd, sigvd, meanv1, sigv1, xindlist
-    ) = sample_gkp_parts(elem, nsamples, dim, method_tag)
-
-    alphas, sigalphas = assemble_gkp_combinations(
-        elem, meanvd, sigvd, meanv1, sigv1, xindlist, dim, method_tag)
+    alphas, sigalphas, num_perm = generate_alphaNP_dets(
+            elem=elem,
+            nsamples=nsamples,
+            dim=dim,
+            detstr=method_tag)
 
     UB = alphas + 2 * sigalphas
     LB = alphas - 2 * sigalphas
@@ -380,13 +377,13 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
     fig, ax = plt.subplots()
 
     ax.scatter(alphasamples, camin_delchisq_caminfit, color='r',
-               label="Ca 01, Ca 01 samples", s=15)
+               label="Ca 21, Ca 21 samples", s=15)
     ax.scatter(alphasamples, camin_swap_delchisq_caminfit, color='b',
-               label="Ca 10, Ca 01 samples", s=5)
+               label="Ca 12, Ca 21 samples", s=5)
     ax.scatter(alphasamples, camin_delchisq_caminswapfit, color='orange',
-               label="Ca 01, Ca 10 samples", s=15)
+               label="Ca 21, Ca 12 samples", s=15)
     ax.scatter(alphasamples, camin_swap_delchisq_caminswapfit, color='c',
-               label="Ca 10, Ca 10 samples", s=5)
+               label="Ca 12, Ca 12 samples", s=5)
 
     # fit 2-sigma region
     ax.axhline(y=0, color="k", lw=1, ls="-")
@@ -407,13 +404,13 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
 
 
     detext = (r"$\bf{dim~3~GKP:}$" + "\n "
-              + "Ca 01:\n"
+              + "Ca 21:\n"
               + r"$\langle\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\rangle =$"
               + f"{camin_alpha_det[0]:.1e}\n"
               + r"$\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\in$ ["
               + f"{camin_LB_det[0]:.1e}, {camin_UB_det[0]:.1e}"
               + "]\n"
-              + "Ca 10:\n"
+              + "Ca 12:\n"
               + r"$\langle\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\rangle =$"
               + f"{camin_alpha_det[0]:.1e}\n"
               + r"$\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\in$ ["
@@ -436,7 +433,7 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
     plotpath = os.path.join(
         plotfolder,
         f"mc_output_Camin_01_10_{symmstr}x{camin.x}_{varstr}.pdf")
-    plt.savefig(plotpath, dpi=1000)
+    plt.savefig(plotpath)
 
     # if not only_inputparams:
     ax.set_ylim(0, 20)
@@ -445,7 +442,7 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
     plotpath = os.path.join(
         plotfolder,
         f"mc_output_Camin_10_01_{symmstr}x{camin.x}_{varstr}_zoom.pdf")
-    plt.savefig(plotpath, dpi=1000)
+    plt.savefig(plotpath)
 
 
 def test_swap():
@@ -545,7 +542,7 @@ def test_lam():
 
     plotpath = os.path.join(plotfolder,
                             f"mc_output_Camin_lam_x{camin.x}_zoom.pdf")
-    plt.savefig(plotpath, dpi=1000)
+    plt.savefig(plotpath)
 
 
 def plot_elemvar_vs_elemfitvar(symm=False):
