@@ -23,13 +23,15 @@ default_colour = [
 ]
 
 mc_scatter_colour = 'C0'
-fit_scatter_colour = 'orangered'
+# fit_scatter_colour = 'orangered'
 fit_colour = 'orange'
 gkp_colour = 'blue'
 nmgkp_colour = 'darkgreen'
 proj_colour = 'purple'
 # det_colour = "royalblue"
 
+fsize = 12
+axislabelsize = 15
 
 markerlist = ['o', 'v', '^', '<', '>', 's', 'D']  # maybe cycle?
 ###############################################################################
@@ -139,17 +141,18 @@ def plot_linfit(elem, messenger, magnifac=1, resmagnifac=1, plot_path=None):
         )
 
     ax1.set_xlim(xmin, xmax)
-    ax1.set_xlabel(r"$\tilde{\nu}_1~$[Hz]")
-    ax1.set_ylabel(r"$\tilde{\nu}_i~$[Hz]")
-    ax1.legend(fontsize="6")
+    ax1.set_xlabel(r"$\tilde{\nu}_1~$[Hz]", fontsize=axislabelsize)
+    ax1.set_ylabel(r"$\tilde{\nu}_i~$[Hz]", fontsize=axislabelsize)
+    ax1.legend(fontsize=fsize)
+    ax1.tick_params(axis="both", which="major", labelsize=fsize)
+    ax1.xaxis.get_offset_text().set_fontsize(fsize)
     ax2.set_xlim(xmin, xmax)
     ax2.set_ylabel(r"ODR Resid.")
     ax3.set_xlim(xmin, xmax)
     ax3.set_ylabel(r"Lin. Reg. Resid.")
 
     plt.tight_layout()
-    plt.savefig(messenger.paths.generate_plot_path("linfit", elemid=elem.id),
-        dpi=1000)
+    plt.savefig(messenger.paths.generate_plot_path("linfit", elemid=elem.id))
 
     return fig, ax1, ax2, ax3
 
@@ -166,7 +169,7 @@ def blocking_plot(
     plt.figure(figsize=(6, 6 * 6 / 8))
     plt.errorbar(np.arange(1, nblocks + 1, 1), estimations, yerr=uncertainties,
         label=label, color="blue", alpha=0.6)
-    plt.legend()
+    plt.legend(fontsize=fsize)
     plt.grid(True)
     plt.xlabel("Blocks")
     plt.ylabel("Estimation")
@@ -175,8 +178,7 @@ def blocking_plot(
     np.save(file=f"blocking_errors_{plotname}", arr=uncertainties)
 
     plotpath = messenger.paths.generate_plot_path(plotname)
-    plt.savefig(plotpath, dpi=500)
-    
+    plt.savefig(plotpath)
     logging.info(f"Saving blocking plot to {plotpath}")
 
 
@@ -199,13 +201,14 @@ def plot_mc_output(
 
     ax.scatter(alphalist, delchisqlist, s=1, alpha=0.5, color=mc_scatter_colour)
 
-    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$")
-    ax.set_ylabel(r"$\Delta \chi^2$")
+    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
+                  fontsize=axislabelsize)
+    ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
 
     plt.title(f"x={xind}, {len(alphalist)}" + r" $\alpha_{\mathrm{NP}}$ samples")
 
     plotpath = messenger.paths.generate_plot_path("mc_output_" + plotname, xind=xind)
-    plt.savefig(plotpath, dpi=1000)
+    plt.savefig(plotpath)
     logging.info(f"Saving mc output plot to {plotpath}")
 
     plt.close()
@@ -249,7 +252,7 @@ def plot_search_output(
 
     if delchisqcrit is not None:
         ax.axhline(y=delchisqcrit, color="r", ls='--',
-            label=r"$\Delta \chi^2\vert_{\mathrm{crit.}}$")
+            label=r"$\Delta \chi^2\vert_{\mathrm{crit.}}$ search")
 
     # alphas_inside = alphalist[np.argwhere(delchisqlist < delchisqcrit).flatten()]
     print("searchlims", (np.min(searchlims), np.max(searchlims)))
@@ -257,55 +260,59 @@ def plot_search_output(
     ax.axvline(x=np.max(searchlims), color="orange", ls='--')
 
     ####
-    for d, dim in enumerate(gkpdims):
-
-        ax, ax2, minpos, maxneg = plot_alphaNP_det_bounds(
-            ax, None,
-            messenger,
-            detstr="gkp",
-            dimindex=d,
-            dim=dim,
-            xind=xind
-        )
-
-    for d, dim in enumerate(nmgkpdims):
-
-        ax, ax2, minpos_global, maxneg_global = plot_alphaNP_det_bounds(
-            ax, None,
-            messenger,
-            detstr="nmgkp",
-            dimindex=d,
-            dim=dim,
-            xind=xind
-        )
-
-    for d, dim in enumerate(projdims):
-
-        ax, ax2, minpos_global, maxneg_global = plot_alphaNP_det_bounds(
-            ax, None,
-            messenger,
-            detstr="proj",
-            dimindex=d,
-            dim=dim,
-            xind=xind
-        )
+    # for d, dim in enumerate(gkpdims):
+    #
+    #     ax, ax2, minpos, maxneg = plot_alphaNP_det_bounds(
+    #         ax, None,
+    #         messenger,
+    #         detstr="gkp",
+    #         dimindex=d,
+    #         dim=dim,
+    #         xind=xind
+    #     )
+    #
+    # for d, dim in enumerate(nmgkpdims):
+    #
+    #     ax, ax2, minpos_global, maxneg_global = plot_alphaNP_det_bounds(
+    #         ax, None,
+    #         messenger,
+    #         detstr="nmgkp",
+    #         dimindex=d,
+    #         dim=dim,
+    #         xind=xind
+    #     )
+    #
+    # for d, dim in enumerate(projdims):
+    #
+    #     ax, ax2, minpos_global, maxneg_global = plot_alphaNP_det_bounds(
+    #         ax, None,
+    #         messenger,
+    #         detstr="proj",
+    #         dimindex=d,
+    #         dim=dim,
+    #         xind=xind
+    #     )
     ####
 
-    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$")
-    ax.set_ylabel(r"$\Delta \chi^2$")
+    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
+                  fontsize=axislabelsize)
+    ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
 
     if not ax.get_legend_handles_labels() == ([], []):
-        plt.legend(loc='upper center')
+        plt.legend(loc='upper center', fontsize=fsize)
 
-    plt.title(f"x={xind}, {len(alphalist)}" + r" $\alpha_{\mathrm{NP}}$ samples")
+    plt.title(
+        f"x={xind}, {len(alphalist)}" + r" $\alpha_{\mathrm{NP}}$ samples",
+        fontsize=axislabelsize)
 
     plotpath = messenger.paths.generate_plot_path(
         "search_output_"
         + (f"{messenger.params.search_mode}-search")
         + (f"{messenger.params.logrid_frac}logridfrac_"
             if messenger.params.search_mode == "detlogrid" else ""), xind=xind)
-    print("plotpath", plotpath)
-    plt.savefig(plotpath, dpi=1000)
+
+    ax.tick_params(axis="both", which="major", labelsize=fsize)
+    plt.savefig(plotpath)
     logging.info(f"Saving mc output plot to {plotpath}")
 
     plt.close()
@@ -414,7 +421,7 @@ def plot_alphaNP_ll(
     nmgkpdims = messenger.params.nmgkp_dims
     projdims = messenger.params.proj_dims
 
-    elem_collection.check_det_dims(gkpdims, nmgkpdims, projdims)
+    # elem_collection.check_det_dims(gkpdims, nmgkpdims, projdims)
 
     if expstr == "experiment":
         print("this is an experiment")
@@ -461,27 +468,27 @@ def plot_alphaNP_ll(
         elif expstr == "search":
             bound_label = "search interval"
 
-        ax1.axvspan(lb, ub, alpha=.2, color=fit_scatter_colour, label=bound_label)
+        ax1.axvspan(lb, ub, alpha=.2, color=mc_scatter_colour, label=bound_label)
 
     if siglb is not None and sigub is not None:
-        ax1.axvspan(lb - siglb, lb + siglb, alpha=.7, color=fit_scatter_colour)
-        ax1.axvspan(ub - sigub, ub + sigub, alpha=.7, color=fit_scatter_colour)
+        ax1.axvspan(lb - siglb, lb + siglb, alpha=.7, color=mc_scatter_colour)
+        ax1.axvspan(ub - sigub, ub + sigub, alpha=.7, color=mc_scatter_colour)
 
     for exp in range(nexps):
         ax1.scatter(alphas[exp], delchisqs[exp],
-            s=1, alpha=.2, color=fit_scatter_colour, zorder=3)
+            s=1, alpha=.2, color=mc_scatter_colour, zorder=3)
         ax1.scatter(alphas[exp][np.argmin(delchisqs[exp])],
-            np.min(delchisqs[exp]), color=fit_scatter_colour, zorder=3)
+            np.min(delchisqs[exp]), color=mc_scatter_colour, s=2, zorder=3)
         # red blobs are here
 
     ax1.axhline(y=delchisqcrit, color="r", lw=1, ls="--", label=delchisqcrit_label)
 
     plotitle = elem_collection.id + ", " + str(nsamples) + " samples, x=" + str(xind)
     ax1.set_title(plotitle)
-    ax1.set_ylabel(ylabel)
+    ax1.set_ylabel(ylabel, fontsize=axislabelsize)
     ax1.set_xlim(xlims[0], xlims[1])
     ax1.set_ylim(ylims[0], ylims[1])
-    ax2.set_xlabel(xlabel)
+    ax2.set_xlabel(xlabel, fontsize=axislabelsize)
     ax2.set_xlim(xlims[0], xlims[1])
     ax2.set_ylim(ylims[0], ylims[1])
 
@@ -526,7 +533,7 @@ def plot_alphaNP_ll(
         )
 
     if not ax1.get_legend_handles_labels() == ([], []):
-        ax1.legend(loc='upper center')
+        ax1.legend(loc='upper center', fontsize=fsize)
 
     if logplot is True:
         linthresh_x = np.min(np.abs(alphas))
@@ -540,7 +547,13 @@ def plot_alphaNP_ll(
 
         ax1.set_ylim([np.min(delchisqs), np.max(delchisqs)])
 
+    # for exp fig draft
+    # else:
+    #     ax1.set_xlim([-2e-10, 2e-10])
+    #     ax1.set_ylim([-1, 20])
+
     (xmin, xmax) = ax1.get_xlim()
+    ax1.set_xticks([])
     ax2.set_xlim([xmin, xmax])
     ax2.set_ylim([-.5, .5])
     ax2.set_yticks([])
@@ -554,7 +567,8 @@ def plot_alphaNP_ll(
         + (f"{messenger.params.logrid_frac}logridfrac"
             if messenger.params.search_mode == "detlogrid" else ""), xind=xind)
 
-    plt.savefig(plotpath, dpi=1000)
+    ax1.tick_params(axis="both", which="major", labelsize=fsize)
+    plt.savefig(plotpath)
 
     logging.info(f"Saving alphaNP-logL plot to {plotpath}")
     plt.close()
@@ -763,8 +777,8 @@ def set_axes_mphi_alpha_plot(
 
     ax.set_ylim(top=ymax)
 
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel, fontsize=axislabelsize)
+    ax.set_ylabel(ylabel, fontsize=axislabelsize)
 
     ax.axhline(y=0, c="k")
 
@@ -921,10 +935,12 @@ def plot_mphi_alphaNP(
         ylabel
     )
 
-    ax.legend(fontsize="9", loc='upper left', bbox_to_anchor=(1.01, 1))
+    ax.legend(fontsize=fsize, loc='upper left', bbox_to_anchor=(1.01, 1))
     plt.tight_layout()
     plotpath = messenger.paths.generate_plot_path("mphi_alphaNP")
-    fig.savefig(plotpath, dpi=1000)
+
+    ax.tick_params(axis="both", which="major", labelsize=fsize)
+    fig.savefig(plotpath)
     logging.info(f"Saving mphi-alphaNP plot to {plotpath}")
 
     plt.close()

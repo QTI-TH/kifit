@@ -224,7 +224,6 @@ class ElemCollection:
 
         for elemstr, ref_trans_ind in zip(elemlist[:-1],
                                           reference_transitions[:-1]):
-            print("ref_trans_ind", ref_trans_ind)
             elem = Elem(str(elemstr), ref_trans_ind)
             elem_collection.append(elem)
             elem_collection_id += elem.id + "_"
@@ -324,7 +323,6 @@ class Elem:
         return val
 
     def __transform_nus(self, val):
-        print("rti in transf", self.reference_transition_index)
 
         x = val.T[self.reference_transition_index]
         y = np.delete(val, self.reference_transition_index, axis=1)
@@ -1036,7 +1034,6 @@ class Elem:
 
     # ### GKP #################################################################
 
-    @cached_fct
     def alphaNP_GKP(self, ainds=[0, 1, 2], iinds=[0, 1]):
         """
         Returns value for alphaNP computed using the Generalised King plot
@@ -1072,6 +1069,11 @@ class Elem:
                 Xmat[i[0]] * hmat,
                 np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
                 mumat]))
+
+        # print("single alphaNP_GKP")
+        # print("vol_data    ", vol_data)
+        # print("vol_alphaNP1", vol_alphaNP1)
+
         alphaNP = factorial(dim - 2) * np.array(vol_data / vol_alphaNP1)
 
         return alphaNP
@@ -1155,7 +1157,12 @@ class Elem:
         for p, xpinds in enumerate(xindlist):
             vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
             alphalist.append(voldat[p] / vol1p)
-        alphalist = factorial(dim - 2) * alphalist
+
+            # print("combination " + str(p))
+            # print("vol_data    ", voldat[p])
+            # print("vol_alphaNP1", vol1p)
+
+        alphalist = factorial(dim - 2) * np.array(alphalist)
 
         return alphalist
 
@@ -1234,7 +1241,8 @@ class Elem:
         vol1st = []
         xindlist = []
 
-        for a_inds, i_inds in product(combinations(self.range_a, dim),
+        for a_inds, i_inds in product(
+                combinations(self.range_a, dim),
                 combinations(self.range_i, dim)):
             # taking into account ordering
             numat = self.nutil[np.ix_(a_inds, i_inds)]
@@ -1278,7 +1286,7 @@ class Elem:
         for p, xpinds in enumerate(xindlist):
             vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
             alphalist.append(voldat[p] / vol1p)
-        alphalist = factorial(dim - 2) * alphalist
+        alphalist = factorial(dim - 1) * np.array(alphalist)
 
         return alphalist
 
