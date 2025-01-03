@@ -236,7 +236,7 @@ class RunParams:
         parser.add_argument(
             "--gkp_dims",
             nargs="+",
-            default=[3],
+            default=[],
             type=int,
             help="List of generalised King plot dimensions",
         )
@@ -250,7 +250,7 @@ class RunParams:
         parser.add_argument(
             "--proj_dims",
             nargs="+",
-            default=[3],
+            default=[],
             type=int,
             help="List of projection method dimensions",
         )

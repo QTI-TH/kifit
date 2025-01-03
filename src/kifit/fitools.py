@@ -133,7 +133,8 @@ def generate_alphaNP_samples(elem,
             num=nsamples
         )
     elif search_mode == "globalogrid":
-        posgrid = np.logspace(-15, -1, nsamples)
+        max_exponent = 0.0075 * elem.x - 6
+        posgrid = np.logspace(-15, max_exponent, nsamples)
         alphaNP_samples = np.concatenate((- posgrid[::-1], posgrid))
 
     elif search_mode == "detlogrid":

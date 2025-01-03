@@ -171,8 +171,12 @@ def blocking_plot(
     plt.xlabel("Blocks")
     plt.ylabel("Estimation")
 
+    np.save(file=f"blocking_estimation_{plotname}", arr=estimations)
+    np.save(file=f"blocking_errors_{plotname}", arr=uncertainties)
+
     plotpath = messenger.paths.generate_plot_path(plotname)
-    plt.savefig(plotpath, dpi=1000)
+    plt.savefig(plotpath, dpi=500)
+    
     logging.info(f"Saving blocking plot to {plotpath}")
 
 
