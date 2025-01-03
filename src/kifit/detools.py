@@ -151,6 +151,8 @@ def generate_alphaNP_dets(
 
     """
 
+    meanalphas = []
+
     # GKP / NMGKP #############################################################
 
     if detstr == "gkp" or detstr == "nmgkp":
@@ -167,11 +169,19 @@ def generate_alphaNP_dets(
                 product(
                     combinations(elem.range_a, dim),
                     combinations(elem.range_i, dim - 1))))
+
+            elem._update_elem_params(elem.means_input_params)
+            meanalphas.append(elem.alphaNP_GKP_combinations(dim))
+
         else:
-            lenp = len(list(
-                product(
-                    combinations(elem.range_a, dim),
-                    combinations(elem.range_i, dim))))
+            if detstr=="nmgkp":
+                lenp = len(list(
+                    product(
+                        combinations(elem.range_a, dim),
+                        combinations(elem.range_i, dim))))
+
+                elem._update_elem_params(elem.means_input_params)
+                meanalphas.append(elem.alphaNP_NMGKP_combinations(dim))
 
     # proj ####################################################################
 
@@ -186,6 +196,10 @@ def generate_alphaNP_dets(
             product(
                 combinations(elem.range_a, dim),
                 combinations(elem.range_i, 2))))
+
+        elem._update_elem_params(elem.means_input_params)
+        meanalphas.append(elem.alphaNP_proj_combinations(dim))
+
     else:
         raise ValueError("""Invalid detstr in generate_alphaNP_dets.
             Only gkp, nmgkp or proj are valid.""")

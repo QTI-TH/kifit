@@ -9,10 +9,10 @@ python3 main.py --element_list "Camin"\
                 --search_mode "detlogrid"\
                 --logrid_frac 5\
                 --num_exp 2\
-                --block_size  50\
-                --min_percentile 1\
+                --block_size  10\
+                --min_percentile 0\
                 --num_sigmas 2\
-                --num_alphasamples_exp 100 \
+                --num_alphasamples_exp 500 \
                 --num_elemsamples_exp 100 \
                 --x0_fit 0 \
                 --gkp_dims 3\
