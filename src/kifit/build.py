@@ -789,8 +789,7 @@ class Elem:
         """
         dim = len(self.m_ap_in)
 
-        return np.divide(np.ones(dim), self.m_a_in) - np.divide(np.ones(dim),
-                self.m_ap_in)
+        return 1 / self.m_a_in - 1 / self.m_ap_in
 
     @cached_fct_property
     def nutil_in(self):
@@ -911,6 +910,10 @@ class Elem:
 
         """
         return self.F1 @ self.F1
+
+    @cached_fct_property
+    def eF(self):
+        return self.F1 / np.sqrt(self.F1sq)
 
     @cached_fct_property
     def secph1(self):

@@ -2,8 +2,7 @@ import numpy as np
 from itertools import product, combinations
 
 from kifit.build import Elem
-from kifit.detools import (sample_gkp_combinations, sample_proj_combinations,
-                           generate_alphaNP_dets)
+from kifit.detools import generate_alphaNP_dets
 
 np.random.seed(1)
 
