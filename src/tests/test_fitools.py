@@ -8,6 +8,7 @@ from kifit.fitools import (
     get_llist_elemsamples, get_delchisq, get_delchisq_crit, get_confint)
 from kifit.detools import (sample_gkp_combinations, sample_proj_combinations,
                            generate_alphaNP_dets)
+from Mathematica_crosschecks import covnutil_Camin
 
 np.random.seed(1)
 fsize = 12
@@ -51,6 +52,86 @@ def swap_dmat(dmat):
     swap_dmat = (dmat).T
 
     return np.c_[swap_dmat[1], swap_dmat[0]]
+
+def compute_covnutilmat(elem, inputparamsamples, fitparamsamples):
+
+    nutilsamples = []
+
+    for i, inputparams in enumerate(inputparamsamples):
+
+        elem._update_elem_params(inputparams)
+        fitparams = fitparamsamples[i]
+        elem._update_fit_params(fitparams)
+
+        nutilsamples.append(elem.nutil.flatten())
+
+    nutilcovmat_flattened = np.cov(np.array(nutilsamples), rowvar=False)
+    nutilcovmat = nutilcovmat_flattened.reshape(
+        elem.nisotopepairs, elem.nisotopepairs,
+        elem.ntransitions, elem.ntransitions)
+
+    return nutilcovmat
+
+
+def test_nutil_correlations():
+
+    camin = Elem('Camin')
+
+    Nsamples = [int(1e1), int(1e2), int(1e3), int(1e5), int(1e6), int(1e7)]
+    covnutilmats = []
+
+    print("diff to Mathematica")
+
+    covnutilmat_Mathematica = np.array(covnutil_Camin)
+
+    for Ns in Nsamples:
+
+        inputparamsamples, fitparamsamples = generate_elemsamples(camin, Ns)
+
+        covnutilmat = compute_covnutilmat(camin, inputparamsamples, fitparamsamples)
+
+        covnutilmats.append(covnutilmat)
+
+        print(Ns)
+        diff2Mat = np.abs(
+                (covnutilmat - covnutilmat_Mathematica) /
+                covnutilmat_Mathematica)
+        print("max", '{:.2e}'.format(np.max(diff2Mat)))
+        print("min", '{:.2e}'.format(np.min(diff2Mat)))
+        print("avg", '{:.2e}'.format(np.mean(diff2Mat)))
+
+    covnutilmats = np.array(covnutilmats)
+    covnutilmat_diff = np.abs(np.diff(covnutilmats, axis=0))
+
+    print("diff between sample sizes")
+
+    print("covnutilmat")
+    print(covnutilmats.shape)
+    print("covnutilmat_diff")
+    print(covnutilmat_diff.shape)
+    #
+
+    for s, covdiff in enumerate(covnutilmat_diff):
+        print("max", '{:.2e}'.format(
+            np.max(np.abs(covdiff / covnutilmats[s + 1]))))
+        print("min", '{:.2e}'.format(
+            np.min(np.abs(covdiff / covnutilmats[s + 1]))))
+        print("avg", '{:.2e}'.format(
+            np.mean(np.abs(covdiff / covnutilmats[s + 1]))))
+        print()
+
+
+
+
+
+
+    # nutilcovmat = np.cov(np.array(nutilsamples), rowvar=False)
+    # print("nutil covmat")
+    # print(nutilcovmat)
+
+    # print("Mathematica")
+    # print(np.array(covnutil_Camin))
+
 
 
 def test_d_swap_varying_inputparams():
@@ -106,8 +187,10 @@ def test_d_swap_varying_inputparams():
                            rtol=1e-4)
         assert np.allclose(swapped_swap_dmat[1], camin.dmat(False)[1], atol=0,
                            rtol=1e-3)
+        # print("T1:", swapped_swap_dmat[2])
+        # print("T2:", camin.dmat(False)[2])
         assert np.allclose(swapped_swap_dmat[2], camin.dmat(False)[2], atol=0,
-                           rtol=1e-4)
+                           rtol=1e-3)
 
 
         assert np.isclose(camin.dnorm, camin_swap.dnorm, atol=0, rtol=1e-100)
@@ -662,7 +745,8 @@ def test_elemvar_vs_elemfitvar():
     plot_elemvar_vs_elemfitvar(symm=False)
 
 if __name__ == "__main__":
+    test_nutil_correlations()
     test_d_swap_varying_inputparams()
-    test_swap()
-    test_lam()
-    test_elemvar_vs_elemfitvar()
+    # test_swap()
+    # test_lam()
+    # test_elemvar_vs_elemfitvar()

@@ -1,6 +1,7 @@
 import os
 import logging
 import numpy as np
+from scipy.linalg import lu
 from math import factorial
 
 from scipy.odr import ODR, Model, RealData
@@ -54,6 +55,12 @@ def Levi_Civita_generator(n):
                     sign *= -1
 
         yield indices, sign
+
+
+def LU_det(mat):
+    # _, _, U = lu(mat)
+    # return np.prod(np.diag(U))
+    return np.linalg.det(mat)
 
 
 @cache
@@ -395,7 +402,7 @@ class Elem:
             sig_m_ap_0 = self.isotope_data[5]
 
             # ionisation energies in eV
-            if self.Eb_data.shape[0] == 0:
+            if not np.any(self.Eb_data):
                 Eb = np.array([0])
                 sig_Eb = np.array([0])
                 n_electrons = 0
@@ -403,6 +410,7 @@ class Elem:
                 Eb = self.Eb_data.T[0] * (-1) * eV_to_u
                 sig_Eb = self.Eb_data.T[1] * (-1) * eV_to_u
                 n_electrons = len(Eb)
+
 
             # nuclear masses
             self.m_a_in = m_a_0 - n_electrons * m_e + np.sum(Eb)
@@ -1064,11 +1072,11 @@ class Elem:
 
         hmat = self.gammatilvec[np.ix_(ainds)]
 
-        vol_data = np.linalg.det(np.c_[numat, mumat])
+        vol_data = LU_det(np.c_[numat, mumat])
 
         vol_alphaNP1 = 0
         for i, eps_i in LeviCivita(dim - 1):
-            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+            vol_alphaNP1 += (eps_i * LU_det(np.c_[
                 Xmat[i[0]] * hmat,
                 np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
                 mumat]))
@@ -1076,6 +1084,7 @@ class Elem:
         # print("single alphaNP_GKP")
         # print("vol_data    ", vol_data)
         # print("vol_alphaNP1", vol_alphaNP1)
+        # print("gammatil", hmat)
 
         alphaNP = factorial(dim - 2) * np.array(vol_data / vol_alphaNP1)
 
@@ -1122,13 +1131,13 @@ class Elem:
             mumat = self.mutilvec[np.ix_(a_inds)]
             hmat = self.gammatilvec[np.ix_(a_inds)]
 
-            voldatlist.append(np.linalg.det(np.c_[numat, mumat]))
+            voldatlist.append(LU_det(np.c_[numat, mumat]))
             vol1part = []
             xindpart = []
             for i, eps_i in LeviCivita(dim - 1):
                 xindpart.append(i_inds[i[0]])  # X always gets first index
                 vol1part.append(
-                    eps_i * np.linalg.det(np.c_[
+                    eps_i * LU_det(np.c_[
                         hmat,  # to be multiplied by Xmat[i[0]]
                         np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,
                         mumat]))
@@ -1197,11 +1206,11 @@ class Elem:
         Xmat = self.Xvec[np.ix_(iinds)]  # X-coefficients for a given mphi
         hmat = self.gammatilvec[np.ix_(ainds)]
 
-        vol_data = np.linalg.det(numat)
+        vol_data = LU_det(numat)
 
         vol_alphaNP1 = 0
         for i, eps_i in LeviCivita(dim):
-            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+            vol_alphaNP1 += (eps_i * LU_det(np.c_[
                 Xmat[i[0]] * hmat,
                 np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
         alphaNP = factorial(dim - 1) * np.array(vol_data / vol_alphaNP1)
@@ -1251,14 +1260,14 @@ class Elem:
             numat = self.nutil[np.ix_(a_inds, i_inds)]
             hmat = self.gammatilvec[np.ix_(a_inds)]
 
-            voldatlist.append(np.linalg.det(numat))
+            voldatlist.append(LU_det(numat))
             vol1part = []
             xindpart = []
             for i, eps_i in LeviCivita(dim):  # i: indices, eps_i: value
                 # continue here: what is GKP doing, is it correct, then NMGKP
                 xindpart.append(i_inds[i[0]])  # X always gets first index
                 vol1part.append(
-                    eps_i * np.linalg.det(np.c_[
+                    eps_i * LU_det(np.c_[
                         hmat,  # to be multiplied by Xmat[i[0]]
                         np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
             vol1st.append(vol1part)
