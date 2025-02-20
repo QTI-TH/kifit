@@ -2,8 +2,7 @@ import numpy as np
 from itertools import product, combinations
 
 from kifit.build import Elem
-from kifit.detools import (sample_gkp_combinations, sample_proj_combinations,
-                           generate_alphaNP_dets)
+from kifit.detools import generate_alphaNP_dets
 
 np.random.seed(1)
 
@@ -34,7 +33,6 @@ def test_GKP_combinations():
             camin.alphaNP_GKP(ainds=[0, 1, 2], iinds=[0, 1]),
             alphas_min[0],
             atol=0, rtol=1e-13)
-
     assert np.isclose(alphas_min[0], camin.alphaNP_proj_combinations(3)[0],
         atol=0, rtol=1e-2)
 

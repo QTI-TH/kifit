@@ -53,11 +53,13 @@ def sample_gkp_combinations(
 
     Returns:
         alphasamples:  np.array of alphaNP samples
-                       (dimension (number of data permutations, ))
+                       (dimension (nsamples, number of data permutations))
+        elemparamsamples: np.array of input parameter samples
+                       (dimension (nsamples, ))
     """
 
     if nsamples == 1:
-        elemparamsamples = [elem.means_input_params]
+        elemparamsamples = np.array([elem.means_input_params])
 
     else:
         elemparamsamples = generate_paramsamples(
@@ -80,7 +82,7 @@ def sample_gkp_combinations(
 
     alphasamples = np.array(alphasamples)
 
-    return alphasamples
+    return alphasamples, elemparamsamples
 
 
 def sample_proj_combinations(
@@ -103,7 +105,7 @@ def sample_proj_combinations(
                        (dimension (number of data permutations, ))
     """
     if nsamples == 1:
-        elemparamsamples = [elem.means_input_params]
+        elemparamsamples = np.array([elem.means_input_params])
 
     else:
         elemparamsamples = generate_paramsamples(
@@ -116,7 +118,7 @@ def sample_proj_combinations(
         alphasamples.append(elem.alphaNP_proj_combinations(dim))
 
     alphasamples = np.array(alphasamples)
-    return alphasamples
+    return alphasamples, elemparamsamples
 
 
 def generate_alphaNP_dets(
@@ -151,46 +153,46 @@ def generate_alphaNP_dets(
 
     """
 
-    meanalphas = []
 
     # GKP / NMGKP #############################################################
 
-    if detstr == "gkp" or detstr == "nmgkp":
+    if detstr == "gkp" or detstr == "nmgkp" and nsamples > 1:
         # Part independent of X-coeffs
-        alphasamples = sample_gkp_combinations(
+        alphasamples, _ = sample_gkp_combinations(
             elem=elem,
             nsamples=nsamples,
             dim=dim,
             detstr=detstr)
 
 
-        if detstr=="gkp":
-            lenp = len(list(
-                product(
-                    combinations(elem.range_a, dim),
-                    combinations(elem.range_i, dim - 1))))
+    if detstr=="gkp":
+        lenp = len(list(
+            product(
+                combinations(elem.range_a, dim),
+                combinations(elem.range_i, dim - 1))))
 
-            elem._update_elem_params(elem.means_input_params)
-            meanalphas.append(elem.alphaNP_GKP_combinations(dim))
+        elem._update_elem_params(elem.means_input_params)
+        meanalphas = elem.alphaNP_GKP_combinations(dim)  # [permutation]
 
-        else:
-            if detstr=="nmgkp":
-                lenp = len(list(
-                    product(
-                        combinations(elem.range_a, dim),
-                        combinations(elem.range_i, dim))))
+    elif detstr=="nmgkp":
+        lenp = len(list(
+            product(
+                combinations(elem.range_a, dim),
+                combinations(elem.range_i, dim))))
 
-                elem._update_elem_params(elem.means_input_params)
-                meanalphas.append(elem.alphaNP_NMGKP_combinations(dim))
+        elem._update_elem_params(elem.means_input_params)
+        meanalphas = elem.alphaNP_NMGKP_combinations(dim)  # [permutation]
 
     # proj ####################################################################
 
     elif detstr=="proj":
         # Part independent of X-coeffs
-        alphasamples = sample_proj_combinations(
-            elem=elem,
-            nsamples=nsamples,
-            dim=dim)
+
+        if nsamples > 1:
+            alphasamples, _ = sample_proj_combinations(
+                elem=elem,
+                nsamples=nsamples,
+                dim=dim)
 
         lenp = len(list(
             product(
@@ -198,14 +200,19 @@ def generate_alphaNP_dets(
                 combinations(elem.range_i, 2))))
 
         elem._update_elem_params(elem.means_input_params)
-        meanalphas.append(elem.alphaNP_proj_combinations(dim))
+        meanalphas = elem.alphaNP_proj_combinations(dim)  # [permutation]
 
     else:
         raise ValueError("""Invalid detstr in generate_alphaNP_dets.
             Only gkp, nmgkp or proj are valid.""")
 
-    meanalphas = np.average(alphasamples, axis=0)  # [permutation]
-    sigalphas = np.std(alphasamples, axis=0)  # [permutation]
+    # meanalphas = np.average(alphasamples, axis=0)  # [permutation]
+
+    if nsamples > 1:
+        sigalphas = np.std(alphasamples, axis=0)  # [permutation]
+    else:
+        sigalphas = np.empty((lenp))
+        sigalphas[:] = np.nan
 
     assert meanalphas.shape[0] == lenp
     assert sigalphas.shape[0] == lenp

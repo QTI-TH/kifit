@@ -112,10 +112,7 @@ def generate_alphaNP_samples(elem,
                 """Ignoring lbmax and ubmin provided for alphaNP.
                 Sampling from normal distribution.""")
         else:
-            # print("here we go")
             sigalphainit = elem.sig_alphaNP_init
-            # print("alphainit   ", elem.alphaNP_init)
-            # print("sigalphainit", sigalphainit)
         alphaNP_samples = np.random.normal(
             elem.alphaNP_init, sigalphainit, size=nsamples
         )
@@ -236,9 +233,8 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky", lam=0.):
 
     """
     # estimate covariance matrix using absdsamples, computed for fixed alpha value
-    cov_absd = np.cov(np.array(absdsamples), rowvar=False)
 
-    # print("det(covmat)", np.linalg.det(cov_absd))
+    cov_absd = np.cov(np.array(absdsamples), rowvar=False)
 
     if cov_decomp_method == "cholesky":
         LL = choLL
@@ -284,6 +280,7 @@ def logL_alphaNP(alphaNP,
 
     for elem in elem_collection.elems:
         absdsamples = []
+
         inputparamsamples, fitparamsamples = generate_elemsamples(
             elem, nelemsamples)
 
