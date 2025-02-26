@@ -3,10 +3,10 @@
 #SBATCH --output=kifit_%A_%a.log
 #SBATCH --array=0-32  
 
-N_ALPHA=500
-N_ELEMS=500
-N_EXPS=100
-BLOCK_SIZE=10
+N_ALPHA=50
+N_ELEMS=50
+N_EXPS=4
+BLOCK_SIZE=2
 
 # Parameters
 X0_VALUES=($(seq 0 25 800))  
