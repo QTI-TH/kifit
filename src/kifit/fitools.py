@@ -40,6 +40,7 @@ def generate_paramsamples(means, stdevs, nsamples):
 
     """
     return multivariate_normal.rvs(means, np.diag(stdevs**2), size=nsamples)
+    # return means + stdevs * np.random.randn(nsamples, len(means))
 
 
 def generate_elemsamples(elem, nsamples: int):

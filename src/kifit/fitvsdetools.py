@@ -50,9 +50,9 @@ def covnutil_ai(elem, ainds, iinds, nsamples):
 
     covectorised = np.cov(vectorised_nutil, rowvar=False)
 
-    print("cov")
-    print(covectorised)
-
+    # print("cov")
+    # print(covectorised)
+    #
     return covectorised
      #  .reshape(elem.nisotopepairs, elem.nisotopepairs, elem.ntransitions, elem.ntransitions)
 

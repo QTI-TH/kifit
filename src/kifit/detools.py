@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from math import factorial
 
 from itertools import (
@@ -25,6 +26,14 @@ det_keys = [
     "nsigmas",
     "x_ind"
 ]
+
+
+plotfolder = os.path.abspath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "test_output"))
+
+if not os.path.exists(plotfolder):
+    os.mkdir(plotfolder)
 
 
 # generate samples
@@ -64,6 +73,11 @@ def sample_gkp_combinations(
     else:
         elemparamsamples = generate_paramsamples(
             elem.means_input_params, elem.stdevs_input_params, nsamples)
+
+    # np.savetxt(os.path.join(plotfolder,
+    #                         f"{elem.id}_elemparamsamples_Ns{nsamples}.txt"),
+    #                elemparamsamples, delimiter=",")
+    #
 
     alphasamples = []
 

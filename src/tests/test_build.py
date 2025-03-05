@@ -381,7 +381,8 @@ def test_alphaNP_proj():
     camin = Elem('Camin')
     alphapartlist, xindlist = ca.alphaNP_proj_part(3)
 
-    assert np.isclose(camin.alphaNP_proj(), camin.alphaNP_GKP(), atol=0, rtol=20)
+    assert np.isclose(camin.alphaNP_proj(), camin.alphaNP_GKP(), atol=0, rtol=1)
+                      # rtol=20)
 
     ca24 = Elem("Ca_WT_Aarhus_2024")
 

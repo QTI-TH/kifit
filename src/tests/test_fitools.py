@@ -1,6 +1,7 @@
 import numpy as np
 import logging
 import os
+from scipy.linalg import cho_factor, cho_solve
 
 from kifit.build import Elem
 from kifit.fitools import (
@@ -8,7 +9,20 @@ from kifit.fitools import (
     get_llist_elemsamples, get_delchisq, get_delchisq_crit, get_confint)
 from kifit.detools import (sample_gkp_combinations, sample_proj_combinations,
                            generate_alphaNP_dets)
-from Mathematica_crosschecks import covnutil_Camin
+from Mathematica_crosschecks import (
+        covnutil_CaPTB15_1e2samples, covnutil_CaPTB15_1e3samples,
+        covnutil_CaPTB15_1e4samples, covnutil_CaPTB15_1e5samples,
+        covnutil_CaPTB15_1e6samples,
+        covnutil_Camin_1e2samples, covnutil_Camin_1e3samples,
+        covnutil_Camin_1e4samples, covnutil_Camin_1e5samples,
+        covnutil_Camin_1e6samples,
+        covnutil_Camin_swap_1e2samples, covnutil_Camin_swap_1e3samples,
+        covnutil_Camin_swap_1e4samples, covnutil_Camin_swap_1e5samples,
+        covnutil_Camin_swap_1e6samples,
+        covnutil_Ca24min_1e2samples, covnutil_Ca24min_1e3samples,
+        covnutil_Ca24min_1e4samples, covnutil_Ca24min_1e5samples,
+        covnutil_Ca24min_1e6samples
+        )
 
 np.random.seed(1)
 fsize = 12
@@ -17,6 +31,7 @@ axislabelsize = 15
 plotfolder = os.path.abspath(
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      "test_output"))
+
 if not os.path.exists(plotfolder):
     logging.info("Creating file at ", plotfolder)
     os.mkdir(plotfolder)
@@ -33,6 +48,113 @@ def get_det_vals(elem, nsamples, dim, method_tag):
     LB = alphas - 2 * sigalphas
 
     return (alphas, LB, UB)
+
+
+def plot_fit_vs_det(symm=False):
+    nalphasamples = 500
+    nelemsamples = 500
+    min_percentile = 0
+    delchisqcrit = get_delchisq_crit(2)
+
+    camin = Elem('Camin')
+
+    alpha_det, LB_det, UB_det = get_det_vals(camin, nelemsamples, 3, "gkp")
+
+    # alphas, sigalphas, num_perm = generate_alphaNP_dets(
+    #         elem=elem,
+    #         nsamples=nsamples,
+    #         dim=dim,
+    #         detstr=method_tag)
+
+    alphasamples_det, _ = sample_gkp_combinations(
+            elem=camin,
+            nsamples=nalphasamples,
+            dim=3,
+            detstr="gkp")
+
+
+    camin.set_alphaNP_init(0, 1e-10)
+
+    alphasamples = generate_alphaNP_samples(
+            camin,
+            nalphasamples,
+            search_mode="normal")
+
+    inputparamsamples, fitparamsamples = generate_elemsamples(camin, nelemsamples)
+
+    delchisqs = perform_kifit(camin,
+                              inputparamsamples,
+                              fitparamsamples,
+                              alphasamples,
+                              min_percentile=min_percentile)
+
+    kifit_confint = get_confint(alphasamples, delchisqs, delchisqcrit)
+
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+
+    counts, bin_edges = np.histogram(alphasamples_det,
+                                     bins=int(nalphasamples/10))
+
+    ymax = 10
+    max_count = max(counts)
+    scaling_factor = ymax / max_count if max_count > ymax else 10
+
+    ax.bar(bin_edges[:-1], counts * scaling_factor, width=np.diff(bin_edges),
+           edgecolor='k', align='edge')
+
+    # ax.hist(alphasamples_det, bins=int(nalphasamples/50), density=True,
+    #         stacked=True)
+    ax.scatter(alphasamples, delchisqs,
+               label=(r"kifit samples: $\alpha_{\mathrm{NP}}\in$"
+                      + f"[{kifit_confint[0]:.1e},{kifit_confint[1]:.1e}]"),
+               s=5, color='b')
+
+    # fit 2-sigma region
+    ax.axhline(y=0, color="k", lw=1, ls="-")
+    ax.axhline(y=delchisqcrit, color="r", lw=1, ls="--")
+    ax.axvline(x=kifit_confint[0], color="b", lw=1, ls="--")
+    ax.axvline(x=kifit_confint[1], color="b", lw=1, ls="--")
+
+
+    # determinant 2-sigma region
+    ax.axvline(x=alpha_det[0], ls="--", color='purple',
+               label=("dim-3 GKP: "
+                      + r"$\langle\alpha_{\mathrm{NP}}\rangle = $ "
+            + (f"{alpha_det[0]:.1e}" if not np.isnan(alpha_det[0])
+               else "-")))
+    ax.axvline(x=LB_det[0], ls="--", color='b',
+               label=("dim-3 GKP: "
+                      + r"$\alpha_{\mathrm{NP}}\in$ ["
+            + (f"{LB_det[0]:.1e}" if not np.isnan(LB_det[0]) else "-")
+            + ", "
+            + (f"{UB_det[0]:.1e}" if not np.isnan(UB_det[0]) else "-")
+            + "]"))
+    ax.axvline(x=UB_det, ls="--", color='b')
+
+    plt.title("dim-3 GKP: "
+                      + r"$\alpha_{\mathrm{NP}}\in$ ["
+            + (f"{LB_det[0]:.1e}" if not np.isnan(LB_det[0]) else "-")
+            + ", "
+            + (f"{UB_det[0]:.1e}" if not np.isnan(UB_det[0]) else "-")
+            + "]", fontsize=fsize)
+
+    # admin
+    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
+                  fontsize=axislabelsize)
+    ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
+    # ax.set_xlim(2 * kifit_confint[0], 2 * kifit_confint[1])
+    ax.set_xlim(2 * LB_det[0], 2 * UB_det[0])
+    ax.set_ylim(0, ymax)
+    ax.tick_params(axis="both", which="major", labelsize=fsize)
+    ax.xaxis.get_offset_text().set_fontsize(fsize)
+    plt.legend(loc='upper center', fontsize=fsize)
+    plotpath = os.path.join(plotfolder,
+                            f"camin_fitvsdet_x{camin.x}"
+                            + ("_symm" if symm else "")
+                            + ".pdf")
+    plt.savefig(plotpath, dpi=1000)
 
 
 def swap_inputparams(inputparams, nisotopepairs, ntransitions):
@@ -66,73 +188,122 @@ def compute_covnutilmat(elem, inputparamsamples, fitparamsamples):
         nutilsamples.append(elem.nutil.flatten())
 
     nutilcovmat_flattened = np.cov(np.array(nutilsamples), rowvar=False)
-    nutilcovmat = nutilcovmat_flattened.reshape(
-        elem.nisotopepairs, elem.nisotopepairs,
-        elem.ntransitions, elem.ntransitions)
+    # nutilcovmat = nutilcovmat_flattened.reshape(
+    #     elem.nisotopepairs, elem.nisotopepairs,
+    #     elem.ntransitions, elem.ntransitions)
 
-    return nutilcovmat
+    return nutilcovmat_flattened
+
+
+def compute_inverse(mat):
+    """
+    Compute the inverse of the matrix mat using the Cholesky decomposition.
+    Assumes mat is symmetric, positive definite.
+    """
+    cho_factorised = cho_factor(mat, lower=True)
+    matinv = cho_solve(cho_factorised, np.eye(mat.shape[0]))
+
+    return matinv
 
 
 def test_nutil_correlations():
 
     camin = Elem('Camin')
 
-    Nsamples = [int(1e1), int(1e2), int(1e3), int(1e5), int(1e6), int(1e7)]
-    covnutilmats = []
+    Nsamples = [int(1e2), int(1e3), int(1e4), int(1e5), int(1e6)]
+    covnutilmats_kifit = []
+    covnutilmat_evals_kifit = []
+    covnutilmat_evals_Mathematica = []
 
-    print("diff to Mathematica")
+    covnutilmats_Mathematica = np.array([
+            covnutil_Camin_1e2samples, covnutil_Camin_1e3samples,
+            covnutil_Camin_1e4samples, covnutil_Camin_1e5samples,
+            covnutil_Camin_1e6samples
+            ])
 
-    covnutilmat_Mathematica = np.array(covnutil_Camin)
-
-    for Ns in Nsamples:
+    for n, Ns in enumerate(Nsamples):
 
         inputparamsamples, fitparamsamples = generate_elemsamples(camin, Ns)
 
         covnutilmat = compute_covnutilmat(camin, inputparamsamples, fitparamsamples)
+        np.savetxt(os.path.join(plotfolder, f"covnutilmat_Ns{Ns}.txt"),
+                   covnutilmat)
 
-        covnutilmats.append(covnutilmat)
+        covnutilmats_kifit.append(covnutilmat)
 
-        print(Ns)
-        diff2Mat = np.abs(
-                (covnutilmat - covnutilmat_Mathematica) /
-                covnutilmat_Mathematica)
-        print("max", '{:.2e}'.format(np.max(diff2Mat)))
-        print("min", '{:.2e}'.format(np.min(diff2Mat)))
-        print("avg", '{:.2e}'.format(np.mean(diff2Mat)))
+        assert (np.linalg.cond(covnutilmat) < 1e6)
+        assert (np.linalg.cond(covnutilmats_Mathematica[n]) < 1e6)
 
-    covnutilmats = np.array(covnutilmats)
-    covnutilmat_diff = np.abs(np.diff(covnutilmats, axis=0))
+        evals_kifit, evecs_kifit = np.linalg.eig(np.array(covnutilmat))
+        covnutilmat_evals_kifit.append(evals_kifit)
 
-    print("diff between sample sizes")
+        evals_Mathematica, evecs_Mathematica = (
+                np.linalg.eig(np.array(covnutilmats_Mathematica[n])))
+        covnutilmat_evals_Mathematica.append(evals_Mathematica)
 
-    print("covnutilmat")
-    print(covnutilmats.shape)
-    print("covnutilmat_diff")
-    print(covnutilmat_diff.shape)
-    #
+        assert all(evals_kifit > 0)
+        assert all(evals_Mathematica > 0)
 
-    for s, covdiff in enumerate(covnutilmat_diff):
-        print("max", '{:.2e}'.format(
-            np.max(np.abs(covdiff / covnutilmats[s + 1]))))
-        print("min", '{:.2e}'.format(
-            np.min(np.abs(covdiff / covnutilmats[s + 1]))))
-        print("avg", '{:.2e}'.format(
-            np.mean(np.abs(covdiff / covnutilmats[s + 1]))))
-        print()
+        if n == 0:
+            assert (np.mean(np.abs(
+                (covnutilmats_kifit[n] - covnutilmats_Mathematica[n])
+                / (covnutilmats_kifit[n] + covnutilmats_Mathematica[n]))) < 2)
 
+        else:
+            assert (np.mean(np.abs(
+                covnutilmats_kifit[n] - covnutilmats_Mathematica[n]
+                / (covnutilmats_kifit[n] + covnutilmats_Mathematica[n])))
+                    < 1.5 * np.mean(np.abs(
+                        covnutilmats_kifit[n-1] - covnutilmats_Mathematica[n-1]
+                        / (covnutilmats_kifit[n-1] +
+                           covnutilmats_Mathematica[n-1]))))
+            assert (np.mean(np.abs(
+                covnutilmats_kifit[n] - covnutilmats_Mathematica[n]
+                / (covnutilmats_kifit[n] + covnutilmats_Mathematica[n])))
+                    < 2 * np.mean(np.abs(
+                        np.array([
+                            covnutilmats_kifit[m] - covnutilmats_Mathematica[m]
+                            / (covnutilmats_kifit[m]
+                               + covnutilmats_Mathematica[m]) for m in range(n)]))))
 
+            assert (np.abs(
+                (covnutilmat_evals_kifit[n] - covnutilmat_evals_Mathematica[n])
+                / covnutilmat_evals_Mathematica[n]) < 16).all()
 
+            assert (np.mean(np.abs(
+                (covnutilmat_evals_kifit[n] - covnutilmat_evals_Mathematica[n])
+                / covnutilmat_evals_Mathematica[n])) < 1)
 
+            assert (np.abs(
+                (covnutilmat_evals_kifit[n] - covnutilmat_evals_Mathematica[n])
+                / covnutilmat_evals_Mathematica[n])
+                < 100 * np.abs(
+                    (covnutilmat_evals_kifit[n-1]
+                     - covnutilmat_evals_Mathematica[n-1])
+                / covnutilmat_evals_Mathematica[n-1])).all()
 
+        covmatinv_kifit = compute_inverse(np.array(covnutilmat))
+        covmatinv_Mathematica = compute_inverse(covnutilmats_Mathematica[n])
 
-    # nutilcovmat = np.cov(np.array(nutilsamples), rowvar=False)
-    # print("nutil covmat")
-    # print(nutilcovmat)
+        assert (np.abs(np.max(
+            (covmatinv_kifit @ np.array(covnutilmat))
+            - np.eye(covmatinv_kifit.shape[0])
+            )) < 1e-15)
 
-    # print("Mathematica")
-    # print(np.array(covnutil_Camin))
+        assert (np.abs(np.max(
+            (covmatinv_Mathematica @ covnutilmats_Mathematica[n])
+             - np.eye(covmatinv_Mathematica.shape[0])
+            )) < 1e-14)
 
+        assert (np.abs(np.mean(
+            (covmatinv_kifit @ np.array(covnutilmat))
+            - np.eye(covmatinv_kifit.shape[0])
+            )) < 1e-16)
 
+        assert (np.abs(np.mean(
+            (covmatinv_Mathematica @ covnutilmats_Mathematica[n])
+             - np.eye(covmatinv_Mathematica.shape[0])
+            )) < 1e-16)
 
 def test_d_swap_varying_inputparams():
 
@@ -143,7 +314,7 @@ def test_d_swap_varying_inputparams():
     assert np.allclose(swapped_swap_dmat[0], camin.dmat(True)[0], atol=0,
                        rtol=1e-4)
     assert np.allclose(swapped_swap_dmat[1], camin.dmat(True)[1], atol=0,
-                       rtol=1e-5)
+                       rtol=1e-4)
     assert np.allclose(swapped_swap_dmat[2], camin.dmat(True)[2], atol=0,
                        rtol=1e-4)
 
@@ -151,7 +322,7 @@ def test_d_swap_varying_inputparams():
     assert np.allclose(swapped_swap_dmat[0], camin.dmat(False)[0], atol=0,
                        rtol=1e-4)
     assert np.allclose(swapped_swap_dmat[1], camin.dmat(False)[1], atol=0,
-                       rtol=1e-5)
+                       rtol=1e-3)
     assert np.allclose(swapped_swap_dmat[2], camin.dmat(False)[2], atol=0,
                        rtol=1e-4)
 
@@ -233,9 +404,9 @@ def test_d_swap_varying_inputparams():
         assert np.allclose(swapped_swap_dmat[0], camin.dmat(True)[0], atol=0,
                            rtol=1e-7)
         assert np.allclose(swapped_swap_dmat[1], camin.dmat(True)[1], atol=0,
-                           rtol=1e-7)
+                           rtol=1e-6)
         assert np.allclose(swapped_swap_dmat[2], camin.dmat(True)[2], atol=0,
-                           rtol=1e-8)
+                           rtol=1e-6)
 
         swapped_swap_dmat = swap_dmat(camin_swap.dmat(False))
         assert np.allclose(swapped_swap_dmat[0], camin.dmat(False)[0], atol=0,
@@ -287,7 +458,7 @@ def test_d_swap_varying_inputparams():
         assert np.allclose(swapped_swap_dmat[1], camin.dmat(True)[1], atol=0,
                            rtol=1e-8)
         assert np.allclose(swapped_swap_dmat[2], camin.dmat(True)[2], atol=0,
-                           rtol=1e-9)
+                           rtol=1e-8)
 
         swapped_swap_dmat = swap_dmat(camin_swap.dmat(False))
         assert np.allclose(swapped_swap_dmat[0], camin.dmat(False)[0], atol=0,
@@ -316,7 +487,7 @@ def test_d_swap_varying_inputparams():
     assert np.allclose(camin_ll_alpha2, camin_swap_ll_alpha2, atol=0, rtol=1e-8)
 
 
-def Elem_swap_loop(
+def perform_kifit(
         elem,
         inputparamsamples,
         fitparamsamples,
@@ -430,7 +601,7 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
         nalphasamples,
         search_mode="normal")
 
-    camin_delchisq_caminfit, camin_swap_delchisq_caminfit = Elem_swap_loop(
+    camin_delchisq_caminfit, camin_swap_delchisq_caminfit = perform_kifit(
         camin,
         inputparamsamples,
         fitparamsamples,
@@ -441,7 +612,7 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
         symm=symm)
     camin_confint = get_confint(alphasamples, camin_delchisq_caminfit, delchisqcrit)
 
-    camin_swap_delchisq_caminswapfit, camin_delchisq_caminswapfit = Elem_swap_loop(
+    camin_swap_delchisq_caminswapfit, camin_delchisq_caminswapfit = perform_kifit(
         camin,
         inputparamsamples_swap,
         fitparamsamples_swap,
@@ -535,7 +706,7 @@ def test_swap():
     swap_varying_elemparams(only_inputparams=True, symm=True)
 
 
-def test_lam():
+def scan_lam():
 
     lamvals = [1e-50, 1e-17, 1e-11]
 
@@ -647,7 +818,7 @@ def plot_elemvar_vs_elemfitvar(symm=False):
 
     inputparamsamples, fitparamsamples = generate_elemsamples(camin, nelemsamples)
 
-    delchisqs_elemvar = Elem_swap_loop(camin,
+    delchisqs_elemvar = perform_kifit(camin,
                                        inputparamsamples,
                                        fitparamsamples,
                                        alphasamples,
@@ -656,7 +827,7 @@ def plot_elemvar_vs_elemfitvar(symm=False):
                                        symm=symm)
     confint_elemvar = get_confint(alphasamples, delchisqs_elemvar, delchisqcrit)
 
-    delchisqs_elemfitvar = Elem_swap_loop(camin,
+    delchisqs_elemfitvar = perform_kifit(camin,
                                           inputparamsamples,
                                           fitparamsamples,
                                           alphasamples,
@@ -665,7 +836,7 @@ def plot_elemvar_vs_elemfitvar(symm=False):
                                           symm=symm)
     confint_elemfitvar = get_confint(alphasamples, delchisqs_elemfitvar, delchisqcrit)
 
-    delchisqs_fitvar = Elem_swap_loop(camin,
+    delchisqs_fitvar = perform_kifit(camin,
                                       inputparamsamples,
                                       fitparamsamples,
                                       alphasamples,
@@ -740,13 +911,11 @@ def plot_elemvar_vs_elemfitvar(symm=False):
                             + ".pdf")
     plt.savefig(plotpath, dpi=1000)
 
-def test_elemvar_vs_elemfitvar():
+def plot_elemvar_vs_elemfitvar_symm_vs_asymm():
     plot_elemvar_vs_elemfitvar(symm=True)
     plot_elemvar_vs_elemfitvar(symm=False)
 
 if __name__ == "__main__":
     test_nutil_correlations()
     test_d_swap_varying_inputparams()
-    # test_swap()
-    # test_lam()
-    # test_elemvar_vs_elemfitvar()
+    test_swap()

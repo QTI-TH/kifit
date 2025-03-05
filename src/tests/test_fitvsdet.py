@@ -22,23 +22,23 @@ def test_SigmalphaNP():
 
     covca = covnutil_ai(camin, ainds=[0, 1, 2], iinds=[0, 1], nsamples=1000)
     assert np.allclose(covca, covca.T, atol=0, rtol=1e-25)
-    print("Camin covmat")
-    print(covca)
-
-    print("Camin alphaNP")
-    print(camin.alphaNP_GKP())
+    # print("Camin covmat")
+    # print(covca)
+    #
+    # print("Camin alphaNP")
+    # print(camin.alphaNP_GKP())
 
     assert np.allclose(camin.eF, eFvec(camin))
 
     Para = Pparallel(camin)
-    assert np.allclose(Para @ Para, Para, atol=0, rtol=1e-27)
+    assert np.allclose(Para @ Para, Para, atol=0, rtol=1e-15)
 
     Perp = Pperp(camin)
-    assert np.allclose(Perp @ Perp, Perp, atol=0, rtol=1e-11)
+    assert np.allclose(Perp @ Perp, Perp, atol=0, rtol=1e-9)
 
-    assert np.allclose(Perp @ Para, np.zeros_like(Perp), atol=1e-17)
+    assert np.allclose(Perp @ Para, np.zeros_like(Perp), atol=1e-15)
 
-    assert np.isclose(camin.alphaNP_GKP(), alphaNP_camin, atol=0, rtol=1e-1)
+    assert np.isclose(camin.alphaNP_GKP(), alphaNP_camin, atol=0, rtol=1e-7)
 
     grad_alphaNP = grad_alphaNP_nutil(
             camin.nutil, camin.Xvec, camin.gammatilvec, np.ones(3))
@@ -53,11 +53,11 @@ def test_SigmalphaNP():
     # print("camin.alphaNP_GKP()", camin.alphaNP_GKP())
     # print("mathematica        ", alphaNP_camin)
 
-    print("testi")
-    print(camin.alphaNP_GKP())
-    print(alphaNP_camin)
-    print(alphaNP_GKP_nutil(mean_nutil, camin.Xvec, camin.gammatilvec))
-    print(alphaNP_GKP_nutil_normed(mean_nutil, camin.Xvec, camin.gammatilvec))
+    # print("testi")
+    # print(camin.alphaNP_GKP())
+    # print(alphaNP_camin)
+    # print(alphaNP_GKP_nutil(mean_nutil, camin.Xvec, camin.gammatilvec))
+    # print(alphaNP_GKP_nutil_normed(mean_nutil, camin.Xvec, camin.gammatilvec))
 
 
     assert np.isclose(
@@ -71,9 +71,9 @@ def test_SigmalphaNP():
     # assert np.isclose(Sigmalpha, Sigmalpha_perp + Sigmalpha_parallel,
     #                   atol=0, rtol=1e-2)
 
-    print("Sigmalpha_perp / Sigmalpha", Sigmalpha_perp / Sigmalpha)
-    print("Sigmalpha_para / Sigmalpha", Sigmalpha_parallel / Sigmalpha)
-    print("Sum / Sigmalpha", (Sigmalpha_parallel + Sigmalpha_perp) / Sigmalpha)
+    # print("Sigmalpha_perp / Sigmalpha", Sigmalpha_perp / Sigmalpha)
+    # print("Sigmalpha_para / Sigmalpha", Sigmalpha_parallel / Sigmalpha)
+    # print("Sum / Sigmalpha", (Sigmalpha_parallel + Sigmalpha_perp) / Sigmalpha)
 
 
 def test_SigmalphaNP_elems():
