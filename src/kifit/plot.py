@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 
 from kifit.build import get_odr_residuals, linfit, perform_linreg, perform_odr
 
-from kifit.fitools import get_delchisq_crit, collect_fit_X_data
+from kifit.fitools import (get_delchisq_crit, collect_fit_X_data,
+                           perform_polyfit, polyfit_fct)
 
 from kifit.detools import get_minpos_maxneg_alphaNP_bounds, collect_det_X_data
 
@@ -201,12 +202,20 @@ def plot_mc_output(
 
     ax.scatter(alphalist, delchisqlist, s=1, alpha=0.5, color=mc_scatter_colour)
 
+    p = perform_polyfit(alphalist, delchisqlist, degree=4)
+
+    alphavals = np.linspace(min(alphalist), max(alphalist), num=1000)
+    llvals = polyfit_fct(p, alphavals)
+
+    ax.plot(alphavals, llvals, color=mc_scatter_colour,
+            label="parabolic fit, p = [" + " ".join(f"{x:.1e}" for x in p) + "]")
+
     ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
                   fontsize=axislabelsize)
     ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
 
     plt.title(f"x={xind}, {len(alphalist)}" + r" $\alpha_{\mathrm{NP}}$ samples")
-
+    plt.legend(fontsize=fsize)
     plotpath = messenger.paths.generate_plot_path("mc_output_" + plotname, xind=xind)
     plt.savefig(plotpath)
     logging.info(f"Saving mc output plot to {plotpath}")
@@ -429,8 +438,19 @@ def plot_alphaNP_ll(
 
         delchisqs = mc_output['delchisqs_exp']
         nsigmas = mc_output['nsigmas']
-        delchisqcrit = get_delchisq_crit(nsigmas)
+        # delchisqcrit = get_delchisq_crit(nsigmas)
         delchisqcrit_label = r"$\Delta \chi^2_{\mathrm{crit}}$"
+
+
+        totaldof = np.sum([len(elem.means_fit_params) - 1 for elem in
+                       elem_collection.elems]) + 1
+
+        delchisqcrit = get_delchisq_crit(nsigmas, dof=totaldof)
+
+        print("plot")
+        print("totaldof", totaldof)
+        print("delchisqcrit", delchisqcrit)
+
 
     elif expstr == "search":
         print("this is a search")
@@ -481,10 +501,24 @@ def plot_alphaNP_ll(
             np.min(delchisqs[exp]), color=mc_scatter_colour, s=2, zorder=3)
         # red blobs are here
 
+    allalphas = alphas.flatten()
+    allls = delchisqs.flatten()
+    args = np.argwhere(allls < 10)
+    alphas_inside = allalphas[args].flatten()
+    llls_inside = allls[args].flatten()
+
+    p = perform_polyfit(alphas_inside, llls_inside, degree=4)
+    sigalphaNP_Fisher = 1 / (2 * np.sqrt(p[0]))
+
+    alphavals = np.linspace(np.min(alphas), np.max(alphas), num=1000)
+    llvals = polyfit_fct(p, alphavals)
+
+    ax1.plot(alphavals, llvals, color=mc_scatter_colour,
+             label="parabolic fit, p = [" + " ".join(f"{x:.1e}" for x in p) + "]")
+
+
     ax1.axhline(y=delchisqcrit, color="r", lw=1, ls="--", label=delchisqcrit_label)
 
-    plotitle = elem_collection.id + ", " + str(nsamples) + " samples, x=" + str(xind)
-    ax1.set_title(plotitle)
     ax1.set_ylabel(ylabel, fontsize=axislabelsize)
     ax1.set_xlim(xlims[0], xlims[1])
     ax1.set_ylim(ylims[0], ylims[1])
@@ -558,7 +592,11 @@ def plot_alphaNP_ll(
     ax2.set_ylim([-.5, .5])
     ax2.set_yticks([])
 
-    ax1.set_title(f"x={xind}, {nsamples}" + r" $\alpha_{\mathrm{NP}}$ samples")
+    ax1.set_title(elem_collection.id
+                  + f": x={xind}, {nsamples}"
+                  + r" $\alpha_{\mathrm{NP}}$ samples")
+                  # + r", $1 / \sqrt{I(\alpha_\mathrm{NP})}=$"
+                  # + f"{sigalphaNP_Fisher:.1e}")
 
     plotpath = messenger.paths.generate_plot_path(
         "alphaNP_ll"

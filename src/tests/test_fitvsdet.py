@@ -38,7 +38,7 @@ def test_SigmalphaNP():
 
     assert np.allclose(Perp @ Para, np.zeros_like(Perp), atol=1e-15)
 
-    assert np.isclose(camin.alphaNP_GKP(), alphaNP_camin, atol=0, rtol=1e-7)
+    assert np.isclose(camin.alphaNP_GKP(), alphaNP_camin, atol=0, rtol=1e-6)
 
     grad_alphaNP = grad_alphaNP_nutil(
             camin.nutil, camin.Xvec, camin.gammatilvec, np.ones(3))

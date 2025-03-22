@@ -1,40 +1,149 @@
 import numpy as np
 import logging
 import os
+import json
 from scipy.linalg import cho_factor, cho_solve
+
+np.set_printoptions(precision=36, floatmode='maxprec')
 
 from kifit.build import Elem
 from kifit.fitools import (
     generate_elemsamples, generate_alphaNP_samples,
-    get_llist_elemsamples, get_delchisq, get_delchisq_crit, get_confint)
+    get_llist_elemsamples, get_delchisq, get_delchisq_crit, get_confint,
+    choLL, perform_polyfit)
 from kifit.detools import (sample_gkp_combinations, sample_proj_combinations,
-                           generate_alphaNP_dets)
-from Mathematica_crosschecks import (
-        covnutil_CaPTB15_1e2samples, covnutil_CaPTB15_1e3samples,
-        covnutil_CaPTB15_1e4samples, covnutil_CaPTB15_1e5samples,
-        covnutil_CaPTB15_1e6samples,
-        covnutil_Camin_1e2samples, covnutil_Camin_1e3samples,
-        covnutil_Camin_1e4samples, covnutil_Camin_1e5samples,
-        covnutil_Camin_1e6samples,
-        covnutil_Camin_swap_1e2samples, covnutil_Camin_swap_1e3samples,
-        covnutil_Camin_swap_1e4samples, covnutil_Camin_swap_1e5samples,
-        covnutil_Camin_swap_1e6samples,
-        covnutil_Ca24min_1e2samples, covnutil_Ca24min_1e3samples,
-        covnutil_Ca24min_1e4samples, covnutil_Ca24min_1e5samples,
-        covnutil_Ca24min_1e6samples
+                           generate_alphaNP_dets, )
+
+from Mathematica_crosschecks import(
+        muvec_Mathematica,
+        kappaperp1nit_LL_Mathematica,
+        ph1nit_LL_Mathematica,
+        secph1nit_LL_Mathematica,
+        D_a1i_Mathematica,
+        dmat_Mathematica,
+        dmat_Mathematica_min,
+        absd_Mathematica,
+        absd_Mathematica_min,
+        D_a1i_1_Mathematica,
+        ph1_2_Mathematica,
+        ph1_2_Mathematica_red,
+        D_a1i_2_Mathematica,
+        ph1_3_Mathematica,
+        ph1_3_Mathematica_red,
+        D_a1i_3_Mathematica,
+        ph1_4_Mathematica,
+        D_a1i_4_Mathematica,
+        covd_Camintest_N1e2,
+        min_logL_Camintest_N1e2,
+        covd_Camintest_N1e3,
+        min_logL_Camintest_N1e3,
+        covd_Camintest_N1e4,
+        min_logL_Camintest_N1e4,
+        covd_Camintest_N1e5,
+        min_logL_Camintest_N1e5,
+        covd_Camintest_alpha1em11_N1e2,
+        min_logL_Camintest_alpha1em11_N1e2,
+        covd_Camintest_alpha1em11_N1e3,
+        min_logL_Camintest_alpha1em11_N1e3,
+        covd_Camintest_alpha1em11_N1e4,
+        min_logL_Camintest_alpha1em11_N1e4,
+        covd_Camintest_alpha1em11_N1e5,
+        min_logL_Camintest_alpha1em11_N1e5,
+        covd_Camintest_kifitparams_N1e2,
+        min_logL_Camintest_kifitparams_N1e2,
+        covd_Camintest_kifitparams_N1e3,
+        min_logL_Camintest_kifitparams_N1e3,
+        covd_Camintest_kifitparams_N1e4,
+        min_logL_Camintest_kifitparams_N1e4,
+        covd_Camintest_kifitparams_N1e5,
+        min_logL_Camintest_kifitparams_N1e5,
+        covd_Camintest_kifitparams_alpha1em11_N1e2,
+        min_logL_Camintest_kifitparams_alpha1em11_N1e2,
+        covd_Camintest_kifitparams_alpha1em11_N1e3,
+        min_logL_Camintest_kifitparams_alpha1em11_N1e3,
+        covd_Camintest_kifitparams_alpha1em11_N1e4,
+        min_logL_Camintest_kifitparams_alpha1em11_N1e4,
+        covd_Camintest_kifitparams_alpha1em11_N1e5,
+        min_logL_Camintest_kifitparams_alpha1em11_N1e5
         )
 
+#
+# from Mathematica_crosschecks_covmats import (
+#         covnutil_Camintest_Ns1e2,
+#         covd_Camintest_Mathfitparams_lLopt_Ns1e2,
+#         covd_Camintest_Mathfitparams_FF_Ns1e2,
+#         covnutil_Camintest_Ns1e4,
+#         covd_Camintest_Mathfitparams_lLopt_Ns1e4,
+#         covd_Camintest_Mathfitparams_FF_Ns1e4,
+#         covnutil_Camintest_Ns1e6,
+#         covd_Camintest_Mathfitparams_lLopt_Ns1e6,
+#         covd_Camintest_Mathfitparams_FF_Ns1e6,
+#         covnutil_CaPTB15_Ns1e2, covnutil_CaPTB15_Ns1e3,
+#         covnutil_CaPTB15_Ns1e4, covnutil_CaPTB15_Ns1e5,
+#         covnutil_CaPTB15_Ns1e6,
+#         covnutil_Camin_Ns1e2, covnutil_Camin_Ns1e3,
+#         covnutil_Camin_Ns1e4, covnutil_Camin_Ns1e5,
+#         covnutil_Camin_Ns1e6,
+#         covnutil_Caminswap_Ns1e2, covnutil_Caminswap_Ns1e3,
+#         covnutil_Caminswap_Ns1e4, covnutil_Caminswap_Ns1e5,
+#         covnutil_Caminswap_Ns1e6,
+#         covnutil_Ca24min_Ns1e2, covnutil_Ca24min_Ns1e3,
+#         covnutil_Ca24min_Ns1e4, covnutil_Ca24min_Ns1e5,
+#         covnutil_Ca24min_Ns1e6,
+#         ph1_CaPTB15, kperp1_CaPTB15,
+#         ph1_Camin, kperp1_Camin,
+#         ph1_Caminswap, kperp1_Caminswap,
+#         ph1_Ca24min, kperp1_Ca24min,
+#         absd_CaPTB15,
+#         absd_Camin,
+#         absd_Caminswap,
+#         absd_Ca24min,
+#         covd_CaPTB15_Ns1e2, covd_CaPTB15_Ns1e3,
+#         covd_CaPTB15_Ns1e4, covd_CaPTB15_Ns1e5,
+#         covd_CaPTB15_Ns1e6,
+#         covd_Camin_Ns1e2, covd_Camin_Ns1e3,
+#         covd_Camin_Ns1e4, covd_Camin_Ns1e5,
+#         covd_Camin_Ns1e6,
+#         covd_Caminswap_Ns1e2, covd_Caminswap_Ns1e3,
+#         covd_Caminswap_Ns1e4, covd_Caminswap_Ns1e5,
+#         covd_Caminswap_Ns1e6,
+#         covd_Ca24min_Ns1e2, covd_Ca24min_Ns1e3,
+#         covd_Ca24min_Ns1e4, covd_Ca24min_Ns1e5,
+#         covd_Ca24min_Ns1e6,
+#         )
+#
 np.random.seed(1)
 fsize = 12
 axislabelsize = 15
 
-plotfolder = os.path.abspath(
+inputfolder = os.path.abspath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "test_input"))
+if not os.path.exists(inputfolder):
+    logging.info("Creating file at ", inputfolder)
+    os.mkdir(inputfolder)
+
+outputfolder = os.path.abspath(
         os.path.join(os.path.dirname(os.path.abspath(__file__)),
                      "test_output"))
+if not os.path.exists(outputfolder):
+    logging.info("Creating file at ", outputfolder)
+    os.mkdir(outputfolder)
 
-if not os.path.exists(plotfolder):
-    logging.info("Creating file at ", plotfolder)
-    os.mkdir(plotfolder)
+def print_params(elem):
+    print("nu")
+    print(elem.nu)
+    print("m")
+    print(elem.m_a)
+    print("mp")
+    print(elem.m_ap)
+    print("kp1")
+    print(elem.kp1)
+    print("ph1")
+    print(elem.ph1)
+    print("alpha")
+    print(elem.alphaNP)
+
 
 def get_det_vals(elem, nsamples, dim, method_tag):
 
@@ -50,15 +159,19 @@ def get_det_vals(elem, nsamples, dim, method_tag):
     return (alphas, LB, UB)
 
 
-def plot_fit_vs_det(symm=False):
-    nalphasamples = 500
-    nelemsamples = 500
-    min_percentile = 0
+def plot_fit_vs_det(elemid,
+                    alphaNPinit1=1e-10,
+                    alphaNPinit2=5e-9,
+                    nalphasamples=500,
+                    nelemsamples=500,
+                    min_percentile=0,
+                    symm=False):
+
     delchisqcrit = get_delchisq_crit(2)
 
-    camin = Elem('Camin')
+    elem = Elem(elemid)
 
-    alpha_det, LB_det, UB_det = get_det_vals(camin, nelemsamples, 3, "gkp")
+    alpha_det, LB_det, UB_det = get_det_vals(elem, nelemsamples, 3, "gkp")
 
     # alphas, sigalphas, num_perm = generate_alphaNP_dets(
     #         elem=elem,
@@ -67,94 +180,115 @@ def plot_fit_vs_det(symm=False):
     #         detstr=method_tag)
 
     alphasamples_det, _ = sample_gkp_combinations(
-            elem=camin,
+            elem=elem,
             nsamples=nalphasamples,
             dim=3,
             detstr="gkp")
 
 
-    camin.set_alphaNP_init(0, 1e-10)
+    elem.set_alphaNP_init(0, alphaNPinit1)
 
-    alphasamples = generate_alphaNP_samples(
-            camin,
+    alphasamples_for_confint = generate_alphaNP_samples(
+            elem,
             nalphasamples,
             search_mode="normal")
 
-    inputparamsamples, fitparamsamples = generate_elemsamples(camin, nelemsamples)
+    inputparamsamples, fitparamsamples = generate_elemsamples(elem, nelemsamples)
 
-    delchisqs = perform_kifit(camin,
-                              inputparamsamples,
-                              fitparamsamples,
-                              alphasamples,
-                              min_percentile=min_percentile)
+    delchisqs_for_confint = kifitswap(elem,
+                                      inputparamsamples,
+                                      fitparamsamples,
+                                      alphasamples_for_confint,
+                                      min_percentile=min_percentile)
 
-    kifit_confint = get_confint(alphasamples, delchisqs, delchisqcrit)
+    kifit_confint = get_confint(alphasamples_for_confint,
+                                delchisqs_for_confint,
+                                delchisqcrit)
+
+    elem.set_alphaNP_init(0, alphaNPinit2)
+
+    alphasamples_for_filling_plot = generate_alphaNP_samples(
+            elem,
+            nalphasamples,
+            search_mode="lingrid")
+
+    delchisqs_for_filling_plot = kifitswap(elem,
+                                           inputparamsamples,
+                                           fitparamsamples,
+                                           alphasamples_for_filling_plot,
+                                           min_percentile=0)
 
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots()
+    ymax_vals = [10, 1e5]
 
-    counts, bin_edges = np.histogram(alphasamples_det,
-                                     bins=int(nalphasamples/10))
+    for y, ymax in enumerate(ymax_vals):
 
-    ymax = 10
-    max_count = max(counts)
-    scaling_factor = ymax / max_count if max_count > ymax else 10
+        fig, ax = plt.subplots()
 
-    ax.bar(bin_edges[:-1], counts * scaling_factor, width=np.diff(bin_edges),
-           edgecolor='k', align='edge')
+        counts, bin_edges = np.histogram(alphasamples_det,
+                                         bins=int(nalphasamples/10))
 
-    # ax.hist(alphasamples_det, bins=int(nalphasamples/50), density=True,
-    #         stacked=True)
-    ax.scatter(alphasamples, delchisqs,
-               label=(r"kifit samples: $\alpha_{\mathrm{NP}}\in$"
-                      + f"[{kifit_confint[0]:.1e},{kifit_confint[1]:.1e}]"),
-               s=5, color='b')
+        max_count = max(counts)
+        scaling_factor = ymax / max_count if max_count > 0 else 1
 
-    # fit 2-sigma region
-    ax.axhline(y=0, color="k", lw=1, ls="-")
-    ax.axhline(y=delchisqcrit, color="r", lw=1, ls="--")
-    ax.axvline(x=kifit_confint[0], color="b", lw=1, ls="--")
-    ax.axvline(x=kifit_confint[1], color="b", lw=1, ls="--")
+        ax.bar(bin_edges[:-1], counts * scaling_factor,
+               width=np.diff(bin_edges),
+               label=r"distribution of $\alpha_{\mathrm{NP}}$ samples, GKP",
+               edgecolor='k', align='edge')
+
+        # ax.hist(alphasamples_det, bins=int(nalphasamples/50), density=True,
+        #         stacked=True)
+        ax.scatter(alphasamples_for_confint, delchisqs_for_confint,
+                   label=(r"kifit samples: $\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\in$"
+                          + f"[{kifit_confint[0]:.1e},{kifit_confint[1]:.1e}]"),
+                   s=5, color='b')
+        ax.scatter(alphasamples_for_filling_plot, delchisqs_for_filling_plot,
+                   s=5, color='b')
+
+        # fit 2-sigma region
+        ax.axhline(y=0, color="k", lw=1, ls="-")
+        ax.axhline(y=delchisqcrit, color="r", lw=1, ls="--")
+        ax.axvline(x=kifit_confint[0], color="b", lw=1, ls="--")
+        ax.axvline(x=kifit_confint[1], color="b", lw=1, ls="--")
 
 
-    # determinant 2-sigma region
-    ax.axvline(x=alpha_det[0], ls="--", color='purple',
-               label=("dim-3 GKP: "
-                      + r"$\langle\alpha_{\mathrm{NP}}\rangle = $ "
-            + (f"{alpha_det[0]:.1e}" if not np.isnan(alpha_det[0])
-               else "-")))
-    ax.axvline(x=LB_det[0], ls="--", color='b',
-               label=("dim-3 GKP: "
-                      + r"$\alpha_{\mathrm{NP}}\in$ ["
-            + (f"{LB_det[0]:.1e}" if not np.isnan(LB_det[0]) else "-")
-            + ", "
-            + (f"{UB_det[0]:.1e}" if not np.isnan(UB_det[0]) else "-")
-            + "]"))
-    ax.axvline(x=UB_det, ls="--", color='b')
+        # determinant 2-sigma region
+        ax.axvline(x=alpha_det[0], ls="--", color='purple',
+                   label=("dim-3 GKP: "
+                          + r"$\langle\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\rangle = $ "
+                + (f"{alpha_det[0]:.1e}" if not np.isnan(alpha_det[0])
+                   else "-")))
+        ax.axvline(x=LB_det[0], ls="--", color='b',
+                   label=("dim-3 GKP: "
+                          + r"$\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\in$ ["
+                + (f"{LB_det[0]:.1e}" if not np.isnan(LB_det[0]) else "-")
+                + ", "
+                + (f"{UB_det[0]:.1e}" if not np.isnan(UB_det[0]) else "-")
+                + "]"))
+        ax.axvline(x=UB_det, ls="--", color='b')
 
-    plt.title("dim-3 GKP: "
-                      + r"$\alpha_{\mathrm{NP}}\in$ ["
-            + (f"{LB_det[0]:.1e}" if not np.isnan(LB_det[0]) else "-")
-            + ", "
-            + (f"{UB_det[0]:.1e}" if not np.isnan(UB_det[0]) else "-")
-            + "]", fontsize=fsize)
+        sigalpha_kifit = np.abs(kifit_confint[1] - kifit_confint[0]) / 4
+        plt.title(str(elem.id)
+                  + r": $\sigma[\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}]_{\mathtt{kifit}}\sim$"
+                  + f"{sigalpha_kifit:.1e}", fontsize=fsize)
 
-    # admin
-    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
-                  fontsize=axislabelsize)
-    ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
-    # ax.set_xlim(2 * kifit_confint[0], 2 * kifit_confint[1])
-    ax.set_xlim(2 * LB_det[0], 2 * UB_det[0])
-    ax.set_ylim(0, ymax)
-    ax.tick_params(axis="both", which="major", labelsize=fsize)
-    ax.xaxis.get_offset_text().set_fontsize(fsize)
-    plt.legend(loc='upper center', fontsize=fsize)
-    plotpath = os.path.join(plotfolder,
-                            f"camin_fitvsdet_x{camin.x}"
-                            + ("_symm" if symm else "")
-                            + ".pdf")
-    plt.savefig(plotpath, dpi=1000)
+        # admin
+        ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
+                      fontsize=axislabelsize)
+        ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
+        xmax = 1.5 * np.max(np.abs([LB_det[0], UB_det[0]]))
+        ax.set_xlim(-xmax, xmax)
+        ax.set_ylim(0, ymax)
+        ax.tick_params(axis="both", which="major", labelsize=fsize)
+        ax.xaxis.get_offset_text().set_fontsize(fsize)
+        plt.legend(loc='upper center', fontsize=fsize)
+        plotpath = os.path.join(outputfolder,
+                                f"{elem.id}_fitvsdet_x{elem.x}"
+                                + ("_symm_" if symm else "_")
+                                + f"ymax{y}"
+                                + ".pdf")
+        plt.savefig(plotpath, dpi=1000)
 
 
 def swap_inputparams(inputparams, nisotopepairs, ntransitions):
@@ -175,9 +309,14 @@ def swap_dmat(dmat):
 
     return np.c_[swap_dmat[1], swap_dmat[0]]
 
-def compute_covnutilmat(elem, inputparamsamples, fitparamsamples):
+def compute_covmats(elem, inputparamsamples, fitparamsamples, symm=False):
 
     nutilsamples = []
+    absdsamples = []
+
+    simpDeltamatsamples = []
+    Deltamatsamples = []
+    dmatsamples = []
 
     for i, inputparams in enumerate(inputparamsamples):
 
@@ -186,13 +325,26 @@ def compute_covnutilmat(elem, inputparamsamples, fitparamsamples):
         elem._update_fit_params(fitparams)
 
         nutilsamples.append(elem.nutil.flatten())
+        absdsamples.append(elem.absd(symm))
+
+        simpDeltamatsamples.append(np.array([[
+            elem.D_a1i(a, i, True)
+            for i in elem.range_i] for a in elem.range_a]))
+
+        Deltamatsamples.append(np.array([[
+            elem.nutil[a, i]
+            - elem.F1[i] * elem.nutil[a, 0]
+            - elem.secph1[i] * elem.Kperp1[i]
+            for i in elem.range_i] for a in elem.range_a]))
+        dmatsamples.append(elem.dmat(symm))
 
     nutilcovmat_flattened = np.cov(np.array(nutilsamples), rowvar=False)
-    # nutilcovmat = nutilcovmat_flattened.reshape(
-    #     elem.nisotopepairs, elem.nisotopepairs,
-    #     elem.ntransitions, elem.ntransitions)
+    dcovmat = np.cov(np.array(absdsamples), rowvar=False)
 
-    return nutilcovmat_flattened
+    return (nutilcovmat_flattened, dcovmat, absdsamples,
+            np.array(simpDeltamatsamples),
+            np.array(Deltamatsamples),
+            np.array(dmatsamples))
 
 
 def compute_inverse(mat):
@@ -200,110 +352,1038 @@ def compute_inverse(mat):
     Compute the inverse of the matrix mat using the Cholesky decomposition.
     Assumes mat is symmetric, positive definite.
     """
+    # print("det(mat)", np.linalg.det(mat))
+
     cho_factorised = cho_factor(mat, lower=True)
     matinv = cho_solve(cho_factorised, np.eye(mat.shape[0]))
 
     return matinv
 
 
-def test_nutil_correlations():
+def compute_spectral_difference(Amat, Bmat):
 
-    camin = Elem('Camin')
+    evals_A, evecs_A = np.linalg.eig(Amat)
+    evals_B, evecs_B = np.linalg.eig(Bmat)
 
-    Nsamples = [int(1e2), int(1e3), int(1e4), int(1e5), int(1e6)]
-    covnutilmats_kifit = []
-    covnutilmat_evals_kifit = []
-    covnutilmat_evals_Mathematica = []
+    assert all(evals_A > 0)
+    assert all(evals_B > 0)
 
-    covnutilmats_Mathematica = np.array([
-            covnutil_Camin_1e2samples, covnutil_Camin_1e3samples,
-            covnutil_Camin_1e4samples, covnutil_Camin_1e5samples,
-            covnutil_Camin_1e6samples
-            ])
+    eval_diff = np.sum(np.abs(evals_A - evals_B)) / np.sum(evals_A)
+
+    return eval_diff
+
+def Frobenius_norm(Mat):
+
+    return np.sqrt(np.sum(Mat**2))
+
+def compute_Frobenius_norm_difference(Amat, Bmat):
+
+    Frob_diff = Frobenius_norm(Amat - Bmat) / Frobenius_norm(Amat)
+
+    return Frob_diff
+
+
+def compute_Kullback_Leibler_divergence(Amat, Bmat):
+
+    covnutil_KL_div = 1 / 2 * (
+            np.trace(compute_inverse(Bmat) @ Amat)
+            - Amat.shape[0]
+            + np.log(np.linalg.det(Bmat) / np.linalg.det(Amat)))
+
+    return covnutil_KL_div
+
+
+def test_Catest_1sample():
+
+    ca = Elem('Ca_testdata')
+
+    orig_fitparams = np.array([ca.kp1_init, ca.ph1_init])
+    sig_orig_fitparams = np.array([ca.sig_kp1_init, ca.sig_ph1_init])
+
+    D_a1i_python_orig_fitparams = [[
+        ca.D_a1i(a, i, True) for i in ca.range_i] for a in ca.range_a]
+
+    dmat_symm_python_orig_fitparams = ca.dmat(True)
+    absd_symm_python_orig_fitparams = ca.absd(True)
+
+    # overwrite nuclear masses with atomic masses
+    ca._update_elem_params(np.concatenate((
+        ca.isotope_data[1],
+        ca.isotope_data[4],
+        (ca.nu_in).flatten())))
+
+    assert np.allclose(ca.muvec, muvec_Mathematica, atol=0, rtol=1e-10)
+
+    theta_LL_Mathematica = np.concatenate((kappaperp1nit_LL_Mathematica,
+                                        ph1nit_LL_Mathematica, 0.), axis=None)
+
+    ca._update_fit_params(theta_LL_Mathematica)
+
+    new_fitparams = np.array([ca.kp1, ca.ph1])
+
+    # the difference between the fitparams (kperp, phi) determined by
+    # Mathematica & kifit are within the uncertainties claimed by kifit
+    assert (np.abs(new_fitparams - orig_fitparams) < sig_orig_fitparams).all()
+
+    D_a1i_python = [[ca.D_a1i(a, i, True) for i in ca.range_i] for a in ca.range_a]
+
+    assert np.allclose(D_a1i_Mathematica, D_a1i_python, atol=0, rtol=1e-14)
+    assert np.allclose(np.array(dmat_Mathematica) / ca.dnorm, ca.dmat(True),
+        atol=0, rtol=1e-8)
+
+    # with (kperp, phi) as determined by kifit, rtol=1e-2 compared to kifit result
+    # with (kperp, phi) as determined by Mathematica, whereas for certain
+    # elements in dmat the difference is even larger.
+    # with same (kperp, phi) as in Mathematica, rtol=1e-9
+    assert np.allclose(ca.dmat(True), dmat_symm_python_orig_fitparams,
+                       atol=0, rtol=2)
+    assert np.allclose(ca.absd(True), absd_symm_python_orig_fitparams,
+                       atol=0, rtol=1e-2)
+    assert np.allclose(ca.absd(True), absd_Mathematica,
+                       atol=0, rtol=1e-9)
+
+    ##############################
+
+    camin = Elem('Camin_testdata')
+
+    # print("sigrel_kp1_init", np.abs(camin.sig_kp1_init / camin.kp1_init))
+    # print("sigrel_ph1_init", np.abs(camin.sig_ph1_init / camin.ph1_init))
+
+    camin._update_elem_params(np.concatenate((
+        camin.isotope_data[1],
+        camin.isotope_data[4],
+        (camin.nu_in).flatten())))
+
+    assert np.allclose(camin.muvec, muvec_Mathematica, atol=0, rtol=1e-10)
+
+    dmat_symm_python_orig_fitparams_min = camin.dmat(True)
+    absd_symm_python_orig_fitparams_min = camin.absd(True)
+
+    theta_Mathematica_min = np.array([
+        kappaperp1nit_LL_Mathematica[0], ph1nit_LL_Mathematica[0], 0.])
+
+    camin._update_fit_params(theta_Mathematica_min)
+
+    # for Camin_testdata, just first two transitions
+    D_a1i_python_min = np.array([[camin.D_a1i(a, i, True)
+                         for i in camin.range_i] for a in camin.range_a])
+
+    D_a1i_Mathematica_min = [[da1i[0], da1i[1]] for da1i in D_a1i_Mathematica]
+
+    assert np.allclose(D_a1i_Mathematica_min, D_a1i_python_min,
+                       atol=0, rtol=1e-13)
+    assert np.allclose(D_a1i_1_Mathematica, D_a1i_python_min,
+                       atol=0, rtol=1e-13)
+
+    KF_5_Mathematica = np.array(np.loadtxt(
+            "test_input/lLopt_fitparams_Ca_testdata.txt"))
+
+    camin._update_fit_params(np.append(KF_5_Mathematica, np.array([0.])))
+
+    D_a1i_python_load = np.array([[camin.D_a1i(a, i, True)
+                         for i in camin.range_i] for a in camin.range_a])
+
+    assert np.allclose(D_a1i_1_Mathematica, D_a1i_python_load,
+                       atol=0, rtol=1e-13)
+
+    camin._update_fit_params(np.array([
+        kappaperp1nit_LL_Mathematica[0], ph1_2_Mathematica, 0.]))
+
+    D_a1i_2_python = np.array([[camin.D_a1i(a, i, True)
+                         for i in camin.range_i] for a in camin.range_a])
+
+    assert np.allclose(D_a1i_2_Mathematica, D_a1i_2_python,
+                       atol=0, rtol=1e-14)
+    assert np.allclose(D_a1i_2_python, D_a1i_2_Mathematica,
+                       atol=0, rtol=1e-14)
+
+    camin._update_fit_params(np.array([
+        kappaperp1nit_LL_Mathematica[0], ph1_2_Mathematica_red, 0.]))
+
+    D_a1i_2_python_red = np.array([[camin.D_a1i(a, i, True)
+                         for i in camin.range_i] for a in camin.range_a])
+
+    assert np.allclose(D_a1i_2_Mathematica, D_a1i_2_python_red,
+                       atol=0, rtol=1e-14)
+    assert np.allclose(D_a1i_2_python_red, D_a1i_2_Mathematica,
+                       atol=0, rtol=1e-13)
+
+
+    camin._update_fit_params(np.array([
+        kappaperp1nit_LL_Mathematica[0], ph1_3_Mathematica, 0.]))
+
+    D_a1i_3_python = np.array([[camin.D_a1i(a, i, True)
+                         for i in camin.range_i] for a in camin.range_a])
+
+    assert np.allclose(D_a1i_3_Mathematica, D_a1i_3_python,
+                       atol=0, rtol=1e-14)
+    assert np.allclose(D_a1i_3_python, D_a1i_3_Mathematica,
+                       atol=0, rtol=1e-14)
+
+    camin._update_fit_params(np.array([
+        kappaperp1nit_LL_Mathematica[0], ph1_3_Mathematica_red, 0.]))
+
+    D_a1i_3_python_red = np.array([[camin.D_a1i(a, i, True)
+                         for i in camin.range_i] for a in camin.range_a])
+
+    assert np.allclose(D_a1i_3_Mathematica, D_a1i_3_python_red,
+                       atol=0, rtol=1e-14)
+    assert np.allclose(D_a1i_3_python_red, D_a1i_3_Mathematica,
+                       atol=0, rtol=1e-14)
+
+
+    fitparams_4_Mathematica = np.array([
+        kappaperp1nit_LL_Mathematica[0], ph1_4_Mathematica, 0.])
+
+    camin._update_fit_params(fitparams_4_Mathematica)
+
+    D_a1i_4_python = np.array([[camin.D_a1i(a, i, True)
+                         for i in camin.range_i] for a in camin.range_a])
+
+    assert np.allclose(D_a1i_4_Mathematica, D_a1i_4_python,
+                       atol=0, rtol=1e-14)
+    assert np.allclose(D_a1i_4_python, D_a1i_4_Mathematica,
+                       atol=0, rtol=1e-14)
+
+
+    camin._update_fit_params(np.append(KF_5_Mathematica, np.array([0.])))
+
+    assert np.allclose(np.array(dmat_Mathematica_min) / camin.dnorm,
+                       camin.dmat(True),
+                       atol=0, rtol=1e-8)
+
+    assert np.allclose(camin.dmat(True), dmat_symm_python_orig_fitparams_min,
+                       atol=0, rtol=2)
+    assert np.allclose(camin.absd(True), absd_symm_python_orig_fitparams_min,
+                       atol=0, rtol=1)
+    assert np.allclose(camin.absd(True), absd_Mathematica_min,
+                       atol=0, rtol=1e-9)
+
+
+
+def test_Catest_sampling():
+
+    camin = Elem('Camin_testdata')
+
+    # reconstruct covariance matrices from samples
+
+    nusamples_Mathematica = np.genfromtxt("test_input/nusamples_Ca_testdata.txt",
+                                          delimiter=",", dtype=np.float128)
+
+    mpsamples_Mathematica = np.genfromtxt("test_input/mpsamples_Ca_testdata.txt",
+                                          delimiter=",", dtype=np.float128)
+
+    msamples_Mathematica = np.genfromtxt("test_input/msamples_Ca_testdata.txt",
+                                         delimiter=",", dtype=np.float128)
+
+    inputparamsamples_Mathematica = np.c_[
+            msamples_Mathematica, msamples_Mathematica, msamples_Mathematica,
+            mpsamples_Mathematica,
+            nusamples_Mathematica]
+
+    covnutilmat_Mathematica = np.loadtxt(
+            "test_input/covnutilmat_Ca_testdata.txt", delimiter=",")
+
+    fitparams_Mathematica = np.loadtxt(
+            "test_input/lLopt_fitparams_Ca_testdata.txt",
+            dtype=np.float128)
+
+    fitparams_Mathematica_arrayed = np.repeat(
+            np.array([fitparams_Mathematica.tolist() + [0]], dtype=np.float128),
+            inputparamsamples_Mathematica.shape[0],
+            axis=0)
+
+    simpDeltamatsamples_elemvar_Mathematica = np.loadtxt(
+            "test_input/simpDeltamatsamples_elemvar_Ca_testdata.txt",
+            delimiter=",").reshape(nusamples_Mathematica.shape[0],
+                                   camin.nisotopepairs,
+                                   camin.ntransitions)
+
+    Deltamatsamples_elemvar_Mathematica = np.loadtxt(
+            "test_input/Deltamatsamples_elemvar_Ca_testdata.txt",
+            delimiter=",").reshape(nusamples_Mathematica.shape[0],
+                                   camin.nisotopepairs,
+                                   camin.ntransitions)
+
+    dmatsamples_elemvar_Mathematica = np.loadtxt(
+            "test_input/dmatsamples_elemvar_Ca_testdata.txt",
+            delimiter=",").reshape(nusamples_Mathematica.shape[0],
+                                   camin.nisotopepairs,
+                                   camin.ntransitions)
+
+    absdsamples_elemvar_Mathematica = np.loadtxt(
+            "test_input/absdsamples_elemvar_Ca_testdata.txt", delimiter=",")
+
+    covdmat_absd_elemvar_Mathematica_64 = np.cov(
+            absdsamples_elemvar_Mathematica, rowvar=False)
+
+    covdmat_absd_elemvar_Mathematica_128 = np.cov(
+            absdsamples_elemvar_Mathematica.astype(np.float128),
+            rowvar=False, dtype=np.float128)
+
+    covdmat_elemvar_Mathematica = np.loadtxt(
+            "test_input/covdmat_elemvar_Ca_testdata.txt", delimiter=",")
+
+    logLsamples_elemvar_Mathematica = np.loadtxt(
+            "test_input/logLsamples_elemvar_Ca_testdata.txt", delimiter=",")
+
+    (
+        covnutilmat_elemvar_Math2kifit,
+        covdmat_elemvar_Math2kifit,
+        absdsamples_elemvar_Math2kifit,
+        simpDeltamatsamples_elemvar_Math2kifit,
+        Deltamatsamples_elemvar_Math2kifit,
+        dmatsamples_elemvar_Math2kifit) = compute_covmats(
+            camin,
+            inputparamsamples_Mathematica,
+            fitparams_Mathematica_arrayed)
+
+    assert np.allclose(covnutilmat_Mathematica,
+                       covnutilmat_elemvar_Math2kifit,
+                       atol=0, rtol=1e-9)
+    assert np.allclose(covnutilmat_elemvar_Math2kifit,
+                       covnutilmat_Mathematica,
+                       atol=0, rtol=1e-9)
+    assert np.allclose(simpDeltamatsamples_elemvar_Mathematica[0],
+                       simpDeltamatsamples_elemvar_Math2kifit[0],
+                       atol=0, rtol=1e-15)
+    assert np.allclose(Deltamatsamples_elemvar_Mathematica,
+                       Deltamatsamples_elemvar_Math2kifit,
+                       atol=0, rtol=1e-9)
+    assert np.allclose(dmatsamples_elemvar_Mathematica,
+                       dmatsamples_elemvar_Math2kifit,
+                       atol=0, rtol=1e-9)
+    assert np.allclose(absdsamples_elemvar_Mathematica,
+                       absdsamples_elemvar_Math2kifit,
+                       atol=0, rtol=1e-9)
+    assert np.allclose(absdsamples_elemvar_Math2kifit,
+                       absdsamples_elemvar_Mathematica,
+                       atol=0, rtol=1e-9)
+    assert np.allclose(np.mean(absdsamples_elemvar_Mathematica, axis=0),
+                       np.mean(absdsamples_elemvar_Math2kifit, axis=0),
+                       atol=0, rtol=1e-14)
+    assert np.allclose(np.mean(absdsamples_elemvar_Math2kifit, axis=0),
+                       np.mean(absdsamples_elemvar_Mathematica, axis=0),
+                       atol=0, rtol=1e-14)
+    assert np.allclose(np.max(absdsamples_elemvar_Mathematica, axis=0),
+                       np.max(absdsamples_elemvar_Math2kifit, axis=0),
+                       atol=0, rtol=1e-13)
+    assert np.allclose(np.mean(absdsamples_elemvar_Math2kifit, axis=0),
+                       np.mean(absdsamples_elemvar_Mathematica, axis=0),
+                       atol=0, rtol=1e-14)
+    assert np.allclose(covdmat_elemvar_Mathematica,
+                       covdmat_elemvar_Math2kifit,
+                       atol=0, rtol=1e-10)
+    assert np.allclose(covdmat_elemvar_Math2kifit,
+                       covdmat_elemvar_Mathematica,
+                       atol=0, rtol=1e-10)
+    assert np.allclose(covdmat_absd_elemvar_Mathematica_64,
+                       covdmat_elemvar_Math2kifit,
+                       atol=0, rtol=1e-10)
+    assert np.allclose(covdmat_absd_elemvar_Mathematica_128,
+                       covdmat_elemvar_Math2kifit,
+                       atol=0, rtol=1e-10)
+    assert np.allclose(covdmat_absd_elemvar_Mathematica_128,
+                       covdmat_absd_elemvar_Mathematica_64,
+                       atol=0, rtol=1e-13)
+
+    ll_elemvar_Mathematica = np.array([
+        choLL(absd_elemvar_Mathematica, covdmat_elemvar_Mathematica)
+        for absd_elemvar_Mathematica in absdsamples_elemvar_Mathematica])
+
+    ll_elemvar_Math2kifit = np.array([
+        choLL(absd_elemvar_Math2kifit, covdmat_elemvar_Math2kifit)
+        for absd_elemvar_Math2kifit in absdsamples_elemvar_Math2kifit])
+
+    assert np.allclose(ll_elemvar_Mathematica, ll_elemvar_Math2kifit,
+                       atol=0, rtol=1e-13)
+    assert np.isclose(np.min(ll_elemvar_Mathematica),
+                      np.min(ll_elemvar_Math2kifit),
+                      atol=0, rtol=1e-14)
+    assert np.isclose(np.max(ll_elemvar_Mathematica),
+                      np.max(ll_elemvar_Math2kifit),
+                      atol=0, rtol=1e-14)
+    assert np.allclose(logLsamples_elemvar_Mathematica, ll_elemvar_Mathematica,
+                       atol=0, rtol=1e-15)
+    assert np.allclose(logLsamples_elemvar_Mathematica, ll_elemvar_Math2kifit,
+                       atol=0, rtol=1e-13)
+
+    # with F, K sampling
+
+    F21samples_Mathematica = np.loadtxt(
+            "test_input/F21samples_Ca_testdata.txt", delimiter=",")
+    ph21samples_Mathematica = np.arctan(F21samples_Mathematica)
+
+    K21samples_Mathematica = np.loadtxt(
+            "test_input/K21samples_Ca_testdata.txt", delimiter=",")
+    Kperp21samples_Mathematica = (
+            K21samples_Mathematica * np.cos(ph21samples_Mathematica))
+
+    fitparamsamples_Mathematica = np.c_[Kperp21samples_Mathematica,
+                                        ph21samples_Mathematica,
+                                        np.zeros(len(Kperp21samples_Mathematica))]
+
+    simpDeltamatsamples_fitparamvar_Mathematica = np.loadtxt(
+            "test_input/simpDeltamatsamples_fitparamvar_Ca_testdata.txt",
+            delimiter=",").reshape(nusamples_Mathematica.shape[0],
+                                   camin.nisotopepairs,
+                                   camin.ntransitions)
+
+    Deltamatsamples_fitparamvar_Mathematica = np.loadtxt(
+            "test_input/Deltamatsamples_fitparamvar_Ca_testdata.txt",
+            delimiter=",").reshape(nusamples_Mathematica.shape[0],
+                                   camin.nisotopepairs,
+                                   camin.ntransitions)
+
+    dmatsamples_fitparamvar_Mathematica = np.loadtxt(
+            "test_input/dmatsamples_fitparamvar_Ca_testdata.txt",
+            delimiter=",").reshape(nusamples_Mathematica.shape[0],
+                                   camin.nisotopepairs,
+                                   camin.ntransitions)
+
+    absdsamples_fitparamvar_Mathematica = np.loadtxt(
+            "test_input/absdsamples_fitparamvar_Ca_testdata.txt", delimiter=",")
+
+    covdmat_fitparamvar_Mathematica = np.loadtxt(
+            "test_input/covdmat_fitparamvar_Ca_testdata.txt", delimiter=",")
+
+    logLsamples_fitparamvar_Mathematica = np.loadtxt(
+            "test_input/logLsamples_fitparamvar_Ca_testdata.txt", delimiter=",")
+
+    (
+            covnutilmat_fitparamvar_Math2kifit,
+            covdmat_fitparamvar_Math2kifit,
+            absdsamples_fitparamvar_Math2kifit,
+            simpDeltamatsamples_fitparamvar_Math2kifit,
+            Deltamatsamples_fitparamvar_Math2kifit,
+            dmatsamples_fitparamvar_Math2kifit) = compute_covmats(
+                    camin,
+                    inputparamsamples_Mathematica,
+                    fitparamsamples_Mathematica)
+
+    assert np.allclose(covnutilmat_Mathematica,
+                       covnutilmat_fitparamvar_Math2kifit,
+                       atol=0, rtol=1e-9)
+    assert np.allclose(simpDeltamatsamples_fitparamvar_Mathematica,
+                       simpDeltamatsamples_fitparamvar_Math2kifit,
+                       atol=0, rtol=1e-12)
+    assert np.allclose(Deltamatsamples_fitparamvar_Mathematica,
+                       Deltamatsamples_fitparamvar_Math2kifit,
+                       atol=0, rtol=1e-13)
+    assert np.allclose(dmatsamples_fitparamvar_Mathematica,
+                       dmatsamples_fitparamvar_Math2kifit,
+                       atol=0, rtol=1e-13)
+    assert np.allclose(absdsamples_fitparamvar_Mathematica,
+                       absdsamples_fitparamvar_Math2kifit,
+                       atol=0, rtol=1e-13)
+    assert np.allclose(covdmat_fitparamvar_Mathematica,
+                       covdmat_fitparamvar_Math2kifit,
+                       atol=0, rtol=1e-16)
+
+    ll_fitparamvar_Mathematica = np.array([
+        choLL(absd_fitparamvar_Mathematica, covdmat_fitparamvar_Mathematica)
+        for absd_fitparamvar_Mathematica in absdsamples_fitparamvar_Mathematica])
+
+    ll_fitparamvar_Math2kifit = np.array([
+        choLL(absd_fitparamvar_Math2kifit, covdmat_fitparamvar_Math2kifit)
+        for absd_fitparamvar_Math2kifit in absdsamples_fitparamvar_Math2kifit])
+
+    assert np.allclose(ll_fitparamvar_Mathematica, ll_fitparamvar_Math2kifit,
+                       atol=0, rtol=1e-12)
+    assert np.allclose(ll_fitparamvar_Math2kifit, ll_fitparamvar_Mathematica,
+                       atol=0, rtol=1e-12)
+    assert np.allclose(logLsamples_fitparamvar_Mathematica,
+                       ll_fitparamvar_Mathematica,
+                       atol=0, rtol=1e-7)
+    assert np.allclose(logLsamples_fitparamvar_Mathematica,
+                       ll_fitparamvar_Mathematica,
+                       atol=0, rtol=1e-7)
+    assert np.isclose(np.min(ll_fitparamvar_Mathematica),
+                      np.min(ll_fitparamvar_Math2kifit),
+                      atol=0, rtol=1e-15)
+    assert np.isclose(np.max(ll_fitparamvar_Mathematica),
+                      np.max(ll_fitparamvar_Math2kifit),
+                      atol=0, rtol=1e-11)
+
+def test_Catest_sampling_convergence():
+
+    camin = Elem('Camin_testdata')
+
+    Nsamples = [int(1e2), int(1e3), int(1e4), int(1e5)]
+
+    # loglikelihood-optimised fitparams
+    covdmats_Mathematica = np.array([
+            covd_Camintest_kifitparams_N1e2,
+            covd_Camintest_kifitparams_N1e3,
+            covd_Camintest_kifitparams_N1e4,
+            covd_Camintest_kifitparams_N1e5])
+
+    min_logL_Mathematica = np.array([
+            min_logL_Camintest_kifitparams_N1e2,
+            min_logL_Camintest_kifitparams_N1e3,
+            min_logL_Camintest_kifitparams_N1e4,
+            min_logL_Camintest_kifitparams_N1e5])
+
+    covdmats_alpha1em11_Mathematica = np.array([
+            covd_Camintest_kifitparams_alpha1em11_N1e2,
+            covd_Camintest_kifitparams_alpha1em11_N1e3,
+            covd_Camintest_kifitparams_alpha1em11_N1e4,
+            covd_Camintest_kifitparams_alpha1em11_N1e5])
+
+    min_logL_alpha1em11_Mathematica = np.array([
+            min_logL_Camintest_kifitparams_alpha1em11_N1e2,
+            min_logL_Camintest_kifitparams_alpha1em11_N1e3,
+            min_logL_Camintest_kifitparams_alpha1em11_N1e4,
+            min_logL_Camintest_kifitparams_alpha1em11_N1e5])
+
+
+    covnutil_spec = []
+    covnutil_Frob = []
+    covnutil_KL = []
+
+    covd_spec = []
+    covd_Frob = []
+    covd_KL = []
+
+
+    # print("kp1", camin.kp1_init)
+    # print("sig", camin.sig_kp1_init)
+    # print("ph1", camin.ph1_init)
+    # print("sig", camin.sig_ph1_init)
+
 
     for n, Ns in enumerate(Nsamples):
 
+#         kifit_output = run_kifit(elemid=elemid, Nsamples=Ns, x=0, alphaval=0.)
+#
+#         alphas_exps = kifit_output["alphas_exp"].flatten()
+#         delchisqs_exp = kifit_output["delchisqs_exp"].flatten()
+# #
+#
+        print("N", Ns)
+
         inputparamsamples, fitparamsamples = generate_elemsamples(camin, Ns)
 
-        covnutilmat = compute_covnutilmat(camin, inputparamsamples, fitparamsamples)
-        np.savetxt(os.path.join(plotfolder, f"covnutilmat_Ns{Ns}.txt"),
-                   covnutilmat)
+        np.savetxt(os.path.join(outputfolder,
+                                f"{camin.id}_fitparams_Ns{Ns}.txt"),
+                   fitparamsamples, delimiter=",")
 
-        covnutilmats_kifit.append(covnutilmat)
+        fitparams = np.c_[fitparamsamples, np.zeros(Ns)]
 
-        assert (np.linalg.cond(covnutilmat) < 1e6)
-        assert (np.linalg.cond(covnutilmats_Mathematica[n]) < 1e6)
+        (
+                covnutilmat_kifit,
+                covdmat_kifit,
+                absdsamples_kifit,
+                simpDeltamatsamples_kifit,
+                Deltamatsamples_kifit,
+                dmatsamples_kift) = compute_covmats(camin,
+                                                    inputparamsamples,
+                                                    fitparams)
 
-        evals_kifit, evecs_kifit = np.linalg.eig(np.array(covnutilmat))
-        covnutilmat_evals_kifit.append(evals_kifit)
+        ll_kifit = np.array([
+            choLL(absdsample, covdmat_kifit) for absdsample in absdsamples_kifit])
 
-        evals_Mathematica, evecs_Mathematica = (
-                np.linalg.eig(np.array(covnutilmats_Mathematica[n])))
-        covnutilmat_evals_Mathematica.append(evals_Mathematica)
+        # print("minll kifit", np.min(ll_kifit))
 
-        assert all(evals_kifit > 0)
-        assert all(evals_Mathematica > 0)
+        fitparams_alpha1em11 = np.c_[fitparamsamples, 1e-11 * np.ones(Ns)]
 
-        if n == 0:
-            assert (np.mean(np.abs(
-                (covnutilmats_kifit[n] - covnutilmats_Mathematica[n])
-                / (covnutilmats_kifit[n] + covnutilmats_Mathematica[n]))) < 2)
+        (
+                covnutilmat_alpha1em11_kifit,
+                covdmat_alpha1em11_kifit,
+                absdsamples_alpha1em11_kifit,
+                simpDeltamatsamples_alpha1em11_kifit,
+                Deltamatsamples_alpha1em11_kifit,
+                dmatsamples_alpha1em11_kift) = compute_covmats(camin,
+                                                    inputparamsamples,
+                                                    fitparams_alpha1em11)
 
-        else:
-            assert (np.mean(np.abs(
-                covnutilmats_kifit[n] - covnutilmats_Mathematica[n]
-                / (covnutilmats_kifit[n] + covnutilmats_Mathematica[n])))
-                    < 1.5 * np.mean(np.abs(
-                        covnutilmats_kifit[n-1] - covnutilmats_Mathematica[n-1]
-                        / (covnutilmats_kifit[n-1] +
-                           covnutilmats_Mathematica[n-1]))))
-            assert (np.mean(np.abs(
-                covnutilmats_kifit[n] - covnutilmats_Mathematica[n]
-                / (covnutilmats_kifit[n] + covnutilmats_Mathematica[n])))
-                    < 2 * np.mean(np.abs(
-                        np.array([
-                            covnutilmats_kifit[m] - covnutilmats_Mathematica[m]
-                            / (covnutilmats_kifit[m]
-                               + covnutilmats_Mathematica[m]) for m in range(n)]))))
+        ll_alpha1em11_kifit = np.array([
+            choLL(absdsample, covdmat_alpha1em11_kifit)
+            for absdsample in absdsamples_alpha1em11_kifit])
 
-            assert (np.abs(
-                (covnutilmat_evals_kifit[n] - covnutilmat_evals_Mathematica[n])
-                / covnutilmat_evals_Mathematica[n]) < 16).all()
+        # print("min ll kifit alpha", np.min(ll_alpha1em11_kifit))
 
-            assert (np.mean(np.abs(
-                (covnutilmat_evals_kifit[n] - covnutilmat_evals_Mathematica[n])
-                / covnutilmat_evals_Mathematica[n])) < 1)
+        print("covdmat kifit")
+        print("%.1g" % np.mean(np.abs(covdmat_kifit)))
+        print(covdmat_kifit)
 
-            assert (np.abs(
-                (covnutilmat_evals_kifit[n] - covnutilmat_evals_Mathematica[n])
-                / covnutilmat_evals_Mathematica[n])
-                < 100 * np.abs(
-                    (covnutilmat_evals_kifit[n-1]
-                     - covnutilmat_evals_Mathematica[n-1])
-                / covnutilmat_evals_Mathematica[n-1])).all()
+        print("covdmat alpha kifit")
+        print("%.1g" % np.mean(np.abs(covdmat_alpha1em11_kifit)))
+        print(covdmat_alpha1em11_kifit)
 
-        covmatinv_kifit = compute_inverse(np.array(covnutilmat))
-        covmatinv_Mathematica = compute_inverse(covnutilmats_Mathematica[n])
+        print("covdmat Mathematica")
+        print("%.1g" % np.mean(np.abs(covdmats_Mathematica[n])))
+        print(covdmats_Mathematica[n])
 
-        assert (np.abs(np.max(
-            (covmatinv_kifit @ np.array(covnutilmat))
-            - np.eye(covmatinv_kifit.shape[0])
-            )) < 1e-15)
+        print("covdmat alpha Mathematica")
+        print("%.1g" % np.mean(np.abs(covdmats_alpha1em11_Mathematica[n])))
+        print(covdmats_alpha1em11_Mathematica[n])
 
-        assert (np.abs(np.max(
-            (covmatinv_Mathematica @ covnutilmats_Mathematica[n])
-             - np.eye(covmatinv_Mathematica.shape[0])
-            )) < 1e-14)
 
-        assert (np.abs(np.mean(
-            (covmatinv_kifit @ np.array(covnutilmat))
-            - np.eye(covmatinv_kifit.shape[0])
-            )) < 1e-16)
 
-        assert (np.abs(np.mean(
-            (covmatinv_Mathematica @ covnutilmats_Mathematica[n])
-             - np.eye(covmatinv_Mathematica.shape[0])
-            )) < 1e-16)
+
+        # print("covdmat diff kifit")
+        # print(covdmat_alpha1em11_kifit - covdmat_kifit)
+        #
+        # print("covdmat reldiff kifit")
+        # print((covdmat_alpha1em11_kifit - covdmat_kifit) / covdmat_kifit)
+        #
+        # print("covdmat diff Mathematica")
+        # print(covdmats_alpha1em11_Mathematica[n] - covdmats_Mathematica[n])
+        #
+        # print("covdmat reldiff Mathematica")
+        # print((covdmats_alpha1em11_Mathematica[n] - covdmats_Mathematica[n])
+        #       / covdmats_Mathematica[n])
+        #
+        print("dell kifit", np.min(ll_alpha1em11_kifit) - np.min(ll_kifit))
+
+        print("dell Math ",
+              min_logL_alpha1em11_Mathematica[n] - min_logL_Mathematica[n])
+
+
+        # print("Deltamatsamples")
+        # print(Deltamatsamples_kifit)
+        #
+        #
+        # print("covdmat diff")
+        # print(covdmat_kifit)
+        # print()
+        # print(covdmats_Mathematica[n])
+        # print()
+        # # print(np.abs((covdmat_kifit - covdmats_Mathematica[n])
+        #       / covdmat_kifit))
+
+        # if n == 1:
+            # assert np.allclose(covnutilmat_kifit, covnutilmats_Mathematica[n],
+            #                    atol=0, rtol=100)
+            # assert np.allclose(covnutilmats_Mathematica[n], covnutilmat_kifit,
+            #                    atol=0, rtol=100)
+            #
+            # assert np.allclose(covdmat_kifit, covdmats_Mathematica[n],
+            #                    atol=0, rtol=10)
+            # assert np.allclose(covdmats_Mathematica[n], covdmat_kifit,
+            #                    atol=0, rtol=50)
+
+
+        # condition number
+        # assert (np.linalg.cond(covnutilmat_kifit) < 1e6)
+        # assert (np.linalg.cond(covnutilmats_Mathematica[n]) < 1e6)
+
+        # spectrum
+        # covnutil_eval_diff = compute_spectral_difference(
+        #         covnutilmats_Mathematica[n], covnutilmat_kifit)
+        #
+        # covnutil_spec.append(covnutil_eval_diff)
+
+        covd_spec_diff = compute_spectral_difference(
+                covdmats_Mathematica[n], covdmat_kifit)
+
+        covd_spec.append(covd_spec_diff)
+
+        # Frobenius Norm Difference
+        #
+        # covnutil_Frob_diff = compute_Frobenius_norm_difference(
+        #         covnutilmats_Mathematica[n], covnutilmat_kifit)
+        #
+        # covnutil_Frob.append(covnutil_Frob_diff)
+        #
+        covd_Frob_diff = compute_Frobenius_norm_difference(
+                covdmats_Mathematica[n], covdmat_kifit)
+
+        # covd_lLopt_Frob_diff = compute_Frobenius_norm_difference(
+        #         covdmats_lLopt_Mathematica[n], covdmat_kifit)
+
+        covd_Frob.append(covd_Frob_diff)
+
+
+        # Kullback-Leibler divergence
+
+        # covnutil_KL_div = compute_Kullback_Leibler_divergence(
+        #         covnutilmats_Mathematica[n], covnutilmat_kifit)
+        #
+        # covnutil_KL.append(covnutil_KL_div)
+        #
+        covd_KL_div = compute_Kullback_Leibler_divergence(
+                covdmats_Mathematica[n], covdmat_kifit)
+
+        covd_KL.append(covd_KL_div)
+
+
+        # inverse
+
+        # covmatinv_kifit = compute_inverse(covnutilmat_kifit)
+        # covmatinv_Mathematica = compute_inverse(covnutilmats_Mathematica[n])
+
+    #     assert (np.abs(np.max(
+    #         (covmatinv_kifit @ covnutilmat_kifit)
+    #         - np.eye(covmatinv_kifit.shape[0])
+    #         )) < 1e-14)
+    #
+    #     assert (np.abs(np.max(
+    #         (covmatinv_Mathematica @ covnutilmats_Mathematica[n])
+    #          - np.eye(covmatinv_Mathematica.shape[0])
+    #         )) < 1e-14)
+    #
+    #     assert (np.abs(np.mean(
+    #         (covmatinv_kifit @ covnutilmat_kifit)
+    #         - np.eye(covmatinv_kifit.shape[0])
+    #         )) < 1e-14)
+    #
+    #     assert (np.abs(np.mean(
+    #         (covmatinv_Mathematica @ covnutilmats_Mathematica[n])
+    #          - np.eye(covmatinv_Mathematica.shape[0])
+    #         )) < 1e-14)
+    #
+    # covnutil_spec = np.array(covnutil_spec)
+    # covnutil_Frob = np.array(covnutil_Frob)
+    # covnutil_KL = np.array(covnutil_KL)
+    #
+    covd_spec = np.array(covd_spec)
+    covd_Frob = np.array(covd_Frob)
+    covd_KL = np.array(covd_KL)
+
+    # print()
+    # print("covnutil_spec")
+    # print(covnutil_spec)
+    #
+    # print("covnutil_Frob")
+    # print(covnutil_Frob)
+    #
+    # print("covnutil_KL")
+    # print(covnutil_KL)
+    # print()
+    #
+    # print("covd_spec")
+    # print(covd_spec)
+    #
+    # print("covd_Frob")
+    # print(covd_Frob)
+    #
+    # print("covd_KL")
+    # print(covd_KL)
+    # print()
+    #
+
+    # assert (covnutil_spec < 1).all()
+    # assert (covnutil_spec[-1] < 2e-1).all()
+    #
+    # assert (covnutil_Frob < 4e-1).all()
+    # assert (covnutil_Frob[-1] < 3e-1).all()
+    #
+    # assert (covnutil_KL < 20).all()
+    # assert (covnutil_KL[-1] < 20).all()
+    #
+    # assert (covd_spec < 1e5).all()
+    # assert (covd_spec[-1] < 1.1).all()
+    #
+    # assert (covd_Frob < 1e5).all()
+    # assert (covd_Frob[-1] < 1.1).all()
+    #
+    # assert (covd_KL < 1e17).all()
+    # assert (covd_KL[-1] < 1e17).all()
+
+
+    ##########################################################################
+    # ca15 = Elem('Ca_PTB_2015')
+    # print()
+    # print(ca15.id)
+    # print("muvec", ca15.muvec)
+    # print("nutil", ca15.nutil)
+    # print("alpha", ca15.alphaNP_GKP())
+    #
+    # camin = Elem('Camin')
+    # print()
+    # print(camin.id)
+    # print("muvec", camin.muvec)
+    # print("nutil", camin.nutil)
+    # print("alpha", camin.alphaNP_GKP())
+    #
+    #
+    # caminswap = Elem('Camin_swap')
+    # print()
+    # print(caminswap.id)
+    # print("muvec", caminswap.muvec)
+    # print("nutil", caminswap.nutil)
+    # print("alpha", caminswap.alphaNP_GKP())
+    #
+    #
+    # ca24 = Elem('Ca24min')
+    # print()
+    # print(ca24.id)
+    # print("muvec", ca24.muvec)
+    # print("nutil", ca24.nutil)
+    # print("alpha", ca24.alphaNP_GKP())
+    #
+    #
+    #
+    # ca24mod = Elem('Ca24min_mod')
+    # print()
+    # print(ca24mod.id)
+    # print("muvec", ca24mod.muvec)
+    # print("nutil", ca24mod.nutil)
+    # print("alpha", ca24mod.alphaNP_GKP())
+    #
+    #
+
+
+
+
+def test_correlations():
+
+    Nsamples = [int(1e2), int(1e3), int(1e4)]  #, int(1e5), int(1e6)]
+
+    elems = [Elem('Ca_PTB_2015'), Elem('Camin'), Elem('Ca24min')]
+
+    kperp1_Mathematica = [kperp1_CaPTB15, kperp1_Camin, kperp1_Ca24min]
+    ph1_Mathematica = [ph1_CaPTB15, ph1_Camin, ph1_Ca24min]
+
+    absd_Mathematica = [absd_CaPTB15, absd_Camin, absd_Ca24min]
+
+    covnutil_spec = [[], [], []]
+    covd_spec = [[], [], []]
+
+    covnutil_Frob = [[], [], []]
+    covd_Frob = [[], [], []]
+
+    covnutil_KL = [[], [], []]
+    covd_KL = [[], [], []]
+
+    covnutilmats_Mathematica = np.array(
+        [
+            [
+                covnutil_CaPTB15_Ns1e2, covnutil_CaPTB15_Ns1e3,
+                covnutil_CaPTB15_Ns1e4  #, covnutil_CaPTB15_Ns1e5,
+                # covnutil_CaPTB15_Ns1e6
+            ],
+            [
+                covnutil_Camin_Ns1e2, covnutil_Camin_Ns1e3,
+                covnutil_Camin_Ns1e4  #, covnutil_Camin_Ns1e5,
+                # covnutil_Camin_Ns1e6
+            ],
+            [
+                covnutil_Ca24min_Ns1e2, covnutil_Ca24min_Ns1e3,
+                covnutil_Ca24min_Ns1e4  #, covnutil_Ca24min_Ns1e5,
+                # covnutil_Ca24min_Ns1e6
+            ]
+        ])
+
+    covdmats_Mathematica = np.array(
+        [
+            [
+                covd_CaPTB15_Ns1e2, covd_CaPTB15_Ns1e3,
+                covd_CaPTB15_Ns1e4  #, covd_CaPTB15_Ns1e5,
+                # covd_CaPTB15_Ns1e6
+            ],
+            [
+                covd_Camin_Ns1e2, covd_Camin_Ns1e3,
+                covd_Camin_Ns1e4  #, covd_Camin_Ns1e5,
+                # covd_Camin_Ns1e6
+            ],
+            [
+                covd_Ca24min_Ns1e2, covd_Ca24min_Ns1e3,
+                covd_Ca24min_Ns1e4  #, covd_Ca24min_Ns1e5,
+                # covd_Ca24min_Ns1e6
+            ]
+        ])
+
+    for e, elem in enumerate(elems):
+
+        print(elem.id)
+        # print(elem.F1[1])
+        # print(
+
+        # print("elem.dmat", elem.dmat(True))
+        # print("elem.absd", elem.absd(True) * elem.dnorm)
+        # print("Math absd", absd_Mathematica[e])
+
+        theta_Mathematica = np.concatenate((kperp1_Mathematica[e],
+                                            ph1_Mathematica[e], 0.), axis=None)
+
+        elem._update_fit_params(theta_Mathematica)
+
+
+        print("nutil:", elem.nutil)
+        print("muvec:", elem.muvec)
+        print("ph1  :", elem.ph1 + 0.302092807815969)
+        print("F12  :", elem.F1)
+        print("F1sq :", elem.F1sq)
+
+        print("dNP  :", elem.diff_np_term(True))
+
+        D_a1i_python = [[
+            elem.D_a1i(a, i, True)
+            for i in elem.range_i] for a in elem.range_a]
+
+        print(elem.id)
+
+        print("D_a1i:", D_a1i_python)
+
+        print("testi:", [[
+            elem.nutil[a, i] - elem.F1[i] * elem.nutil[a, 0]
+            for i in elem.range_j] for a in elem.range_a])
+
+        print("A    :", [[
+            elem.nutil[a, i]
+            for i in elem.range_j] for a in elem.range_a])
+
+
+        print("B    :", [[
+            - elem.F1[i] * elem.nutil[a, 0]
+            for i in elem.range_j] for a in elem.range_a])
+
+
+        print("C    :", [[
+            - elem.F1[i]
+            for i in elem.range_j] for a in elem.range_a])
+
+
+        print("D    :", [[
+            - elem.nutil[a, 0]
+            for i in elem.range_j] for a in elem.range_a])
+
+
+
+
+
+
+
+
+        print("kp12 :", elem.kp1 + 1.7783330949667373e12)
+        print("K12  :", elem.Kperp1)
+        print("sph1 :", elem.sig_ph1_init)
+        print("skp1 :", elem.sig_kp1_init)
+
+        print("dmat :")
+        print(elem.dmat(True))
+
+        print("A:", elem.absd(True))
+        print("B:", np.array(absd_Mathematica[e]) / elem.dnorm)
+        assert np.allclose(elem.absd(True), absd_Mathematica[e], atol=0, rtol=1e-5)
+
+        for n, Ns in enumerate(Nsamples):
+
+            # print("number of samples", Ns)
+
+            inputparamsamples, fitparamsamples = generate_elemsamples(elem, Ns)
+
+            covnutilmat_kifit, covdmat_kifit = compute_covmats(elem,
+                                                               inputparamsamples,
+                                                               fitparamsamples)
+            # np.savetxt(os.path.join(outputfolder,
+            #                         f"{elem.id}_covnutilmat_Ns{Ns}.txt"),
+            #            covnutilmat_kifit)
+            # np.savetxt(os.path.join(outputfolder,
+            #                         f"{elem.id}_covdmat_Ns{Ns}.txt"),
+            #            covdmat_kifit)
+
+            # condition number
+            assert (np.linalg.cond(covnutilmat_kifit) < 1e6)
+            assert (np.linalg.cond(covnutilmats_Mathematica[e][n]) < 1e6)
+
+            assert np.allclose(covnutilmat_kifit, covnutilmats_Mathematica[e][n],
+                               atol=0, rtol=1e-5)
+            assert np.allclose(covdmat_kifit, covdmats_Mathematica[e][n],
+                               atol=0, rtol=1e-5)
+
+
+            # spectrum
+            covnutil_eval_diff = compute_spectral_difference(
+                    covnutilmats_Mathematica[e][n], covnutilmat_kifit)
+
+            covnutil_spec[e].append(covnutil_eval_diff)
+
+            covd_eval_diff = compute_spectral_difference(
+                    covdmats_Mathematica[e][n], covdmat_kifit)
+
+            covd_spec[e].append(covd_eval_diff)
+
+            # Frobenius Norm Difference
+
+            covnutil_Frob_diff = compute_Frobenius_norm_difference(
+                    covnutilmats_Mathematica[e][n], covnutilmat_kifit)
+
+            covnutil_Frob[e].append(covnutil_Frob_diff)
+
+            covd_Frob_diff = compute_Frobenius_norm_difference(
+                    covdmats_Mathematica[e][n], covdmat_kifit)
+
+            covd_Frob[e].append(covd_Frob_diff)
+
+
+            # Kullback-Leibler divergence
+
+            covnutil_KL_div = compute_Kullback_Leibler_divergence(
+                    covnutilmats_Mathematica[e][n], covnutilmat_kifit)
+
+            covnutil_KL[e].append(covnutil_KL_div)
+
+
+            covd_KL_div = compute_Kullback_Leibler_divergence(
+                    covdmats_Mathematica[e][n], covdmat_kifit)
+
+            covd_KL[e].append(covd_KL_div)
+
+
+            # inverse
+
+            covmatinv_kifit = compute_inverse(covnutilmat_kifit)
+            covmatinv_Mathematica = compute_inverse(covnutilmats_Mathematica[e][n])
+
+            assert (np.abs(np.max(
+                (covmatinv_kifit @ covnutilmat_kifit)
+                - np.eye(covmatinv_kifit.shape[0])
+                )) < 1e-14)
+
+            assert (np.abs(np.max(
+                (covmatinv_Mathematica @ covnutilmats_Mathematica[e][n])
+                 - np.eye(covmatinv_Mathematica.shape[0])
+                )) < 1e-14)
+
+            assert (np.abs(np.mean(
+                (covmatinv_kifit @ covnutilmat_kifit)
+                - np.eye(covmatinv_kifit.shape[0])
+                )) < 1e-14)
+
+            assert (np.abs(np.mean(
+                (covmatinv_Mathematica @ covnutilmats_Mathematica[e][n])
+                 - np.eye(covmatinv_Mathematica.shape[0])
+                )) < 1e-14)
+
+    covnutil_spec = np.array(covnutil_spec)
+    covnutil_Frob = np.array(covnutil_Frob)
+    covnutil_KL = np.array(covnutil_KL)
+
+    covd_spec = np.array(covd_spec)
+    covd_Frob = np.array(covd_Frob)
+    covd_KL = np.array(covd_KL)
+
+    assert (covnutil_spec < 1).all()
+    assert (covnutil_spec[-1] < 2e-1).all()
+
+    assert (covnutil_Frob < 4e-1).all()
+    assert (covnutil_Frob[-1] < 3e-1).all()
+
+    assert (covnutil_KL < 20).all()
+    assert (covnutil_KL[-1] < 20).all()
+
+    assert (covd_spec < 1e5).all()
+    assert (covd_spec[-1] < 1.1).all()
+
+    assert (covd_Frob < 1e5).all()
+    assert (covd_Frob[-1] < 1.1).all()
+
+    assert (covd_KL < 1e17).all()
+    assert (covd_KL[-1] < 1e17).all()
+
+    print("covnutil_spec", covnutil_spec)
+    print("covnutil_Frob", covnutil_Frob)
+    print("covnutil_KL  ", covnutil_KL)
+
+    print("covd_spec", covd_spec)
+    print("covd_Frob", covd_Frob)
+    print("covd_KL  ", covd_KL)
+
+
 
 def test_d_swap_varying_inputparams():
 
@@ -373,6 +1453,8 @@ def test_d_swap_varying_inputparams():
                                  rowvar=False)
     camin_swap_covmat_alpha0 = np.cov(np.array(camin_swap_absdsamples_alpha0),
                                       rowvar=False)
+    print("shape", np.array(camin_absdsamples_alpha0).shape)
+    camin_mean_alpha0 = np.mean(np.array(camin_absdsamples_alpha0), axis=0)
 
     assert np.allclose(camin_covmat_alpha0, camin_swap_covmat_alpha0, atol=0,
                        rtol=1e-2)
@@ -425,6 +1507,7 @@ def test_d_swap_varying_inputparams():
                                  rowvar=False)
     camin_swap_covmat_alpha1 = np.cov(np.array(camin_swap_absdsamples_alpha1),
                                       rowvar=False)
+    camin_mean_alpha1 = np.mean(np.array(camin_absdsamples_alpha1))
 
     assert np.allclose(camin_covmat_alpha1, camin_swap_covmat_alpha1,
         atol=0, rtol=1e-8)
@@ -477,6 +1560,7 @@ def test_d_swap_varying_inputparams():
                                  rowvar=False)
     camin_swap_covmat_alpha2 = np.cov(np.array(camin_swap_absdsamples_alpha2),
                                       rowvar=False)
+    camin_mean_alpha2 = np.mean(np.array(camin_absdsamples_alpha2))
 
     assert np.allclose(camin_covmat_alpha2, camin_swap_covmat_alpha2,
         atol=0, rtol=1e-8)
@@ -487,7 +1571,474 @@ def test_d_swap_varying_inputparams():
     assert np.allclose(camin_ll_alpha2, camin_swap_ll_alpha2, atol=0, rtol=1e-8)
 
 
-def perform_kifit(
+    # comparing covariance matrices
+    (
+        evals_camin_covmatdd_alpha0,
+        evecs_camin_covmatdd_alpha0
+    ) = np.linalg.eig(camin_covmat_alpha0)
+    (
+        evals_camin_covmatdd_alpha1,
+        evecs_camin_covmatdd_alpha1
+    ) = np.linalg.eig(camin_covmat_alpha1)
+    (
+        evals_camin_covmatdd_alpha2,
+        evecs_camin_covmatdd_alpha2
+    ) = np.linalg.eig(camin_covmat_alpha2)
+
+    # comparing |d|s
+
+
+
+    print("alpha0")
+    print(camin_mean_alpha0)
+
+    print("alpha1")
+    print(camin_mean_alpha1)
+
+    print("alpha2")
+    print(camin_mean_alpha2)
+
+
+
+
+    print("alpha0")
+    print(evals_camin_covmatdd_alpha0)
+
+    print("alpha1")
+    print(evals_camin_covmatdd_alpha1)
+
+    print("alpha2")
+    print(evals_camin_covmatdd_alpha2)
+
+
+def test_alphaNP_dependence_covdd():
+
+    camin = Elem('Camin')
+
+    inputparamsamples, _ = generate_elemsamples(camin, 500)
+
+    # alphaNP = 0
+    ###########################################################################
+
+    camin_absdsamples_alpha0 = []
+
+    for i, inputparams in enumerate(inputparamsamples):
+
+        camin._update_elem_params(inputparams)
+        camin_absdsamples_alpha0.append(camin.absd(True))
+
+    camin_covmat_alpha0 = np.cov(np.array(camin_absdsamples_alpha0),
+                                 rowvar=False)
+
+    camin_mean_alpha0 = np.mean(np.array(camin_absdsamples_alpha0), axis=0)
+
+    camin_ll_alpha0 = get_llist_elemsamples(camin_absdsamples_alpha0)
+
+
+    # alphaNP = 1e-8
+    ###########################################################################
+
+    camin.alphaNP = 1e-8
+
+    camin_absdsamples_alpha1 = []
+
+    for i, inputparams in enumerate(inputparamsamples):
+
+        camin._update_elem_params(inputparams)
+        camin_absdsamples_alpha1.append(camin.absd(True))
+
+    camin_covmat_alpha1 = np.cov(np.array(camin_absdsamples_alpha1),
+                                 rowvar=False)
+    camin_mean_alpha1 = np.mean(np.array(camin_absdsamples_alpha1), axis=0)
+
+    camin_ll_alpha1 = get_llist_elemsamples(camin_absdsamples_alpha1)
+
+    # alphaNP = 1e-6
+    ###########################################################################
+
+    camin.alphaNP = 1e-6
+
+    camin_absdsamples_alpha2 = []
+
+    for i, inputparams in enumerate(inputparamsamples):
+
+        camin._update_elem_params(inputparams)
+
+        camin_absdsamples_alpha2.append(camin.absd(True))
+
+    camin_covmat_alpha2 = np.cov(np.array(camin_absdsamples_alpha2),
+                                 rowvar=False)
+    camin_mean_alpha2 = np.mean(np.array(camin_absdsamples_alpha2), axis=0)
+
+    camin_ll_alpha2 = get_llist_elemsamples(camin_absdsamples_alpha2)
+
+
+    # comparing covariance matrices
+    ###########################################################################
+    (
+        evals_camin_covmatdd_alpha0,
+        evecs_camin_covmatdd_alpha0
+    ) = np.linalg.eig(camin_covmat_alpha0)
+    (
+        evals_camin_covmatdd_alpha1,
+        evecs_camin_covmatdd_alpha1
+    ) = np.linalg.eig(camin_covmat_alpha1)
+    (
+        evals_camin_covmatdd_alpha2,
+        evecs_camin_covmatdd_alpha2
+    ) = np.linalg.eig(camin_covmat_alpha2)
+
+    covdd_frac_01 = np.abs(
+        (evals_camin_covmatdd_alpha0 - evals_camin_covmatdd_alpha1)
+        / (evals_camin_covmatdd_alpha0 + evals_camin_covmatdd_alpha1))
+
+    covdd_frac_02 = np.abs(
+        (evals_camin_covmatdd_alpha0 - evals_camin_covmatdd_alpha2)
+        / (evals_camin_covmatdd_alpha0 + evals_camin_covmatdd_alpha2))
+
+    covdd_frac_12 = np.abs(
+        (evals_camin_covmatdd_alpha1 - evals_camin_covmatdd_alpha2)
+        / (evals_camin_covmatdd_alpha1 + evals_camin_covmatdd_alpha2))
+
+    assert (covdd_frac_01 < 1).all()
+    assert (covdd_frac_02 < 1).all()
+    assert (covdd_frac_12 < 1).all()
+
+    assert (covdd_frac_12 < covdd_frac_01).all()
+
+    # comparing to |d|s
+    ###########################################################################
+    covdiff_meandiff_frac_01 = np.abs(
+        (evals_camin_covmatdd_alpha0 - evals_camin_covmatdd_alpha1)
+        / (camin_mean_alpha0 - camin_mean_alpha1))
+
+    covdiff_meandiff_frac_02 = np.abs(
+        (evals_camin_covmatdd_alpha0 - evals_camin_covmatdd_alpha2)
+        / (camin_mean_alpha0 - camin_mean_alpha2))
+
+    covdiff_meandiff_frac_12 = np.abs(
+        (evals_camin_covmatdd_alpha1 - evals_camin_covmatdd_alpha2)
+        / (camin_mean_alpha1 - camin_mean_alpha2))
+
+    assert (covdiff_meandiff_frac_01 < 1e-6).all()
+    assert (covdiff_meandiff_frac_02 < 1e-6).all()
+    assert (covdiff_meandiff_frac_12 < 1e-6).all()
+
+    assert (covdiff_meandiff_frac_12 < covdiff_meandiff_frac_01).all()
+
+
+def kifitswap(
+        elem,
+        inputparamsamples,
+        fitparamsamples,
+        alphasamples,
+        min_percentile,
+        only_inputparams=False,
+        only_fitparams=False,
+        lam=0,
+        symm=False):
+
+    elem_ll_elemfit = []
+    elem_swap_ll_elemfit = []
+
+    for alphaNP in alphasamples:
+
+        elem_absdsamples = []
+
+
+        for i, fitparams in enumerate(fitparamsamples):
+
+            # update fitparams
+            kp1 = fitparams[0]
+            ph1 = fitparams[1]
+
+            if np.isclose(ph1, 0., atol=0, rtol=1e-17):
+                raise Exception("ph1 is too close to zero")
+
+            kp1swap = kp1
+            ph1swap = np.arctan(1 / np.tan(ph1))
+
+            if not only_inputparams:
+                elem._update_fit_params([kp1, ph1, alphaNP])
+                if elem_swap is not None:
+                    elem_swap._update_fit_params([kp1swap, ph1swap, alphaNP])
+            else:
+                elem.alphaNP = alphaNP
+                if elem_swap is not None:
+                    elem_swap.alphaNP = alphaNP
+
+            # update inputparams
+            if not only_fitparams:
+                inputparams = inputparamsamples[i]
+                elem._update_elem_params(inputparams)
+            elem_absdsamples.append(elem.absd(symm))
+
+            if elem_swap is not None:
+                if not only_fitparams:
+                    inputparamswap = swap_inputparams(inputparams,
+                                                      elem.nisotopepairs,
+                                                      elem.ntransitions)
+                    elem_swap._update_elem_params(inputparamswap)
+                elem_swap_absdsamples.append(elem_swap.absd(symm))
+
+        elem_ll = get_llist_elemsamples(elem_absdsamples, lam=lam)
+        elem_ll_elemfit.append(np.percentile(elem_ll, min_percentile))
+
+        elem_covmat = (np.cov(np.array(elem_absdsamples), rowvar=False)
+                           + 1e-17 * np.eye(elem.nisotopepairs))
+
+        if elem_swap is not None:
+            # assert np.allclose(elem_absdsamples, elem_swap_absdsamples,
+            #                    atol=0, rtol=1)  # rtol=1e-1)
+            elem_swap_covmat = (np.cov(np.array(elem_swap_absdsamples),
+                                rowvar=False)
+                                + 1e-17 * np.eye(elem.nisotopepairs))
+            # assert np.allclose(elem_covmat, elem_swap_covmat, atol=0, rtol=1e-2)
+            #rtol=1e-3)
+
+            elem_swap_ll = get_llist_elemsamples(elem_swap_absdsamples, lam=lam)
+            # assert np.allclose(elem_ll, elem_swap_ll, atol=0, rtol=1e-1)  # rtol=1e-2)
+            #
+            elem_swap_ll_elemfit.append(np.percentile(elem_swap_ll,
+                                                      min_percentile))
+
+    elem_delchisq_elemfit = get_delchisq(elem_ll_elemfit, minll=None)
+
+    if elem_swap is None:
+        return elem_delchisq_elemfit
+
+    else:
+        elem_swap_delchisq_elemfit = get_delchisq(elem_swap_ll_elemfit,
+                                                  minll=None)
+        return elem_delchisq_elemfit, elem_swap_delchisq_elemfit
+
+
+def analyse_covdd(
+        elem,
+        alphaval=0.,
+        nelemsamples=100000,
+        min_percentile=0,
+        lam=0,
+        symm=False):
+
+    inputparamsamples, fitparamsamples = generate_elemsamples(elem, nelemsamples)
+
+    absdsamples = []
+
+    for i, fitparams in enumerate(fitparamsamples):
+
+        # update fitparams
+        kp1 = fitparams[0]
+        ph1 = fitparams[1]
+        alphaNP = alphaval
+
+        if np.isclose(ph1, 0., atol=0, rtol=1e-17):
+            raise Exception("ph1 is too close to zero")
+
+        elem._update_fit_params([kp1, ph1, alphaNP])
+
+        # update inputparams
+        inputparams = inputparamsamples[i]
+        elem._update_elem_params(inputparams)
+        absdsamples.append(elem.absd(symm))
+
+    covdd = (np.cov(np.array(absdsamples), rowvar=False)
+                   + 1e-17 * np.eye(elem.nisotopepairs))
+
+    evals_covdd, evecs_covdd = np.linalg.eig(covdd)
+
+    cond_covdd = np.linalg.cond(covdd)
+
+    covddinv = compute_inverse(covdd)
+
+    llist = []
+
+    for absd in absdsamples:
+        llist.append(choLL(absd, covdd, lam=lam))
+
+    llist = np.array(llist)
+
+    return (covdd, elem.dnorm,
+            evals_covdd, evecs_covdd, cond_covdd,
+            covddinv,
+            llist)
+
+
+def compute_local_logL_curvature(elemid='Camin',
+                    alphaval=0.,
+                    epsilon=1e-18,
+                    epstag=str(0),
+                    nelemsamples=100000):
+
+    elem = Elem(elemid)
+
+    num_fish_file = os.path.join(outputfolder,
+                               f"covdd_{elemid}_eps{epstag}_Ns{nelemsamples}.json")
+
+    if os.path.exists(num_fish_file):
+
+        with open(num_fish_file) as json_file:
+            num_fish_output = json.load(json_file)
+
+    else:
+
+        (
+            covdd_a0, dnorm_a0,
+            evals_covdd_a0, evecs_covdd_a0,
+            cond_covdd_a0,
+            covddinv_a0,
+            llist_a0
+        ) = analyse_covdd(elem, alphaval=0., nelemsamples=nelemsamples,
+                          min_percentile=0)
+
+        (
+            covdd_am, dnorm_am,
+            evals_covdd_am, evecs_covdd_am,
+            cond_covdd_am,
+            covddinv_am,
+            llist_am
+        ) = analyse_covdd(elem, alphaval=-epsilon, nelemsamples=nelemsamples,
+                          min_percentile=0)
+
+        (
+            covdd_ap, dnorm_ap,
+            evals_covdd_ap, evecs_covdd_ap,
+            cond_covdd_ap,
+            covddinv_ap,
+            llist_ap
+        ) = analyse_covdd(elem, alphaval=epsilon, nelemsamples=nelemsamples,
+                          min_percentile=0)
+
+        alll = np.array([llist_a0, llist_am, llist_ap]).flatten()
+        minlll = np.min(alll)
+
+        delchisqlist_a0 = get_delchisq(llist_a0, minll=minlll)
+        delchisqlist_ap = get_delchisq(llist_ap, minll=minlll)
+        delchisqlist_am = get_delchisq(llist_am, minll=minlll)
+
+        FisherInfoEstimates = (np.array(delchisqlist_ap)
+                                - 2 * np.array(delchisqlist_a0)
+                                + np.array(delchisqlist_am)) / epsilon**2
+
+        mean_Fisher_sigalpha = np.mean(1 / np.sqrt(FisherInfoEstimates))
+        std_Fisher_sigalpha = np.std(1 / np.sqrt(FisherInfoEstimates))
+
+        # mean_Fisher_sigalpha = np.mean(FisherInfoEstimates)
+        # std_Fisher_sigalpha = np.std(FisherInfoEstimates)
+
+        num_fish_dict = {
+                "elemid": elem.id,
+                "epsilon": epsilon,
+                "covdd_alphaNP0": covdd_a0.tolist(),
+                "dnorm_alphaNP0": elem.dnorm,
+                "evals_covdd_alphaNP0": evals_covdd_a0.tolist(),
+                "evecs_covdd_alphaNP0": evecs_covdd_a0.tolist(),
+                "cond_covdd_alphaNP0": cond_covdd_a0,
+                "covddinv_a0": covddinv_a0.tolist(),
+                "delchisqlist_a0": delchisqlist_a0.tolist(),
+                "covdd_alphaNPm": covdd_am.tolist(),
+                "dnorm_alphaNPm": elem.dnorm,
+                "evals_covdd_alphaNPm": evals_covdd_am.tolist(),
+                "evecs_covdd_alphaNPm": evecs_covdd_am.tolist(),
+                "cond_covdd_alphaNPm": cond_covdd_am,
+                "covddinv_am": covddinv_am.tolist(),
+                "delchisqlist_am": delchisqlist_am.tolist(),
+                "covdd_alphaNPp": covdd_ap.tolist(),
+                "dnorm_alphaNPp": elem.dnorm,
+                "evals_covdd_alphaNPp": evals_covdd_ap.tolist(),
+                "evecs_covdd_alphaNPp": evecs_covdd_ap.tolist(),
+                "cond_covdd_alphaNPp": cond_covdd_ap,
+                "covddinv_ap": covddinv_ap.tolist(),
+                "delchisqlist_ap": delchisqlist_ap.tolist(),
+                "FisherInfoEstimates": FisherInfoEstimates.tolist(),
+                "mean_Fisher_info_estimate": mean_Fisher_sigalpha,
+                "std_Fisher_info_estimate": std_Fisher_sigalpha
+                }
+
+        with open(os.path.join(
+            outputfolder, f"num_fish_{elemid}_Ns{nelemsamples}.json"), 'w'
+                  ) as json_file:
+            json.dump(num_fish_dict, json_file)
+
+        return num_fish_dict
+
+
+def run_kifit(elemid, Nsamples=100, x=0, detstr='gkp', dim=3, read=False):
+
+    configpath = os.path.join(inputfolder,
+                              f"{elemid}_Ns{Nsamples}_x{x}_config.json")
+
+    if os.path.exists(configpath):
+
+        from kifit.config import RunParams
+        from kifit.run import Runner
+
+        params = RunParams(configuration_file=configpath)
+        runner = Runner(params)
+
+        print(not read)
+        print(not os.path.exists(runner.config.paths.fit_output_path(x)))
+
+
+        if (not read
+            or not os.path.exists(runner.config.paths.fit_output_path(x))):
+            runner.run()
+
+        fit_output = runner.config.paths.read_fit_output(x)
+        det_output = runner.config.paths.read_det_output(detstr, dim, x)
+
+        return fit_output, det_output
+
+    else:
+        raise ImportError(f"Please provide configuration file {configpath}.")
+
+
+# def test_Fisher(elemid="Camin",
+#                 nelemsamples=100):
+#
+#     elem = Elem(elemid)
+#
+#     epsilons = [1e-1, 1, 10, 100]
+#
+#     mean_local_Fisher_sigalpha_estimates = []
+#     std_local_Fisher_sigalpha_estimates = []
+#     Fisher_estimates = []
+#
+#
+#     for epsind, eps in enumerate(epsilons):
+#
+#         output_epsilon = compute_local_logL_curvature(
+#                 elemid=elemid,
+#                 alphaval=0.,
+#                 epsilon=eps,
+#                 epstag=str(epsind),
+#                 nelemsamples=nelemsamples)
+#
+#         Fisher_estimates.append(output_epsilon["FisherInfoEstimates"])
+#         mean_local_Fisher_sigalpha_estimates.append(
+#                 output_epsilon["mean_Fisher_info_estimate"])
+#         std_local_Fisher_sigalpha_estimates.append(
+#                 output_epsilon["std_Fisher_info_estimate"])
+#
+#     kifit_output = run_kifit(elemid=elemid, x=0)
+#
+#     alphas_exps = kifit_output["alphas_exp"].flatten()
+#     delchisqs_exp = kifit_output["delchisqs_exp"].flatten()
+#
+#     p = perform_polyfit(alphas_exps, delchisqs_exp)
+#
+#     global_Fisher_sigalpha_estimate = 1 / np.sqrt(2 * p[0])
+#
+#     print("local_Fisher_estimate", mean_local_Fisher_sigalpha_estimates)
+#     print("uncertainty   ", std_local_Fisher_sigalpha_estimates)
+#     print("global_Fisher_estimate", global_Fisher_sigalpha_estimate)
+#
+#     # print("Fisher_estimate", Fisher_estimates)
+#
+
+
+
+def kifitswap(
         elem,
         inputparamsamples,
         fitparamsamples,
@@ -547,11 +2098,12 @@ def perform_kifit(
         elem_ll = get_llist_elemsamples(elem_absdsamples, lam=lam)
         elem_ll_elemfit.append(np.percentile(elem_ll, min_percentile))
 
+        elem_covmat = (np.cov(np.array(elem_absdsamples), rowvar=False)
+                           + 1e-17 * np.eye(elem.nisotopepairs))
+
         if elem_swap is not None:
             # assert np.allclose(elem_absdsamples, elem_swap_absdsamples,
             #                    atol=0, rtol=1)  # rtol=1e-1)
-            elem_covmat = (np.cov(np.array(elem_absdsamples), rowvar=False)
-                           + 1e-17 * np.eye(elem.nisotopepairs))
             elem_swap_covmat = (np.cov(np.array(elem_swap_absdsamples),
                                 rowvar=False)
                                 + 1e-17 * np.eye(elem.nisotopepairs))
@@ -601,7 +2153,7 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
         nalphasamples,
         search_mode="normal")
 
-    camin_delchisq_caminfit, camin_swap_delchisq_caminfit = perform_kifit(
+    camin_delchisq_caminfit, camin_swap_delchisq_caminfit = kifitswap(
         camin,
         inputparamsamples,
         fitparamsamples,
@@ -612,7 +2164,7 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
         symm=symm)
     camin_confint = get_confint(alphasamples, camin_delchisq_caminfit, delchisqcrit)
 
-    camin_swap_delchisq_caminswapfit, camin_delchisq_caminswapfit = perform_kifit(
+    camin_swap_delchisq_caminswapfit, camin_delchisq_caminswapfit = kifitswap(
         camin,
         inputparamsamples_swap,
         fitparamsamples_swap,
@@ -685,7 +2237,7 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
     symmstr = "symm_" if symm else ""
 
     plotpath = os.path.join(
-        plotfolder,
+        outputfolder,
         f"mc_output_Camin_01_10_{symmstr}x{camin.x}_{varstr}.pdf")
     plt.savefig(plotpath)
 
@@ -694,7 +2246,7 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
     ax.set_xlim(-1e-10, 1e-10)
 
     plotpath = os.path.join(
-        plotfolder,
+        outputfolder,
         f"mc_output_Camin_10_01_{symmstr}x{camin.x}_{varstr}_zoom.pdf")
     plt.savefig(plotpath)
 
@@ -704,6 +2256,132 @@ def test_swap():
     swap_varying_elemparams(only_inputparams=True, symm=False)
     swap_varying_elemparams(only_inputparams=False, symm=True)
     swap_varying_elemparams(only_inputparams=True, symm=True)
+
+
+#
+# def test_Ca24min_mod():
+#
+#     kifit_output, kidet_output = run_kifit(elemid="Ca24min_mod", x=0, read=True)
+#
+#     LB_kifit = kifit_output["LB"]
+#     sig_LB_kifit = kifit_output["sig_LB"]
+#
+#     UB_kifit = kifit_output["UB"]
+#     sig_UB_kifit = kifit_output["sig_UB"]
+#
+#     alphas_kidet = kidet_output["alphas"]
+#     sigalphas_kidet = kidet_output["sigalphas"]
+#
+#     print("kifit_output")
+#     test = kifit_output["delchisqs_exp"]
+#
+#     print(test[test < 1e8])
+#
+#
+#     print("sigalpha_kifit", UB_kifit - LB_kifit)
+#     print("sigsigalpha_kifit", np.sqrt(sig_LB_kifit**2 + sig_UB_kifit**2))
+#
+#     print("sigalpha_kidet", kidet_output["sigalphas"])
+#
+#
+#
+#
+
+
+def test_Ca24min_mod():
+
+    # varying both input parameters and fit parameters
+
+    camin = Elem('Ca24min_mod')
+
+    nalphasamples = 150
+    nelemsamples = 100
+    min_percentile = 0
+    delchisqcrit = get_delchisq_crit(3)
+
+    inputparamsamples, fitparamsamples = generate_elemsamples(camin, nelemsamples)
+
+    camin.set_alphaNP_init(0, 5e-11)
+
+    alphasamples = generate_alphaNP_samples(
+        camin,
+        nalphasamples,
+        search_mode="normal")
+
+    delchisqs = kifitswap(
+        camin,
+        inputparamsamples,
+        fitparamsamples,
+        alphasamples,
+        min_percentile)
+
+    confint = get_confint(alphasamples, delchisqs, delchisqcrit)
+
+    import matplotlib.pyplot as plt
+    from matplotlib.offsetbox import AnchoredText
+
+    fig, ax = plt.subplots()
+
+    ax.scatter(alphasamples, delchisqs, s=5)
+
+    # fit 2-sigma region
+    ax.axhline(y=0, color="k", lw=1, ls="-")
+    ax.axhline(y=delchisqcrit, color="r", lw=1, ls="--")
+    ax.axvline(x=confint[0], color="b", lw=1, ls="--")
+    ax.axvline(x=confint[1], color="b", lw=1, ls="--")
+
+    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
+                  fontsize=axislabelsize)
+    ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
+
+    camin_alpha_det, camin_LB_det, camin_UB_det = get_det_vals(
+            camin, nelemsamples, 3, "gkp")
+
+    print("camin_alpha_det", camin_alpha_det)
+    print("camin_LB_det", camin_LB_det)
+
+
+
+    detext = (r"$\bf{kifit:}$" + "\n"
+              + r"$\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\in$ ["
+              + f"{confint[0]:.1e}, {confint[1]:.1e}"
+              + "] \n \n"
+              + r"$\bf{dim~3~GKP:}$" + "\n "
+              + r"$\langle\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\rangle =$"
+              + f"{camin_alpha_det[0]:.1e}\n"
+              + r"$\frac{\alpha_{\mathrm{NP}}}{\alpha_{\mathrm{EM}}}\in$ ["
+              + f"{camin_LB_det[0]:.1e}, {camin_UB_det[0]:.1e}"
+              + "]")
+
+    print("detext", detext)
+
+    light_grey = "#D7D7D7"
+    textbox_props = dict(boxstyle='round', facecolor="white", edgecolor=light_grey)
+    anchored_text = AnchoredText(detext, loc="upper right", frameon=False,
+                                 prop=dict(bbox=textbox_props))
+    ax.add_artist(anchored_text)
+    # plt.legend(loc="upper center", fontsize=fsize)
+    ax.tick_params(axis="both", which="major", labelsize=fsize)
+    ax.xaxis.get_offset_text().set_fontsize(fsize)
+
+    # varstr = "inputparamvar" if only_inputparams else "elemparamvar"
+    # symmstr = "symm_" if symm else ""
+    # ax.set_ylim(0, 1e5)
+    # ax.set_xlim(-1e-8, 1e-8)
+
+    plotpath = os.path.join(
+        outputfolder,
+        f"mc_output_Ca24min_mod_x{camin.x}.pdf")
+    plt.savefig(plotpath)
+
+    # if not only_inputparams:
+    ax.set_ylim(0, 20)
+    ax.set_xlim(-1e-10, 1e-10)
+
+    plotpath = os.path.join(
+        outputfolder,
+        f"mc_output_Ca24min_mod_x{camin.x}_zoom.pdf")
+    plt.savefig(plotpath)
 
 
 def scan_lam():
@@ -777,7 +2455,7 @@ def scan_lam():
                   fontsize=axislabelsize)
     ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
 
-    plt.legend(fontsize=fsize)
+    # plt.legend(fontsize=fsize)
 
     ax.set_ylim(0, 1)
     ax.set_xlim(-.5e-10, .5e-10)
@@ -785,7 +2463,7 @@ def scan_lam():
     ax.tick_params(axis="both", which="major", labelsize=fsize)
     ax.xaxis.get_offset_text().set_fontsize(fsize)
 
-    plotpath = os.path.join(plotfolder,
+    plotpath = os.path.join(outputfolder,
                             f"mc_output_Camin_lam_x{camin.x}.pdf")
     plt.savefig(plotpath, dpi=1000)
 
@@ -794,7 +2472,7 @@ def scan_lam():
     ax.tick_params(axis="both", which="major", labelsize=fsize)
     ax.xaxis.get_offset_text().set_fontsize(fsize)
 
-    plotpath = os.path.join(plotfolder,
+    plotpath = os.path.join(outputfolder,
                             f"mc_output_Camin_lam_x{camin.x}_zoom.pdf")
     plt.savefig(plotpath)
 
@@ -818,32 +2496,32 @@ def plot_elemvar_vs_elemfitvar(symm=False):
 
     inputparamsamples, fitparamsamples = generate_elemsamples(camin, nelemsamples)
 
-    delchisqs_elemvar = perform_kifit(camin,
-                                       inputparamsamples,
-                                       fitparamsamples,
-                                       alphasamples,
-                                       min_percentile=min_percentile,
-                                       only_inputparams=True,
-                                       symm=symm)
+    delchisqs_elemvar = kifitswap(camin,
+                                  inputparamsamples,
+                                  fitparamsamples,
+                                  alphasamples,
+                                  min_percentile=min_percentile,
+                                  only_inputparams=True,
+                                  symm=symm)
     confint_elemvar = get_confint(alphasamples, delchisqs_elemvar, delchisqcrit)
 
-    delchisqs_elemfitvar = perform_kifit(camin,
-                                          inputparamsamples,
-                                          fitparamsamples,
-                                          alphasamples,
-                                          min_percentile=min_percentile,
-                                          only_inputparams=False,
-                                          symm=symm)
+    delchisqs_elemfitvar = kifitswap(camin,
+                                     inputparamsamples,
+                                     fitparamsamples,
+                                     alphasamples,
+                                     min_percentile=min_percentile,
+                                     only_inputparams=False,
+                                     symm=symm)
     confint_elemfitvar = get_confint(alphasamples, delchisqs_elemfitvar, delchisqcrit)
 
-    delchisqs_fitvar = perform_kifit(camin,
-                                      inputparamsamples,
-                                      fitparamsamples,
-                                      alphasamples,
-                                      min_percentile=min_percentile,
-                                      only_fitparams=True,
-                                      lam=1e-20,
-                                      symm=symm)
+    delchisqs_fitvar = kifitswap(camin,
+                                 inputparamsamples,
+                                 fitparamsamples,
+                                 alphasamples,
+                                 min_percentile=min_percentile,
+                                 only_fitparams=True,
+                                 lam=1e-20,
+                                 symm=symm)
     confint_fitvar = get_confint(alphasamples, delchisqs_fitvar, delchisqcrit)
 
     import matplotlib.pyplot as plt
@@ -905,7 +2583,7 @@ def plot_elemvar_vs_elemfitvar(symm=False):
     ax.tick_params(axis="both", which="major", labelsize=fsize)
     ax.xaxis.get_offset_text().set_fontsize(fsize)
     plt.legend(loc='upper center', fontsize=fsize)
-    plotpath = os.path.join(plotfolder,
+    plotpath = os.path.join(outputfolder,
                             f"mc_output_elemvar_vs_elemfitvar_x{camin.x}"
                             + ("_symm" if symm else "")
                             + ".pdf")
@@ -916,6 +2594,15 @@ def plot_elemvar_vs_elemfitvar_symm_vs_asymm():
     plot_elemvar_vs_elemfitvar(symm=False)
 
 if __name__ == "__main__":
-    test_nutil_correlations()
-    test_d_swap_varying_inputparams()
-    test_swap()
+    # test_correlations()
+    # test_d_swap_varying_inputparams()
+    # test_alphaNP_dependence_covdd()
+    # test_swap()
+    # test_covdd()
+    # test_Fisher()
+    # test_correlations()
+    # test_Ca24min_mod()
+    test_Catest_1sample()
+    test_Catest_sampling()
+    test_Catest_sampling_convergence()
+

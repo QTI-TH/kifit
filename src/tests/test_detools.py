@@ -16,7 +16,6 @@ if not os.path.exists(plotfolder):
     logging.info("Creating file at ", plotfolder)
     os.mkdir(plotfolder)
 
-# import matplotlib.pyplot as plt
 
 def test_GKP_combinations():
 

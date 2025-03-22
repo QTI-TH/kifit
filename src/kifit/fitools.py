@@ -64,6 +64,15 @@ def generate_elemsamples(elem, nsamples: int):
     for kp1, ph1, cov in zip(elem.kp1_init, elem.ph1_init, elem.cov_kperp1_ph1):
         samples_per_transition.append(
             np.random.multivariate_normal([kp1, ph1], cov, size=nsamples))
+
+    # for kp1, ph1, skp1, sph1 in zip(elem.kp1_init, elem.ph1_init,
+    #                                 1e-1 * elem.sig_kp1_init,
+    #                                 1e-1 * elem.sig_ph1_init):
+    #     samples_per_transition.append(
+    #             np.random.multivariate_normal([kp1, ph1],
+    #                                           [[skp1**2, 0], [0, sph1**2]],
+    #                                           size=nsamples))
+
     fitparamsamples = []
     for i in range(nsamples):
         fitparams = []
@@ -73,7 +82,7 @@ def generate_elemsamples(elem, nsamples: int):
             fitparams.append(samples_per_transition[j][i][1])
         fitparamsamples.append(fitparams)
 
-    return inputparamsamples, fitparamsamples
+    return inputparamsamples, np.array(fitparamsamples)
 
 
 def objective(trial, elem_collection, nelemsamples, min_percentile,
@@ -188,6 +197,8 @@ def choLL(absd, covmat, lam=0):
     negative log-likelihood using the Cholesky decomposition of covmat.
 
     """
+    absd = np.array(absd)
+
     chol_covmat, lower = cho_factor(covmat + lam * np.eye(covmat.shape[0]), lower=True)
 
     absd_covinv_absd = absd.dot(cho_solve((chol_covmat, lower), absd))
@@ -248,6 +259,7 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky", lam=0.):
         llist.append(LL(absd, cov_absd, lam=lam))
 
     return np.array(llist)
+
 
 
 def logL_alphaNP(alphaNP,
@@ -372,6 +384,16 @@ def get_delchisq_crit(nsigmas=2, dof=1):
 
     return chi2.ppf(conf_level, dof)
 
+
+def perform_polyfit(alphasamples, llsamples, degree=2):
+
+    return np.polyfit(alphasamples, llsamples, deg=degree)
+
+def polyfit_fct(pvec, xvals):
+
+    polly = np.poly1d(pvec)
+
+    return polly(xvals)
 
 # determine bounds & their uncertainties
 ##############################################################################
@@ -740,6 +762,8 @@ def organise_search_results(messenger, nexps, alphas, delchisqs, bestalphas, xin
     # take larger of the two:
     #  - interval defined by median delchisq samples
     #  - 5 sigma interval
+    print("median", np.median(delchisqs))
+    print("dchi2c", get_delchisq_crit(5))
     delchisqcrit_search = max(np.median(delchisqs), get_delchisq_crit(5))
 
     search_interval = np.array(
@@ -896,7 +920,15 @@ def perform_experiments(
     # using results of all experiments, compute confidence intervals
 
     if expstr == "experiment":
-        delchisqcrit = get_delchisq_crit(nsigmas)
+
+        totaldof = np.sum([len(elem.means_fit_params) - 1 for elem in
+                       elem_collection.elems]) + 1
+
+        delchisqcrit = get_delchisq_crit(nsigmas, dof=totaldof)
+
+        print("experiment")
+        print("totaldof", totaldof)
+        print("delchisqcrit", delchisqcrit)
 
         confints_exps = np.array(
             [

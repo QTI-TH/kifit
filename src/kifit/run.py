@@ -118,6 +118,14 @@ class Runner:
                 expstr="experiment",
                 xind=x)
 
+            plot_alphaNP_ll(
+                self.collection,
+                messenger=self.config,
+                expstr="experiment",
+                xlims=[-5e-10, 5e-10],
+                ylims=[-5,100],
+                xind=x)
+
     def generate_mphi_alphaNP_plot(self):
 
         if len(self.config.x_vals_fit) > 1 or len(self.config.x_vals_det) > 1:

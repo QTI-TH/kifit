@@ -1,7 +1,9 @@
 user_elems = [
     "Ca_testdata",
+    "Camin_testdata",
     "Camin",
     "Camin_swap",
+    "Ca24min_mod",
     "Camin_exp",
     "Ca24min",
     "Ca_PTB_2015",

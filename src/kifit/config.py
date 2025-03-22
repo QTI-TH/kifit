@@ -355,7 +355,7 @@ class Paths:
             f"{plotname}_"
             + (f"{self.__elem_collection_id}" if elemid is None else f"{elemid}")
             + (f"_x{str(xind)}" if xind is not None else "")
-            + ".png")
+            + ".pdf")
 
     def search_output_path(self, xind):
         # path where to save fit results for x=xind

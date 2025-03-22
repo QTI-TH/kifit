@@ -3,7 +3,7 @@ import os
 from math import factorial
 from pprint import pprint
 from kifit.build import Elem, ElemCollection, Levi_Civita_generator, LeviCivita
-from kifit.build import perform_odr, perform_linreg
+from kifit.build import perform_odr, perform_linreg, det_64
 from kifit.fitools import (
     generate_elemsamples, generate_alphaNP_samples,
     get_llist_elemsamples, get_delchisq)
@@ -113,8 +113,8 @@ def test_linfit():
     assert np.all(np.isclose(sig_kperp1s_odr, sig_kperp1s_linreg, atol=0, rtol=1))
     assert np.all(np.isclose(sig_ph1s_odr, sig_ph1s_linreg, atol=0, rtol=1))
 
-    xvals = ca.nutil_in.T[0]
-    yvals = ca.nutil_in[:, 1:]
+    xvals = (ca.nutil_in.T[0]).astype(np.float64)
+    yvals = (ca.nutil_in[:, 1:]).astype(np.float64)
 
     betas_dat = np.array([np.polyfit(xvals, yvals[:, i], 1) for i in
         range(yvals.shape[1])])
@@ -126,9 +126,11 @@ def test_linfit():
 def test_set_fit_params():
     ca = Elem('Ca_testdata')
 
-    kappaperp1temp = np.array(list(range(ca.ntransitions - 1)))
-    ph1temp = np.array([np.pi / 2 - np.pi / (i + 2) for i in
-        range(ca.ntransitions - 1)])
+    kappaperp1temp = np.array(list(range(ca.ntransitions - 1)),
+                              dtype=np.float128)
+    ph1temp = np.array(
+            [np.pi / 2 - np.pi / (i + 2) for i in range(ca.ntransitions - 1)],
+            dtype=np.float128)
     alphaNPtemp = 1 / (4 * np.pi)
     thetatemp = np.concatenate((kappaperp1temp, ph1temp, alphaNPtemp),
         axis=None)
@@ -139,25 +141,33 @@ def test_set_fit_params():
     assert (np.sum(ca.ph1) == np.sum(ph1temp))
     assert (len(ca.ph1) == len(ph1temp))
     assert (ca.alphaNP == alphaNPtemp)
+
     assert all(ca.F1[1:] == np.tan(ph1temp))
 
     theta_Mathematica = np.concatenate((kappaperp1nit_Mathematica,
         ph1nit_Mathematica, alphaNP_Mathematica), axis=None)
     ca._update_fit_params(theta_Mathematica)
-    assert (np.sum(ca.Kperp1) == np.sum(kappaperp1nit_Mathematica))
-    assert (np.sum(ca.kp1) == np.sum(kappaperp1nit_Mathematica))
-    assert (np.sum(ca.ph1) == np.sum(ph1nit_Mathematica))
+    assert (np.sum(ca.Kperp1) == np.sum(np.array(kappaperp1nit_Mathematica,
+                                                 dtype=np.float128)))
+    assert (np.sum(ca.kp1)
+            == np.sum(np.array(kappaperp1nit_Mathematica, dtype=np.float128)))
+    assert (np.sum(ca.ph1) == np.sum(np.array(ph1nit_Mathematica,
+                                              dtype=np.float128)))
     assert (ca.alphaNP == alphaNP_Mathematica)
-    assert (ca.F1[1:] == np.tan(ph1nit_Mathematica)).all()
+    assert (ca.F1[1:] == np.tan(np.array(ph1nit_Mathematica,
+                                         dtype=np.float128))).all()
     assert np.isclose(ca.F1sq, F1_Mathematica @ F1_Mathematica, atol=0, rtol=1e-15)
 
     theta_LL_Mathematica = np.concatenate((kappaperp1nit_LL_Mathematica,
             ph1nit_LL_Mathematica, 0.), axis=None)
     ca._update_fit_params(theta_LL_Mathematica)
-    assert (np.sum(ca.Kperp1) == np.sum(kappaperp1nit_LL_Mathematica))
-    assert (np.sum(ca.ph1) == np.sum(ph1nit_LL_Mathematica))
+    assert (np.sum(ca.Kperp1) == np.sum(np.array(kappaperp1nit_LL_Mathematica,
+                                                 dtype=np.float128)))
+    assert (np.sum(ca.ph1) == np.sum(np.array(ph1nit_LL_Mathematica,
+                                              dtype=np.float128)))
     assert (ca.alphaNP == alphaNP_Mathematica)
-    assert (ca.F1[1:] == np.tan(ph1nit_LL_Mathematica)).all()
+    assert (ca.F1[1:] == np.tan(np.array(ph1nit_LL_Mathematica,
+                                         dtype=np.float128))).all()
     assert np.isclose(ca.F1sq, F1_LL_Mathematica @ F1_LL_Mathematica,
         atol=0, rtol=1e-15)
 
@@ -279,13 +289,13 @@ def check_alphaNP_GKP(elem, dim):
         Xmat = elem.Xvec[np.ix_(i_inds)]
         hmat = elem.gammatilvec[np.ix_(a_inds)]
 
-        vol_data = np.linalg.det(np.c_[numat, mumat])
+        vol_data = det_64(np.c_[numat, mumat])
 
         vol_alphaNP1 = 0
         for i, eps_i in LeviCivita(dim - 1):
-            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+            vol_alphaNP1 += (eps_i * det_64(np.c_[
                 Xmat[i[0]] * hmat,
-                np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
+                np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,
                 mumat]))
         alphalist.append(vol_data / vol_alphaNP1)
 
@@ -305,11 +315,11 @@ def check_alphaNP_NMGKP(elem, dim):
         Xmat = elem.Xvec[np.ix_(i_inds)]
         hmat = elem.gammatilvec[np.ix_(a_inds)]
 
-        vol_data = np.linalg.det(numat)
+        vol_data = det_64(numat)
 
         vol_alphaNP1 = 0
         for i, eps_i in LeviCivita(dim):
-            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+            vol_alphaNP1 += (eps_i * det_64(np.c_[
                 Xmat[i[0]] * hmat,
                 np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
         alphalist.append(vol_data / vol_alphaNP1)
@@ -363,7 +373,10 @@ def test_alphaNP_proj():
         ca.Xji(j=1, i=0), ca.Xvec[1] - ca.Fji(j=1, i=0) * ca.Xvec[0],
         atol=0, rtol=1e-25)
 
-    assert np.isclose(ca.Fji(j=2, i=0), ca.F1[2], atol=0, rtol=1e-25)
+    F21_64 = (ca.F1[2]).astype(np.float64)
+    F21ind_64 = (ca.Fji(j=2, i=0).astype(np.float64))
+    assert np.isclose(F21_64, F21ind_64, atol=0, rtol=1e-25)
+    assert np.isclose(ca.Fji(j=2, i=0), ca.F1[2], atol=0, rtol=1e-19)
     assert np.isclose(ca.Xji(j=2, i=0), ca.X1[2], atol=0, rtol=1e-25)
 
     assert np.isclose(ca.alphaNP_proj(), ca.alphaNP_GKP(), atol=0, rtol=20)
