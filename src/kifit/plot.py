@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 
 from kifit.build import get_odr_residuals, linfit, perform_linreg, perform_odr
 
-from kifit.fitools import (get_delchisq_crit, collect_fit_X_data,
-                           perform_polyfit, polyfit_fct)
+from kifit.fitools import get_delchisq_crit, collect_fit_X_data
 
 from kifit.detools import get_minpos_maxneg_alphaNP_bounds, collect_det_X_data
 
@@ -202,20 +201,11 @@ def plot_mc_output(
 
     ax.scatter(alphalist, delchisqlist, s=1, alpha=0.5, color=mc_scatter_colour)
 
-    p = perform_polyfit(alphalist, delchisqlist, degree=4)
-
-    alphavals = np.linspace(min(alphalist), max(alphalist), num=1000)
-    llvals = polyfit_fct(p, alphavals)
-
-    ax.plot(alphavals, llvals, color=mc_scatter_colour,
-            label="parabolic fit, p = [" + " ".join(f"{x:.1e}" for x in p) + "]")
-
     ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
                   fontsize=axislabelsize)
     ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
 
     plt.title(f"x={xind}, {len(alphalist)}" + r" $\alpha_{\mathrm{NP}}$ samples")
-    plt.legend(fontsize=fsize)
     plotpath = messenger.paths.generate_plot_path("mc_output_" + plotname, xind=xind)
     plt.savefig(plotpath)
     logging.info(f"Saving mc output plot to {plotpath}")
@@ -264,7 +254,7 @@ def plot_search_output(
             label=r"$\Delta \chi^2\vert_{\mathrm{crit.}}$ search")
 
     # alphas_inside = alphalist[np.argwhere(delchisqlist < delchisqcrit).flatten()]
-    print("searchlims", (np.min(searchlims), np.max(searchlims)))
+
     ax.axvline(x=np.min(searchlims), color="orange", ls='--', label="search interval")
     ax.axvline(x=np.max(searchlims), color="orange", ls='--')
 
@@ -433,7 +423,6 @@ def plot_alphaNP_ll(
     # elem_collection.check_det_dims(gkpdims, nmgkpdims, projdims)
 
     if expstr == "experiment":
-        print("this is an experiment")
         mc_output = messenger.paths.read_fit_output(xind)
 
         delchisqs = mc_output['delchisqs_exp']
@@ -447,13 +436,8 @@ def plot_alphaNP_ll(
 
         delchisqcrit = get_delchisq_crit(nsigmas, dof=totaldof)
 
-        print("plot")
-        print("totaldof", totaldof)
-        print("delchisqcrit", delchisqcrit)
-
 
     elif expstr == "search":
-        print("this is a search")
         mc_output = messenger.paths.read_search_output(xind)
 
         delchisqs = mc_output['delchisqs_exp']
@@ -506,16 +490,6 @@ def plot_alphaNP_ll(
     args = np.argwhere(allls < 10)
     alphas_inside = allalphas[args].flatten()
     llls_inside = allls[args].flatten()
-
-    p = perform_polyfit(alphas_inside, llls_inside, degree=4)
-    sigalphaNP_Fisher = 1 / (2 * np.sqrt(p[0]))
-
-    alphavals = np.linspace(np.min(alphas), np.max(alphas), num=1000)
-    llvals = polyfit_fct(p, alphavals)
-
-    ax1.plot(alphavals, llvals, color=mc_scatter_colour,
-             label="parabolic fit, p = [" + " ".join(f"{x:.1e}" for x in p) + "]")
-
 
     ax1.axhline(y=delchisqcrit, color="r", lw=1, ls="--", label=delchisqcrit_label)
 
@@ -579,12 +553,8 @@ def plot_alphaNP_ll(
         ax2.axvline(x=-linthresh_x, color='k', ls='--', label="linear threshold")
         ax2.axvline(x=linthresh_x, color='k', ls='--')
 
-        ax1.set_ylim([np.min(delchisqs), np.max(delchisqs)])
-
-    # for exp fig draft
-    # else:
-    #     ax1.set_xlim([-2e-10, 2e-10])
-    #     ax1.set_ylim([-1, 20])
+        if np.min(delchisqs) > 0:
+            ax1.set_ylim([ymin, np.max(delchisqs)])
 
     (xmin, xmax) = ax1.get_xlim()
     ax1.set_xticks([])
@@ -595,8 +565,6 @@ def plot_alphaNP_ll(
     ax1.set_title(elem_collection.id
                   + f": x={xind}, {nsamples}"
                   + r" $\alpha_{\mathrm{NP}}$ samples")
-                  # + r", $1 / \sqrt{I(\alpha_\mathrm{NP})}=$"
-                  # + f"{sigalphaNP_Fisher:.1e}")
 
     plotpath = messenger.paths.generate_plot_path(
         "alphaNP_ll"
@@ -637,14 +605,11 @@ def plot_mphi_alphaNP_det_bound(
         det_colour = nmgkp_colour
 
     elif detstr=="proj":
-        print("hullu proj")
         method_tag = "proj"
         det_colour = proj_colour
 
     alphas, sigalphas, minpos, allpos, maxneg, allneg = collect_det_X_data(
         messenger, dim=dim, detstr=detstr)
-    print("detstr", detstr)
-    print("alphas", alphas)
 
     npermutations = alphas.shape[1]
 

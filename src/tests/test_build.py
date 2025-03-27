@@ -126,11 +126,10 @@ def test_linfit():
 def test_set_fit_params():
     ca = Elem('Ca_testdata')
 
-    kappaperp1temp = np.array(list(range(ca.ntransitions - 1)),
-                              dtype=np.float128)
+    kappaperp1temp = np.array(list(range(ca.ntransitions - 1)))
     ph1temp = np.array(
-            [np.pi / 2 - np.pi / (i + 2) for i in range(ca.ntransitions - 1)],
-            dtype=np.float128)
+            [np.pi / 2 - np.pi / (i + 2) for i in range(ca.ntransitions - 1)])
+
     alphaNPtemp = 1 / (4 * np.pi)
     thetatemp = np.concatenate((kappaperp1temp, ph1temp, alphaNPtemp),
         axis=None)
@@ -147,27 +146,21 @@ def test_set_fit_params():
     theta_Mathematica = np.concatenate((kappaperp1nit_Mathematica,
         ph1nit_Mathematica, alphaNP_Mathematica), axis=None)
     ca._update_fit_params(theta_Mathematica)
-    assert (np.sum(ca.Kperp1) == np.sum(np.array(kappaperp1nit_Mathematica,
-                                                 dtype=np.float128)))
-    assert (np.sum(ca.kp1)
-            == np.sum(np.array(kappaperp1nit_Mathematica, dtype=np.float128)))
-    assert (np.sum(ca.ph1) == np.sum(np.array(ph1nit_Mathematica,
-                                              dtype=np.float128)))
+    assert (np.sum(ca.Kperp1) == np.sum(np.array(kappaperp1nit_Mathematica)))
+    assert (np.sum(ca.kp1) == np.sum(np.array(kappaperp1nit_Mathematica)))
+    assert (np.sum(ca.ph1) == np.sum(np.array(ph1nit_Mathematica)))
     assert (ca.alphaNP == alphaNP_Mathematica)
-    assert (ca.F1[1:] == np.tan(np.array(ph1nit_Mathematica,
-                                         dtype=np.float128))).all()
+    assert (ca.F1[1:] == np.tan(np.array(ph1nit_Mathematica))).all()
+
     assert np.isclose(ca.F1sq, F1_Mathematica @ F1_Mathematica, atol=0, rtol=1e-15)
 
     theta_LL_Mathematica = np.concatenate((kappaperp1nit_LL_Mathematica,
             ph1nit_LL_Mathematica, 0.), axis=None)
     ca._update_fit_params(theta_LL_Mathematica)
-    assert (np.sum(ca.Kperp1) == np.sum(np.array(kappaperp1nit_LL_Mathematica,
-                                                 dtype=np.float128)))
-    assert (np.sum(ca.ph1) == np.sum(np.array(ph1nit_LL_Mathematica,
-                                              dtype=np.float128)))
+    assert (np.sum(ca.Kperp1) == np.sum(np.array(kappaperp1nit_LL_Mathematica)))
+    assert (np.sum(ca.ph1) == np.sum(np.array(ph1nit_LL_Mathematica)))
     assert (ca.alphaNP == alphaNP_Mathematica)
-    assert (ca.F1[1:] == np.tan(np.array(ph1nit_LL_Mathematica,
-                                         dtype=np.float128))).all()
+    assert (ca.F1[1:] == np.tan(np.array(ph1nit_LL_Mathematica))).all()
     assert np.isclose(ca.F1sq, F1_LL_Mathematica @ F1_LL_Mathematica,
         atol=0, rtol=1e-15)
 

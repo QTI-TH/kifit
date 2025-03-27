@@ -117,9 +117,8 @@ def perform_linreg(isotopeshiftdata):  # , reference_transition_index: int = 0):
 
     for i in range(y.shape[1]):
         res = linregress(x, y.T[i])
-        betas.append(np.array([res.slope, res.intercept]))  #, dtype=np.float128))
-        sig_betas.append(np.array([res.stderr, res.intercept_stderr])) #,
-                                  # dtype=np.float128))
+        betas.append(np.array([res.slope, res.intercept]))
+        sig_betas.append(np.array([res.stderr, res.intercept_stderr]))
 
     betas = np.array(betas)
     sig_betas = np.array(sig_betas)
@@ -182,16 +181,15 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata):
 
         # Extract beta and covariance matrix
 
-        beta_out = (out.beta)  #.astype(np.float128)
-        sig_beta_out = (out.sd_beta)  #.astype(np.float128)
+        beta_out = (out.beta)
+        sig_beta_out = (out.sd_beta)
 
         betas.append(beta_out)
         sig_betas.append(sig_beta_out)
-        cov_beta = (out.cov_beta)  #.astype(np.float128)
+        cov_beta = (out.cov_beta)
 
         # Calculate ph1 and kperp1
-        ph1 = np.arctan(beta_out[0])  #.astype(np.float128)
-        # kperp1 = out.beta[1] * np.cos(ph1)
+        ph1 = np.arctan(beta_out[0])
 
         # Derivatives for the delta method
         d_kperp1_d_beta0 = -beta_out[1] * np.sin(ph1)
@@ -352,7 +350,7 @@ class Elem:
         logging.info('Loading attribute {} for element {} from {}'.format(
             atr, self.id, file_path))
 
-        val = np.loadtxt(file_path)  #, dtype=np.float128)
+        val = np.loadtxt(file_path)
 
         if ((atr == 'Xcoeff_data') or (atr == 'sig_Xcoeff_data')):
 
@@ -570,11 +568,10 @@ class Elem:
         #     raise ValueError("""Passed phij values are not within 1st / 4th
         #     quadrant.""")
 
-        self.kp1 = thetas[:self.ntransitions - 1]  #.astype(np.float128)
+        self.kp1 = thetas[:self.ntransitions - 1]
         self.ph1 = thetas[
-                self.ntransitions - 1: 2 * self.ntransitions -
-                2]   #.astype(np.float128)
-        self.alphaNP = thetas[-1]  #.astype(np.float128)
+                self.ntransitions - 1: 2 * self.ntransitions - 2]
+        self.alphaNP = thetas[-1]
 
         if (
                 (len(self.kp1) != self.ntransitions - 1)
@@ -891,7 +888,7 @@ class Elem:
         mutilvec is an (nisotopepairs)-vector.
 
         """
-        return np.ones((self.muvec).shape)  #, dtype=np.float128)
+        return np.ones((self.muvec).shape)
 
     @cached_fct_property
     def gammavec(self):

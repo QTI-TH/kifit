@@ -3,7 +3,7 @@
 #SBATCH --output=kifit.log
 
 
-python3 main.py --element_list "Camin"\
+python3 main.py --element_list "Ca24min"\
                 --num_alphasamples_search 500\
                 --num_elemsamples_per_alphasample_search 100 \
                 --search_mode "detlogrid"\

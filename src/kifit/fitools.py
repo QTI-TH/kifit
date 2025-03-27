@@ -300,7 +300,7 @@ def logL_alphaNP(alphaNP,
         for i, inputparams in enumerate(inputparamsamples):
             # generate_elemsamples(elem, nelemsamples)
             elem._update_elem_params(inputparams)
-            fitparams = fitparamsamples[i]
+            fitparams = fitparamsamples[i].tolist()
             fitparams.append(alphaNP)
             elem._update_fit_params(fitparams)
             absdsamples.append(elem.absd(symm))
@@ -553,7 +553,7 @@ def get_bestalphaNP_and_bounds(
     upperbounds_exps = confints.T[1]
     ub_nans = np.argwhere(np.isnan(upperbounds_exps))
 
-    np.alltrue(lb_nans == ub_nans)
+    assert (lb_nans == ub_nans).all()
 
     lowerbounds_exps = lowerbounds_exps[~np.isnan(lowerbounds_exps)]
     upperbounds_exps = upperbounds_exps[~np.isnan(upperbounds_exps)]
@@ -762,8 +762,7 @@ def organise_search_results(messenger, nexps, alphas, delchisqs, bestalphas, xin
     # take larger of the two:
     #  - interval defined by median delchisq samples
     #  - 5 sigma interval
-    print("median", np.median(delchisqs))
-    print("dchi2c", get_delchisq_crit(5))
+
     delchisqcrit_search = max(np.median(delchisqs), get_delchisq_crit(5))
 
     search_interval = np.array(
@@ -925,10 +924,6 @@ def perform_experiments(
                        elem_collection.elems]) + 1
 
         delchisqcrit = get_delchisq_crit(nsigmas, dof=totaldof)
-
-        print("experiment")
-        print("totaldof", totaldof)
-        print("delchisqcrit", delchisqcrit)
 
         confints_exps = np.array(
             [
