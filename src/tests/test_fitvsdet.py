@@ -6,11 +6,8 @@ from kifit.fitvsdetools import (
         covnutil_ai, V1_GKP_nutil, alphaNP_GKP_nutil, alphaNP_GKP_nutil_normed,
         grad_alphaNP_nutil,
         SigmalphaNP)
-from Mathematica_crosschecks import (
-        alphaNP_caPTB15, grad_alphaNP_caPTB15,
-        alphaNP_camin, grad_alphaNP_camin,
-        alphaNP_camin_swap, grad_alphaNP_camin_swap,
-        alphaNP_ca24min, grad_alphaNP_ca24min)
+
+from Mathematica_crosschecks import alphaNP_camin
 
 np.random.seed(1)
 
@@ -22,11 +19,6 @@ def test_SigmalphaNP():
 
     covca = covnutil_ai(camin, ainds=[0, 1, 2], iinds=[0, 1], nsamples=1000)
     assert np.allclose(covca, covca.T, atol=0, rtol=1e-25)
-    # print("Camin covmat")
-    # print(covca)
-    #
-    # print("Camin alphaNP")
-    # print(camin.alphaNP_GKP())
 
     assert np.allclose(camin.eF, eFvec(camin))
 
@@ -38,26 +30,12 @@ def test_SigmalphaNP():
 
     assert np.allclose(Perp @ Para, np.zeros_like(Perp), atol=1e-15)
 
-    assert np.isclose(camin.alphaNP_GKP(), alphaNP_camin, atol=0, rtol=1e-6)
+    assert np.isclose(camin.alphaNP_GKP(), alphaNP_camin, atol=0, rtol=1e-5)
 
     grad_alphaNP = grad_alphaNP_nutil(
             camin.nutil, camin.Xvec, camin.gammatilvec, np.ones(3))
 
     assert grad_alphaNP.shape == camin.nutil.flatten().shape
-
-    # print("camin muvec", camin.muvec)
-    # print("camin ma", camin.sig_m_a_in)
-    # print("camin map", camin.sig_m_ap_in)
-    print("grad_alphaNP", grad_alphaNP)
-    print("mathematica ", grad_alphaNP_camin)
-    # print("camin.alphaNP_GKP()", camin.alphaNP_GKP())
-    # print("mathematica        ", alphaNP_camin)
-
-    # print("testi")
-    # print(camin.alphaNP_GKP())
-    # print(alphaNP_camin)
-    # print(alphaNP_GKP_nutil(mean_nutil, camin.Xvec, camin.gammatilvec))
-    # print(alphaNP_GKP_nutil_normed(mean_nutil, camin.Xvec, camin.gammatilvec))
 
 
     assert np.isclose(

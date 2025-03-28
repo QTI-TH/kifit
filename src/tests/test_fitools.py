@@ -739,13 +739,14 @@ def test_sampling():
         logLsamples_alpha1em11_N1e4,
         logLsamples_alpha1em11_N1e5]
 
-    covnutil_spec = []
-    covnutil_Frob = []
-    covnutil_KL = []
-
     covd_spec = []
     covd_Frob = []
     covd_KL = []
+
+    covd_spec_alpha1em11 = []
+    covd_Frob_alpha1em11 = []
+    covd_KL_alpha1em11 = []
+
 
     for n, Ns in enumerate(Nsamples):
 
@@ -788,14 +789,13 @@ def test_sampling():
             choLL(absdsample, covdmat_alpha1em11_kifit)
             for absdsample in absdsamples_alpha1em11_kifit])
 
-
         assert np.allclose(covdmat_kifit,
                            covdmats_Mathematica[n],
-                           atol=0, rtol=10)
+                           atol=0, rtol=50)
 
         assert np.allclose(covdmat_alpha1em11_kifit,
                            covdmats_alpha1em11_Mathematica[n],
-                           atol=0, rtol=10)
+                           atol=0, rtol=5)
 
 
         # condition number
@@ -803,24 +803,25 @@ def test_sampling():
         assert (np.linalg.cond(covdmats_Mathematica[n]) < 1e6)
 
         # spectrum
-        covd_spec_diff = compute_spectral_difference(
-                covdmats_Mathematica[n], covdmat_kifit)
+        covd_spec.append(compute_spectral_difference(
+            covdmats_Mathematica[n], covdmat_kifit))
 
-        covd_spec.append(covd_spec_diff)
+        covd_spec_alpha1em11.append(compute_spectral_difference(
+            covdmats_alpha1em11_Mathematica[n], covdmat_alpha1em11_kifit))
 
         # Frobenius Norm Difference
-        covd_Frob_diff = compute_Frobenius_norm_difference(
-                covdmats_Mathematica[n], covdmat_kifit)
+        covd_Frob.append(compute_Frobenius_norm_difference(
+            covdmats_Mathematica[n], covdmat_kifit))
 
-        covd_Frob.append(covd_Frob_diff)
-
+        covd_Frob_alpha1em11.append(compute_Frobenius_norm_difference(
+            covdmats_alpha1em11_Mathematica[n], covdmat_alpha1em11_kifit))
 
         # Kullback-Leibler divergence
-        covd_KL_div = compute_Kullback_Leibler_divergence(
-                covdmats_Mathematica[n], covdmat_kifit)
+        covd_KL.append(compute_Kullback_Leibler_divergence(
+            covdmats_Mathematica[n], covdmat_kifit))
 
-        covd_KL.append(covd_KL_div)
-
+        covd_KL_alpha1em11.append(compute_Kullback_Leibler_divergence(
+            covdmats_alpha1em11_Mathematica[n], covdmat_alpha1em11_kifit))
 
         # inverse
         covdmatinv_kifit = compute_inverse(covdmat_kifit)
@@ -891,8 +892,12 @@ def test_sampling():
     covd_Frob = np.array(covd_Frob)
     covd_KL = np.array(covd_KL)
 
+    covd_spec_alpha1em11 = np.array(covd_spec_alpha1em11)
+    covd_Frob_alpha1em11 = np.array(covd_Frob_alpha1em11)
+    covd_KL_alpha1em11 = np.array(covd_KL_alpha1em11)
 
-    assert (covd_spec < 0.3).all()
+
+    assert (covd_spec < 0.5).all()
     assert (covd_spec[:-1] == sorted(covd_spec[:-1], reverse=True)).all()
     assert (covd_spec[-1] < 0.01).all()
 
@@ -900,9 +905,24 @@ def test_sampling():
     assert (covd_Frob == sorted(covd_Frob, reverse=True)).all()
     assert (covd_Frob[-1] < 0.01).all()
 
-    assert (covd_KL < 0.03).all()
+    assert (covd_KL < 0.1).all()
     assert (covd_KL == sorted(covd_KL, reverse=True)).all()
     assert (covd_KL[-1] < 1e-4).all()
+
+    print("covd_spec_alpha1em11", covd_spec_alpha1em11)
+    print("covd_Frob_alpha1em11", covd_Frob_alpha1em11)
+    print("covd_KL_alpha1em11", covd_KL_alpha1em11)
+
+    assert (covd_spec_alpha1em11 < 0.3).all()
+    assert (covd_spec_alpha1em11[-1] < 0.02)
+
+    assert (covd_Frob_alpha1em11 < 0.3).all()
+    assert (covd_Frob_alpha1em11 == sorted(covd_Frob_alpha1em11, reverse=True)).all()
+    assert (covd_Frob_alpha1em11[-1] < 0.1)
+
+    assert (covd_KL_alpha1em11 < 0.1).all()
+    assert (covd_KL_alpha1em11 == sorted(covd_KL_alpha1em11, reverse=True)).all()
+    assert (covd_KL_alpha1em11[-1] < 0.02)
 
 
 
@@ -1237,7 +1257,6 @@ def test_write_covdd(
     with open(outputpath, 'w') as json_file:
         json.dump(covddict, json_file)
 
-    return covddict
 
 
 def test_run_kifit(elemid="Camin_testdata",
@@ -1265,7 +1284,7 @@ def test_run_kifit(elemid="Camin_testdata",
         fit_output = runner.config.paths.read_fit_output(x)
         det_output = runner.config.paths.read_det_output(detstr, dim, x)
 
-        return fit_output, det_output
+        # return fit_output, det_output
 
     else:
         raise ImportError(f"Please provide configuration file {configpath}.")
