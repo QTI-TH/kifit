@@ -897,7 +897,7 @@ def plot_mphi_alphaNP(
 def multi_plot_mphi_alphaNP(
         messengers_list, 
         show_determinant_for=[], 
-        img_name="multifit_plot"
+        img_name="multifit_plot",
     ):
     """Many messengers can be used here to construct a multi-fit plot."""
 
@@ -911,19 +911,20 @@ def multi_plot_mphi_alphaNP(
             name = "Combination Ca-Yb"
         else:
             name = messenger.config.params.element_list[0]
+        
         if i == 0:
             # plot and return common features mphix and linlim
             mphix, linlim = plot_one_mphi_alphaNP_run(
                 messenger=messenger, 
                 color=color_codes[name], 
-                label=name, 
+                label=f"Fit - {name}", 
                 return_common_features=True,
                 det_mode=False,
             )
         else:
             plot_one_mphi_alphaNP_run(
                 messenger, 
-                label=name, 
+                label=f"Fit - {name}", 
                 color=color_codes[name],
                 det_mode=False,
             )
@@ -935,11 +936,15 @@ def multi_plot_mphi_alphaNP(
                 plot_one_mphi_alphaNP_run(
                         messenger, 
                         color=color_codes[name], 
-                        label=f"Det - {name}", 
+                        label=f"Alg - {name}", 
                         return_common_features=False,
                         det_mode=True,
                         marker="x",
                     )
+
+    strongest_lb, strongest_ub = extract_strongest_bounds(messengers_list, show_determinant_for)
+    plt.fill_between(mphix, strongest_ub, 1e3, color="black", alpha=0.2, label="Exclusion region")
+    plt.fill_between(mphix, -1e3, strongest_lb, color="black", alpha=0.2)
     
     plt.hlines(0, min(mphix), max(mphix), color="black", lw=1)
     plt.hlines(linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
@@ -947,11 +952,42 @@ def multi_plot_mphi_alphaNP(
     plt.yscale("symlog", linthresh=linlim)
     plt.xscale("log")
     plt.yticks([-1e-1, -1e-6, -1e-10, 0,  1e-10, 1e-6, 1e-1])
-    plt.legend(fontsize=9.5, loc=2, framealpha=1)
+    plt.legend(fontsize=8, loc=2, framealpha=1)
     plt.ylabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=14)
     plt.xlabel(r"m$_{\phi}$ [eV]", fontsize=14)
 
-    plt.savefig(f"{img_name}.png", dpi=200, bbox_inches="tight")
+    plt.savefig(f"{img_name}.pdf", dpi=200, bbox_inches="tight")
+
+
+def extract_strongest_bounds(messengers_list, show_determinant_for):
+    """
+    Combine the results of different kifits and reconstruct the most stringent 
+    bounds (they could be a combination of various results because it can happen 
+    a method is more stringent for some mass values and vice-versa).
+    """
+
+    # Here we will collect all upper and lower bouns
+    ubs, lbs = [], []
+
+    for messenger in messengers_list:
+        ub, _, lb, _, _, _ = collect_fit_X_data(messenger)
+        ubs.append(ub)
+        lbs.append(lb)
+    
+    if len(show_determinant_for) != 0:
+        for i, messenger in enumerate(messengers_list):
+            name = messengers_list[i].config.params.element_list[0]
+            if name in show_determinant_for:
+                _, _, ub, _, lb, _ = collect_det_X_data(
+                    messenger.config, 3, "gkp",
+                ) 
+            ubs.append(ub)
+            lbs.append(lb)
+    
+    strongest_ub = [min(column) for column in zip(*ubs)]
+    strongest_lb = [max(column) for column in zip(*lbs)]
+
+    return strongest_lb, strongest_ub
 
 # TODO: experiment is confusing, to be renamed
 def plot_one_mphi_alphaNP_run(
@@ -972,10 +1008,10 @@ def plot_one_mphi_alphaNP_run(
         ub, sig_ub, lb, sig_lb, best_alphas, sig_best_alphas = collect_fit_X_data(messenger)
 
     if marker is None:
-        marker = "o"
-        markersize = None
+        marker = "."
+        markersize = 7
     if marker == "x":
-        markersize = 10
+        markersize = 7
 
     mphix = np.array(messenger.config.x_vals_fit)
 

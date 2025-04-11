@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=kifit
+#SBATCH --job-name=Ca24glob
 #SBATCH --output=kifit.log
 
 

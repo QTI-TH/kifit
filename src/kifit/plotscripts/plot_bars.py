@@ -13,8 +13,8 @@ params = RunParams(configuration_file=config_file)
 runner = Runner(params)
 
 # Explored values for the plot
-values = [50, 100, 200, 500, 1000, 5000]
-plot_bars(runner, "elemsamples", values, r"elem samples")
+values = [50, 100, 500, 2000]
+plot_bars(runner, "elemsamples", values, r"Sampled elements")
 
 # Restore the original configuration
 with open(config_file, 'w') as f:

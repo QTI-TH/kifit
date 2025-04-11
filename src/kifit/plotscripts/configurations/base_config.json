@@ -4,13 +4,13 @@
     ],
     "num_alphasamples_search": 500,
     "num_elemsamples_per_alphasample_search": 500,
-    "search_mode": "globalogrid",
-    "logrid_frac": -2,
+    "search_mode": "detlogrid",
+    "logrid_frac": 5,
     "num_exp": 200,
     "num_elemsamples_exp": 500,
     "num_alphasamples_exp": 500,
     "block_size": 20,
-    "min_percentile": 5,
+    "min_percentile": 2,
     "x0_fit": [
         0
     ],
@@ -28,7 +28,7 @@
     "proj_dims": [
         3
     ],
-    "num_det_samples": 1000,
+    "num_det_samples": 5000,
     "showalldetbounds": true,
     "showalldetvals": false,
     "showbestdetbounds": true,

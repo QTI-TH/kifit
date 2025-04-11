@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=kifit
+#SBATCH --job-name=Ca24_glob
 #SBATCH --output=kifit.log
 
 
@@ -7,7 +7,7 @@ python3 main.py --element_list "Ca_WT_Aarhus_PTB_2024"\
                 --num_alphasamples_search 500\
                 --num_elemsamples_per_alphasample_search 500 \
                 --logrid_frac -5\
-                --num_exp 50\
+                --num_exp 100\
                 --block_size  10\
                 --min_percentile 5\
                 --num_sigmas 2\

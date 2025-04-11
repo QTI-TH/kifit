@@ -15,10 +15,10 @@ for conf in os.listdir(configurations_path):
 multi_plot_mphi_alphaNP(
     messengers_list=messengers_list,
     show_determinant_for=[
-            # "Ca_WT_Aarhus_PTB_2024",
+            "Ca_WT_Aarhus_PTB_2024",
             # "Ca_PTB_2015",
             # "Ca24min",
-            "Yb_Kyoto_MIT_GSI_PTB_MPIK_2024",
+            # "Yb_Kyoto_MIT_GSI_PTB_MPIK_2024",
         ],
-    img_name="Combo_Yb_det"
+    img_name="Combo",
     )
