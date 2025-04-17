@@ -6,6 +6,7 @@ user_elems = [
     "Ca24min_mod",
     "Ca3pointTEST",
     "Ca4pointTEST",
+    "Ca10pointTEST",
     "Camin_exp",
     "Ca24min",
     "Ca_PTB_2015",

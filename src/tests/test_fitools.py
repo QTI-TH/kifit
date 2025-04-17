@@ -909,10 +909,6 @@ def test_sampling():
     assert (covd_KL == sorted(covd_KL, reverse=True)).all()
     assert (covd_KL[-1] < 1e-4).all()
 
-    print("covd_spec_alpha1em11", covd_spec_alpha1em11)
-    print("covd_Frob_alpha1em11", covd_Frob_alpha1em11)
-    print("covd_KL_alpha1em11", covd_KL_alpha1em11)
-
     assert (covd_spec_alpha1em11 < 0.3).all()
     assert (covd_spec_alpha1em11[-1] < 0.02)
 
@@ -924,6 +920,372 @@ def test_sampling():
     assert (covd_KL_alpha1em11 == sorted(covd_KL_alpha1em11, reverse=True)).all()
     assert (covd_KL_alpha1em11[-1] < 0.02)
 
+
+def test_alphaNP_dependence_covdd():
+
+    camin = Elem('Camin')
+
+    inputparamsamples, _ = generate_elemsamples(camin, 500)
+
+    # alphaNP = 0
+    ###########################################################################
+
+    camin_absdsamples_alpha0 = []
+
+    for i, inputparams in enumerate(inputparamsamples):
+
+        camin._update_elem_params(inputparams)
+        camin_absdsamples_alpha0.append(camin.absd(True))
+
+    camin_covmat_part_ll_alpha0 = np.log(np.linalg.det(
+        np.cov(np.array(camin_absdsamples_alpha0), rowvar=False))) / 2
+
+    camin_ll_alpha0 = get_llist_elemsamples(camin_absdsamples_alpha0)
+
+
+    # alphaNP = 1e-8
+    ###########################################################################
+
+    camin.alphaNP = 1e-8
+
+    camin_absdsamples_alpha1 = []
+
+    for i, inputparams in enumerate(inputparamsamples):
+
+        camin._update_elem_params(inputparams)
+        camin_absdsamples_alpha1.append(camin.absd(True))
+
+    camin_covmat_part_ll_alpha1 = np.log(np.linalg.det(
+        np.cov(np.array(camin_absdsamples_alpha1), rowvar=False))) / 2
+
+    camin_ll_alpha1 = get_llist_elemsamples(camin_absdsamples_alpha1)
+
+    # alphaNP = 1e-6
+    ###########################################################################
+
+    camin.alphaNP = 1e-6
+
+    camin_absdsamples_alpha2 = []
+
+    for i, inputparams in enumerate(inputparamsamples):
+
+        camin._update_elem_params(inputparams)
+
+        camin_absdsamples_alpha2.append(camin.absd(True))
+
+    camin_covmat_part_ll_alpha2 = np.log(np.linalg.det(
+        np.cov(np.array(camin_absdsamples_alpha2), rowvar=False))) / 2
+
+    camin_ll_alpha2 = get_llist_elemsamples(camin_absdsamples_alpha2)
+
+    ###########################################################################
+
+    assert (camin_covmat_part_ll_alpha0 < camin_covmat_part_ll_alpha1)
+    assert (camin_covmat_part_ll_alpha0 < camin_covmat_part_ll_alpha2)
+
+    assert (np.mean(camin_ll_alpha0) < np.mean(camin_ll_alpha1))
+    assert (np.mean(camin_ll_alpha0) < np.mean(camin_ll_alpha2))
+    assert (np.mean(camin_ll_alpha1) < np.mean(camin_ll_alpha2))
+
+    assert (camin_covmat_part_ll_alpha0 / np.mean(camin_ll_alpha0)
+            > camin_covmat_part_ll_alpha1 / np.mean(camin_ll_alpha1))
+    assert (camin_covmat_part_ll_alpha0 / np.mean(camin_ll_alpha0)
+            > camin_covmat_part_ll_alpha2 / np.mean(camin_ll_alpha2))
+    assert (camin_covmat_part_ll_alpha1 / np.mean(camin_ll_alpha1)
+            > camin_covmat_part_ll_alpha2 / np.mean(camin_ll_alpha2))
+
+    assert np.isclose(camin_covmat_part_ll_alpha0 / np.mean(camin_ll_alpha0),
+                      0.8617380374400448,
+                      atol=0, rtol=1)
+    assert np.isclose(camin_covmat_part_ll_alpha1 / np.mean(camin_ll_alpha1),
+                      0.00017522413438041855,
+                      atol=0, rtol=1)
+    assert np.isclose(camin_covmat_part_ll_alpha2 / np.mean(camin_ll_alpha2),
+                      1.7461390752985816e-08,
+                      atol=0, rtol=1)
+
+
+def plot_elemvar_vs_elemfitvar(symm=False):
+    nalphasamples = 100  # 500
+    nelemsamples = 100  # 500
+    min_percentile = 0
+    delchisqcrit = get_delchisq_crit(2)
+
+    camin = Elem('Camin')
+
+    alpha_det, LB_det, UB_det = get_det_vals(camin, nelemsamples, 3, "gkp")
+
+    camin.set_alphaNP_init(0, 1e-10)
+
+    alphasamples = generate_alphaNP_samples(
+            camin,
+            nalphasamples,
+            search_mode="normal")
+
+    inputparamsamples, fitparamsamples = generate_elemsamples(camin, nelemsamples)
+
+    delchisqs_elemvar = kifitswap(camin,
+                                  inputparamsamples,
+                                  fitparamsamples,
+                                  alphasamples,
+                                  min_percentile=min_percentile,
+                                  only_inputparams=True,
+                                  symm=symm)
+    confint_elemvar = get_confint(alphasamples, delchisqs_elemvar, delchisqcrit)
+
+    delchisqs_elemfitvar = kifitswap(camin,
+                                     inputparamsamples,
+                                     fitparamsamples,
+                                     alphasamples,
+                                     min_percentile=min_percentile,
+                                     only_inputparams=False,
+                                     symm=symm)
+    confint_elemfitvar = get_confint(alphasamples, delchisqs_elemfitvar, delchisqcrit)
+    #
+    # delchisqs_fitvar = kifitswap(camin,
+    #                              inputparamsamples,
+    #                              fitparamsamples,
+    #                              alphasamples,
+    #                              min_percentile=min_percentile,
+    #                              only_fitparams=True,
+    #                              lam=1e-17,
+    #                              symm=symm)
+    # confint_fitvar = get_confint(alphasamples, delchisqs_fitvar, delchisqcrit)
+
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+    ax.scatter(alphasamples, delchisqs_elemvar,
+               label=(r"varying input parameters only: $\alpha_{\mathrm{NP}}\in$"
+                      + f"[{confint_elemvar[0]:.1e},{confint_elemvar[1]:.1e}]"),
+               s=5, color='b')
+    ax.scatter(alphasamples, delchisqs_elemfitvar,
+               label=(r"varying input params. & $K^\perp, \phi$: "
+                      + r"$\alpha_{\mathrm{NP}}\in$"
+                      +
+                      f"[{confint_elemfitvar[0]:.1e},{confint_elemfitvar[1]:.1e}]"),
+               s=5, color='purple')
+    # ax.scatter(alphasamples, delchisqs_fitvar,
+    #            label=(r"varying fit params. $K^\perp, \phi$ only:"
+    #                   + r"$\alpha_{\mathrm{NP}}\in$"
+    #                   + f"[{confint_fitvar[0]:.1e},{confint_fitvar[1]:.1e}]"),
+    #            s=5, color='orange')
+
+    # fit 2-sigma region
+    ax.axhline(y=0, color="k", lw=1, ls="-")
+    ax.axhline(y=delchisqcrit, color="r", lw=1, ls="--")
+    ax.axvline(x=confint_elemvar[0], color="b", lw=1, ls="--")
+    ax.axvline(x=confint_elemvar[1], color="b", lw=1, ls="--")
+    ax.axvline(x=confint_elemfitvar[0], color="orange", lw=1, ls="--")
+    ax.axvline(x=confint_elemfitvar[1], color="orange", lw=1, ls="--")
+
+
+    # determinant 2-sigma region
+    # ax.axvline(x=alpha_det[0], ls="--", color='purple',
+    #            label=("dim-3 GKP: "
+    #                   + r"$\langle\alpha_{\mathrm{NP}}\rangle = $ "
+    #         + (f"{alpha_det[0]:.1e}" if not np.isnan(alpha_det[0])
+    #            else "-")))
+    # ax.axvline(x=LB_det[0], ls="--", color='b',
+    #            label=("dim-3 GKP: "
+    #                   + r"$\alpha_{\mathrm{NP}}\in$ ["
+    #         + (f"{LB_det[0]:.1e}" if not np.isnan(LB_det[0]) else "-")
+    #         + ", "
+    #         + (f"{UB_det[0]:.1e}" if not np.isnan(UB_det[0]) else "-")
+    #         + "]"))
+    # ax.axvline(x=UB_det, ls="--", color='b')
+
+    plt.title("dim-3 GKP: "
+                      + r"$\alpha_{\mathrm{NP}}\in$ ["
+            + (f"{LB_det[0]:.1e}" if not np.isnan(LB_det[0]) else "-")
+            + ", "
+            + (f"{UB_det[0]:.1e}" if not np.isnan(UB_det[0]) else "-")
+            + "]", fontsize=fsize)
+
+    # admin
+    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
+                  fontsize=axislabelsize)
+    ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
+    ax.set_xlim(2 * confint_elemfitvar[0], 2 * confint_elemfitvar[1])
+    ax.set_ylim(0, 10)
+    ax.tick_params(axis="both", which="major", labelsize=fsize)
+    ax.xaxis.get_offset_text().set_fontsize(fsize)
+    plt.legend(loc='upper center', fontsize=fsize)
+    plotpath = os.path.join(outputfolder,
+                            f"mc_output_elemvar_vs_elemfitvar_x{camin.x}"
+                            + ("_symm" if symm else "")
+                            + ".pdf")
+    plt.savefig(plotpath, dpi=1000)
+
+
+def test_elemvar_vs_elemfitvar_symm_vs_asymm():
+    plot_elemvar_vs_elemfitvar(symm=True)
+    plot_elemvar_vs_elemfitvar(symm=False)
+
+
+
+def test_write_covdd(
+        elemid="Camin_testdata",
+        alphaval=0.,
+        nelemsamples=1000,
+        min_percentile=0,
+        lam=0,
+        symm=False):
+
+    elem = Elem(elemid)
+
+    inputparamsamples, fitparamsamples = generate_elemsamples(elem, nelemsamples)
+
+    absdsamples = []
+
+    for i, fitparams in enumerate(fitparamsamples):
+
+        # update fitparams
+        kp1 = fitparams[0]
+        ph1 = fitparams[1]
+        alphaNP = alphaval
+
+        if np.isclose(ph1, 0., atol=0, rtol=1e-17):
+            raise Exception("ph1 is too close to zero")
+
+        elem._update_fit_params([kp1, ph1, alphaNP])
+
+        # update inputparams
+        inputparams = inputparamsamples[i]
+        elem._update_elem_params(inputparams)
+        absdsamples.append(elem.absd(symm))
+
+    covdd = (np.cov(np.array(absdsamples), rowvar=False)
+                   + 1e-17 * np.eye(elem.nisotopepairs))
+
+    evals_covdd, evecs_covdd = np.linalg.eig(covdd)
+
+    cond_covdd = np.linalg.cond(covdd)
+
+    covddinv = compute_inverse(covdd)
+
+    llist = []
+
+    for absd in absdsamples:
+        llist.append(choLL(absd, covdd, lam=lam))
+
+    llist = np.array(llist)
+
+    outputpath = os.path.join(outputfolder,
+                              f"covdd_{elemid}_Ns{nelemsamples}.json")
+    covddict = {
+            "elemid": elem.id,
+            "kp1": elem.kp1,
+            "ph1": elem.ph1,
+            "covdd": covdd.tolist(),
+            "dnorm": elem.dnorm,
+            "evals_covdd": evals_covdd.tolist(),
+            "evecs_covdd": evecs_covdd.tolist(),
+            "cond_covdd": cond_covdd,
+            "covddinv": covddinv.tolist(),
+            "llist": llist.tolist(),
+            }
+
+    with open(outputpath, 'w') as json_file:
+        json.dump(covddict, json_file)
+
+
+def kifitswap(
+        elem,
+        inputparamsamples,
+        fitparamsamples,
+        alphasamples,
+        min_percentile,
+        elem_swap=None,
+        only_inputparams=False,
+        # only_fitparams=False,
+        lam=0,
+        symm=False):
+
+    elem_ll_elemfit = []
+    elem_swap_ll_elemfit = []
+
+    for alphaNP in alphasamples:
+
+        elem_absdsamples = []
+
+        if elem_swap is not None:
+            elem_swap_absdsamples = []
+
+        for i, fitparams in enumerate(fitparamsamples):
+
+            # update fitparams
+            kp1 = fitparams[0]
+            ph1 = fitparams[1]
+
+            if np.isclose(ph1, 0., atol=0, rtol=1e-17):
+                raise Exception("ph1 is too close to zero")
+
+            kp1swap = kp1
+            ph1swap = np.arctan(1 / np.tan(ph1))
+
+            if not only_inputparams:
+                elem._update_fit_params([kp1, ph1, alphaNP])
+                if elem_swap is not None:
+                    elem_swap._update_fit_params([kp1swap, ph1swap, alphaNP])
+            else:
+                elem.alphaNP = alphaNP
+                if elem_swap is not None:
+                    elem_swap.alphaNP = alphaNP
+
+            # update inputparams
+            # if not only_fitparams:
+            inputparams = inputparamsamples[i]
+            elem._update_elem_params(inputparams)
+            elem_absdsamples.append(elem.absd(symm))
+
+            if elem_swap is not None:
+                # if not only_fitparams:
+                inputparamswap = swap_inputparams(inputparams,
+                                                  elem.nisotopepairs,
+                                                  elem.ntransitions)
+                elem_swap._update_elem_params(inputparamswap)
+                elem_swap_absdsamples.append(elem_swap.absd(symm))
+
+        elem_ll = get_llist_elemsamples(elem_absdsamples, lam=lam)
+        elem_ll_elemfit.append(np.percentile(elem_ll, min_percentile))
+
+        elem_covmat = (np.cov(np.array(elem_absdsamples), rowvar=False)
+                           + lam * np.eye(elem.nisotopepairs))
+
+        if elem_swap is not None:
+            assert np.allclose(np.mean(elem_absdsamples),
+                               np.mean(elem_swap_absdsamples),
+                               atol=0, rtol=.2)
+            assert np.allclose(np.percentile(elem_absdsamples, 5),
+                               np.percentile(elem_swap_absdsamples, 5),
+                               atol=0, rtol=2)
+            elem_swap_covmat = (np.cov(np.array(elem_swap_absdsamples),
+                                rowvar=False)
+                                + lam * np.eye(elem.nisotopepairs))
+
+            assert (compute_spectral_difference(elem_covmat,
+                                                elem_swap_covmat) < .5)
+
+            assert (compute_Kullback_Leibler_divergence(elem_covmat,
+                                                        elem_swap_covmat) < .2)
+
+            elem_swap_ll = get_llist_elemsamples(elem_swap_absdsamples, lam=lam)
+
+            assert np.allclose(elem_ll, elem_swap_ll, atol=0, rtol=1)
+
+            elem_swap_ll_elemfit.append(np.percentile(elem_swap_ll,
+                                                      min_percentile))
+
+    elem_delchisq_elemfit = get_delchisq(elem_ll_elemfit, minll=None)
+
+    if elem_swap is None:
+        return elem_delchisq_elemfit
+
+    else:
+        elem_swap_delchisq_elemfit = get_delchisq(elem_swap_ll_elemfit,
+                                                  minll=None)
+        return elem_delchisq_elemfit, elem_swap_delchisq_elemfit
 
 
 def test_d_swap_varying_inputparams():
@@ -1108,284 +1470,6 @@ def test_d_swap_varying_inputparams():
 
     assert np.allclose(camin_ll_alpha2, camin_swap_ll_alpha2, atol=0, rtol=1e-8)
 
-
-def test_alphaNP_dependence_covdd():
-
-    camin = Elem('Camin')
-
-    inputparamsamples, _ = generate_elemsamples(camin, 500)
-
-    # alphaNP = 0
-    ###########################################################################
-
-    camin_absdsamples_alpha0 = []
-
-    for i, inputparams in enumerate(inputparamsamples):
-
-        camin._update_elem_params(inputparams)
-        camin_absdsamples_alpha0.append(camin.absd(True))
-
-    camin_covmat_part_ll_alpha0 = np.log(np.linalg.det(
-        np.cov(np.array(camin_absdsamples_alpha0), rowvar=False))) / 2
-
-    camin_ll_alpha0 = get_llist_elemsamples(camin_absdsamples_alpha0)
-
-
-    # alphaNP = 1e-8
-    ###########################################################################
-
-    camin.alphaNP = 1e-8
-
-    camin_absdsamples_alpha1 = []
-
-    for i, inputparams in enumerate(inputparamsamples):
-
-        camin._update_elem_params(inputparams)
-        camin_absdsamples_alpha1.append(camin.absd(True))
-
-    camin_covmat_part_ll_alpha1 = np.log(np.linalg.det(
-        np.cov(np.array(camin_absdsamples_alpha1), rowvar=False))) / 2
-
-    camin_ll_alpha1 = get_llist_elemsamples(camin_absdsamples_alpha1)
-
-    # alphaNP = 1e-6
-    ###########################################################################
-
-    camin.alphaNP = 1e-6
-
-    camin_absdsamples_alpha2 = []
-
-    for i, inputparams in enumerate(inputparamsamples):
-
-        camin._update_elem_params(inputparams)
-
-        camin_absdsamples_alpha2.append(camin.absd(True))
-
-    camin_covmat_part_ll_alpha2 = np.log(np.linalg.det(
-        np.cov(np.array(camin_absdsamples_alpha2), rowvar=False))) / 2
-
-    camin_ll_alpha2 = get_llist_elemsamples(camin_absdsamples_alpha2)
-
-    ###########################################################################
-
-    assert (camin_covmat_part_ll_alpha0 < camin_covmat_part_ll_alpha1)
-    assert (camin_covmat_part_ll_alpha0 < camin_covmat_part_ll_alpha2)
-
-    assert (np.mean(camin_ll_alpha0) < np.mean(camin_ll_alpha1))
-    assert (np.mean(camin_ll_alpha0) < np.mean(camin_ll_alpha2))
-    assert (np.mean(camin_ll_alpha1) < np.mean(camin_ll_alpha2))
-
-    assert (camin_covmat_part_ll_alpha0 / np.mean(camin_ll_alpha0)
-            > camin_covmat_part_ll_alpha1 / np.mean(camin_ll_alpha1))
-    assert (camin_covmat_part_ll_alpha0 / np.mean(camin_ll_alpha0)
-            > camin_covmat_part_ll_alpha2 / np.mean(camin_ll_alpha2))
-    assert (camin_covmat_part_ll_alpha1 / np.mean(camin_ll_alpha1)
-            > camin_covmat_part_ll_alpha2 / np.mean(camin_ll_alpha2))
-
-    assert np.isclose(camin_covmat_part_ll_alpha0 / np.mean(camin_ll_alpha0),
-                      0.8617380374400448,
-                      atol=0, rtol=1)
-    assert np.isclose(camin_covmat_part_ll_alpha1 / np.mean(camin_ll_alpha1),
-                      0.00017522413438041855,
-                      atol=0, rtol=1)
-    assert np.isclose(camin_covmat_part_ll_alpha2 / np.mean(camin_ll_alpha2),
-                      1.7461390752985816e-08,
-                      atol=0, rtol=1)
-
-def test_write_covdd(
-        elemid="Camin_testdata",
-        alphaval=0.,
-        nelemsamples=1000,
-        min_percentile=0,
-        lam=0,
-        symm=False):
-
-    elem = Elem(elemid)
-
-    inputparamsamples, fitparamsamples = generate_elemsamples(elem, nelemsamples)
-
-    absdsamples = []
-
-    for i, fitparams in enumerate(fitparamsamples):
-
-        # update fitparams
-        kp1 = fitparams[0]
-        ph1 = fitparams[1]
-        alphaNP = alphaval
-
-        if np.isclose(ph1, 0., atol=0, rtol=1e-17):
-            raise Exception("ph1 is too close to zero")
-
-        elem._update_fit_params([kp1, ph1, alphaNP])
-
-        # update inputparams
-        inputparams = inputparamsamples[i]
-        elem._update_elem_params(inputparams)
-        absdsamples.append(elem.absd(symm))
-
-    covdd = (np.cov(np.array(absdsamples), rowvar=False)
-                   + 1e-17 * np.eye(elem.nisotopepairs))
-
-    evals_covdd, evecs_covdd = np.linalg.eig(covdd)
-
-    cond_covdd = np.linalg.cond(covdd)
-
-    covddinv = compute_inverse(covdd)
-
-    llist = []
-
-    for absd in absdsamples:
-        llist.append(choLL(absd, covdd, lam=lam))
-
-    llist = np.array(llist)
-
-    outputpath = os.path.join(outputfolder,
-                              f"covdd_{elemid}_Ns{nelemsamples}.json")
-    covddict = {
-            "elemid": elem.id,
-            "kp1": elem.kp1,
-            "ph1": elem.ph1,
-            "covdd": covdd.tolist(),
-            "dnorm": elem.dnorm,
-            "evals_covdd": evals_covdd.tolist(),
-            "evecs_covdd": evecs_covdd.tolist(),
-            "cond_covdd": cond_covdd,
-            "covddinv": covddinv.tolist(),
-            "llist": llist.tolist(),
-            }
-
-    with open(outputpath, 'w') as json_file:
-        json.dump(covddict, json_file)
-
-
-
-def test_run_kifit(elemid="Camin_testdata",
-                   Nsamples=100,
-                   x=0,
-                   detstr='gkp',
-                   dim=3,
-                   read=False):
-
-    configpath = os.path.join(inputfolder,
-                              f"{elemid}_Ns{Nsamples}_x{x}_config.json")
-
-    if os.path.exists(configpath):
-
-        from kifit.config import RunParams
-        from kifit.run import Runner
-
-        params = RunParams(configuration_file=configpath)
-        runner = Runner(params)
-
-        if (not read
-            or not os.path.exists(runner.config.paths.fit_output_path(x))):
-            runner.run()
-
-        fit_output = runner.config.paths.read_fit_output(x)
-        det_output = runner.config.paths.read_det_output(detstr, dim, x)
-
-        # return fit_output, det_output
-
-    else:
-        raise ImportError(f"Please provide configuration file {configpath}.")
-
-
-def kifitswap(
-        elem,
-        inputparamsamples,
-        fitparamsamples,
-        alphasamples,
-        min_percentile,
-        elem_swap=None,
-        only_inputparams=False,
-        # only_fitparams=False,
-        lam=0,
-        symm=False):
-
-    elem_ll_elemfit = []
-    elem_swap_ll_elemfit = []
-
-    for alphaNP in alphasamples:
-
-        elem_absdsamples = []
-
-        if elem_swap is not None:
-            elem_swap_absdsamples = []
-
-        for i, fitparams in enumerate(fitparamsamples):
-
-            # update fitparams
-            kp1 = fitparams[0]
-            ph1 = fitparams[1]
-
-            if np.isclose(ph1, 0., atol=0, rtol=1e-17):
-                raise Exception("ph1 is too close to zero")
-
-            kp1swap = kp1
-            ph1swap = np.arctan(1 / np.tan(ph1))
-
-            if not only_inputparams:
-                elem._update_fit_params([kp1, ph1, alphaNP])
-                if elem_swap is not None:
-                    elem_swap._update_fit_params([kp1swap, ph1swap, alphaNP])
-            else:
-                elem.alphaNP = alphaNP
-                if elem_swap is not None:
-                    elem_swap.alphaNP = alphaNP
-
-            # update inputparams
-            # if not only_fitparams:
-            inputparams = inputparamsamples[i]
-            elem._update_elem_params(inputparams)
-            elem_absdsamples.append(elem.absd(symm))
-
-            if elem_swap is not None:
-                # if not only_fitparams:
-                inputparamswap = swap_inputparams(inputparams,
-                                                  elem.nisotopepairs,
-                                                  elem.ntransitions)
-                elem_swap._update_elem_params(inputparamswap)
-                elem_swap_absdsamples.append(elem_swap.absd(symm))
-
-        elem_ll = get_llist_elemsamples(elem_absdsamples, lam=lam)
-        elem_ll_elemfit.append(np.percentile(elem_ll, min_percentile))
-
-        elem_covmat = (np.cov(np.array(elem_absdsamples), rowvar=False)
-                           + lam * np.eye(elem.nisotopepairs))
-
-        if elem_swap is not None:
-            assert np.allclose(np.mean(elem_absdsamples),
-                               np.mean(elem_swap_absdsamples),
-                               atol=0, rtol=.2)
-            assert np.allclose(np.percentile(elem_absdsamples, 5),
-                               np.percentile(elem_swap_absdsamples, 5),
-                               atol=0, rtol=2)
-            elem_swap_covmat = (np.cov(np.array(elem_swap_absdsamples),
-                                rowvar=False)
-                                + lam * np.eye(elem.nisotopepairs))
-
-            assert (compute_spectral_difference(elem_covmat,
-                                                elem_swap_covmat) < .5)
-
-            assert (compute_Kullback_Leibler_divergence(elem_covmat,
-                                                        elem_swap_covmat) < .2)
-
-            elem_swap_ll = get_llist_elemsamples(elem_swap_absdsamples, lam=lam)
-
-            assert np.allclose(elem_ll, elem_swap_ll, atol=0, rtol=1)
-
-            elem_swap_ll_elemfit.append(np.percentile(elem_swap_ll,
-                                                      min_percentile))
-
-    elem_delchisq_elemfit = get_delchisq(elem_ll_elemfit, minll=None)
-
-    if elem_swap is None:
-        return elem_delchisq_elemfit
-
-    else:
-        elem_swap_delchisq_elemfit = get_delchisq(elem_swap_ll_elemfit,
-                                                  minll=None)
-        return elem_delchisq_elemfit, elem_swap_delchisq_elemfit
 
 def swap_varying_elemparams(only_inputparams=False, symm=False):
 
@@ -1704,123 +1788,35 @@ def test_lam():
     plt.savefig(plotpath)
 
 
+def test_run_kifit(elemid="Camin_testdata",
+                   Nsamples=100,
+                   x=0,
+                   detstr='gkp',
+                   dim=3,
+                   read=False):
 
-def plot_elemvar_vs_elemfitvar(symm=False):
-    nalphasamples = 100  # 500
-    nelemsamples = 100  # 500
-    min_percentile = 0
-    delchisqcrit = get_delchisq_crit(2)
+    configpath = os.path.join(inputfolder,
+                              f"{elemid}_Ns{Nsamples}_x{x}_config.json")
 
-    camin = Elem('Camin')
+    if os.path.exists(configpath):
 
-    alpha_det, LB_det, UB_det = get_det_vals(camin, nelemsamples, 3, "gkp")
+        from kifit.config import RunParams
+        from kifit.run import Runner
 
-    camin.set_alphaNP_init(0, 1e-10)
+        params = RunParams(configuration_file=configpath)
+        runner = Runner(params)
 
-    alphasamples = generate_alphaNP_samples(
-            camin,
-            nalphasamples,
-            search_mode="normal")
+        if (not read
+            or not os.path.exists(runner.config.paths.fit_output_path(x))):
+            runner.run()
 
-    inputparamsamples, fitparamsamples = generate_elemsamples(camin, nelemsamples)
+        fit_output = runner.config.paths.read_fit_output(x)
+        det_output = runner.config.paths.read_det_output(detstr, dim, x)
 
-    delchisqs_elemvar = kifitswap(camin,
-                                  inputparamsamples,
-                                  fitparamsamples,
-                                  alphasamples,
-                                  min_percentile=min_percentile,
-                                  only_inputparams=True,
-                                  symm=symm)
-    confint_elemvar = get_confint(alphasamples, delchisqs_elemvar, delchisqcrit)
+        # return fit_output, det_output
 
-    delchisqs_elemfitvar = kifitswap(camin,
-                                     inputparamsamples,
-                                     fitparamsamples,
-                                     alphasamples,
-                                     min_percentile=min_percentile,
-                                     only_inputparams=False,
-                                     symm=symm)
-    confint_elemfitvar = get_confint(alphasamples, delchisqs_elemfitvar, delchisqcrit)
-    #
-    # delchisqs_fitvar = kifitswap(camin,
-    #                              inputparamsamples,
-    #                              fitparamsamples,
-    #                              alphasamples,
-    #                              min_percentile=min_percentile,
-    #                              only_fitparams=True,
-    #                              lam=1e-17,
-    #                              symm=symm)
-    # confint_fitvar = get_confint(alphasamples, delchisqs_fitvar, delchisqcrit)
-
-    import matplotlib.pyplot as plt
-
-    fig, ax = plt.subplots()
-    ax.scatter(alphasamples, delchisqs_elemvar,
-               label=(r"varying input parameters only: $\alpha_{\mathrm{NP}}\in$"
-                      + f"[{confint_elemvar[0]:.1e},{confint_elemvar[1]:.1e}]"),
-               s=5, color='b')
-    ax.scatter(alphasamples, delchisqs_elemfitvar,
-               label=(r"varying input params. & $K^\perp, \phi$: "
-                      + r"$\alpha_{\mathrm{NP}}\in$"
-                      +
-                      f"[{confint_elemfitvar[0]:.1e},{confint_elemfitvar[1]:.1e}]"),
-               s=5, color='purple')
-    # ax.scatter(alphasamples, delchisqs_fitvar,
-    #            label=(r"varying fit params. $K^\perp, \phi$ only:"
-    #                   + r"$\alpha_{\mathrm{NP}}\in$"
-    #                   + f"[{confint_fitvar[0]:.1e},{confint_fitvar[1]:.1e}]"),
-    #            s=5, color='orange')
-
-    # fit 2-sigma region
-    ax.axhline(y=0, color="k", lw=1, ls="-")
-    ax.axhline(y=delchisqcrit, color="r", lw=1, ls="--")
-    ax.axvline(x=confint_elemvar[0], color="b", lw=1, ls="--")
-    ax.axvline(x=confint_elemvar[1], color="b", lw=1, ls="--")
-    ax.axvline(x=confint_elemfitvar[0], color="orange", lw=1, ls="--")
-    ax.axvline(x=confint_elemfitvar[1], color="orange", lw=1, ls="--")
-
-
-    # determinant 2-sigma region
-    # ax.axvline(x=alpha_det[0], ls="--", color='purple',
-    #            label=("dim-3 GKP: "
-    #                   + r"$\langle\alpha_{\mathrm{NP}}\rangle = $ "
-    #         + (f"{alpha_det[0]:.1e}" if not np.isnan(alpha_det[0])
-    #            else "-")))
-    # ax.axvline(x=LB_det[0], ls="--", color='b',
-    #            label=("dim-3 GKP: "
-    #                   + r"$\alpha_{\mathrm{NP}}\in$ ["
-    #         + (f"{LB_det[0]:.1e}" if not np.isnan(LB_det[0]) else "-")
-    #         + ", "
-    #         + (f"{UB_det[0]:.1e}" if not np.isnan(UB_det[0]) else "-")
-    #         + "]"))
-    # ax.axvline(x=UB_det, ls="--", color='b')
-
-    plt.title("dim-3 GKP: "
-                      + r"$\alpha_{\mathrm{NP}}\in$ ["
-            + (f"{LB_det[0]:.1e}" if not np.isnan(LB_det[0]) else "-")
-            + ", "
-            + (f"{UB_det[0]:.1e}" if not np.isnan(UB_det[0]) else "-")
-            + "]", fontsize=fsize)
-
-    # admin
-    ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
-                  fontsize=axislabelsize)
-    ax.set_ylabel(r"$\Delta \chi^2$", fontsize=axislabelsize)
-    ax.set_xlim(2 * confint_elemfitvar[0], 2 * confint_elemfitvar[1])
-    ax.set_ylim(0, 10)
-    ax.tick_params(axis="both", which="major", labelsize=fsize)
-    ax.xaxis.get_offset_text().set_fontsize(fsize)
-    plt.legend(loc='upper center', fontsize=fsize)
-    plotpath = os.path.join(outputfolder,
-                            f"mc_output_elemvar_vs_elemfitvar_x{camin.x}"
-                            + ("_symm" if symm else "")
-                            + ".pdf")
-    plt.savefig(plotpath, dpi=1000)
-
-
-def test_elemvar_vs_elemfitvar_symm_vs_asymm():
-    plot_elemvar_vs_elemfitvar(symm=True)
-    plot_elemvar_vs_elemfitvar(symm=False)
+    else:
+        raise ImportError(f"Please provide configuration file {configpath}.")
 
 
 if __name__ == "__main__":
@@ -1831,8 +1827,8 @@ if __name__ == "__main__":
     test_d_swap_varying_inputparams()
     test_alphaNP_dependence_covdd()
     test_write_covdd()
-    test_run_kifit()
     test_swap()
     test_Ca24min_mod()
     test_lam()
     test_elemvar_vs_elemfitvar_symm_vs_asymm()
+    test_run_kifit()

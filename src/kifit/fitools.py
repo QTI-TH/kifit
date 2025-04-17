@@ -91,10 +91,10 @@ def objective(trial, elem_collection, nelemsamples, min_percentile,
     alphaNP = trial.suggest_float('alphaNP', 1e-16, 1, log=True)
 
     if pos_alphaNP:
-        loss = logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile)
+        loss = logL_alphaNP(alphaNP, elem_collection, nelemsamples)  #, min_percentile)
 
     else:
-        loss = logL_alphaNP(-alphaNP, elem_collection, nelemsamples, min_percentile)
+        loss = logL_alphaNP(-alphaNP, elem_collection, nelemsamples)  #, min_percentile)
 
     return loss
 
@@ -265,7 +265,7 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky", lam=0.):
 def logL_alphaNP(alphaNP,
                  elem_collection,
                  nelemsamples,
-                 min_percentile,
+                 # min_percentile,
                  symm=False):
     """
     For elem_collection, compute negative loglikelihood for fixed alphaNP from
@@ -277,10 +277,8 @@ def logL_alphaNP(alphaNP,
         elem_collection:  element collection of interest
         nelemsamples:     number of samples of the input parameters to be used
                           for estimation of loglikelihood.
-        min_percentile:   percentile of samples to be used in comuptation of
-                          minimum log-likelihood value min_ll
     Returns:
-        min_ll:           log-likelihood value at min_percentile
+        min_ll:           minimum log-likelihood value
 
     """
 
@@ -310,7 +308,8 @@ def logL_alphaNP(alphaNP,
 
         loss += lls
 
-    return np.percentile(loss, min_percentile)  # np.mean(loss)
+    # return np.percentile(loss, min_percentile)  # np.mean(loss)
+    return np.min(loss)
 
 
 def compute_ll_experiments(
@@ -347,7 +346,8 @@ def compute_ll_experiments(
             alphaNP=alpha,
             elem_collection=elem_collection,
             nelemsamples=nelemsamples,
-            min_percentile=min_percentile)
+            # min_percentile=min_percentile
+            )
         )
 
     return np.array(alphasamples), np.array(lls)
@@ -763,7 +763,7 @@ def organise_search_results(messenger, nexps, alphas, delchisqs, bestalphas, xin
     #  - interval defined by median delchisq samples
     #  - 5 sigma interval
 
-    delchisqcrit_search = max(np.median(delchisqs), get_delchisq_crit(5))
+    delchisqcrit_search = max(.25 * np.median(delchisqs), get_delchisq_crit(5))
 
     search_interval = np.array(
         [

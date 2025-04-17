@@ -42,6 +42,12 @@ class Runner:
 
         for elem in self.collection.elems:
 
+            elem.check_det_dims(self.config.params.gkp_dims,
+                                self.config.params.nmgkp_dims,
+                                self.config.params.proj_dims)
+
+        for elem in self.collection.elems:
+
             for x in self.config.x_vals_det:
                 elem._update_Xcoeffs(x)
                 for dim in self.config.params.gkp_dims:

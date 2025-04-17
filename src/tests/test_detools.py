@@ -3,7 +3,9 @@ from itertools import product, combinations
 import os
 
 from kifit.build import Elem
-from kifit.detools import generate_alphaNP_dets, sample_gkp_combinations
+from kifit.detools import (
+        generate_alphaNP_dets, sample_gkp_combinations, sample_proj_combinations)
+from kifit.plot import (gkp_colour, proj_colour)
 
 np.random.seed(1)
 fsize = 12
@@ -263,35 +265,42 @@ def test_proj_combinations():
     assert np.isclose(ca15.alphaNP_GKP(), ca15.alphaNP_proj(), atol=0,
                       rtol=1e-1)
 
-def alphaNP_histogram():
+def test_alphaNP_histogram():
 
     camin = Elem("Camin")
-    dim_gkp = 3
+    dim_alg = 3
     nsamples = 10000
 
-    # one sample so no uncertainty computed
-    alphasamples, _ = sample_gkp_combinations(
+    alphasamples_gkp, _ = sample_gkp_combinations(
             elem=camin,
             nsamples=nsamples,
-            dim=dim_gkp,
+            dim=dim_alg,
             detstr="gkp")
+
+    alphasamples_proj, _ = sample_proj_combinations(
+            elem=camin,
+            nsamples=nsamples,
+            dim=dim_alg)
 
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
 
-    ax.hist(alphasamples, bins=int(nsamples/50))
+    ax.hist(alphasamples_gkp, bins=int(nsamples/50),
+            histtype="step", color=gkp_colour, label=f"dim-{dim_alg} GKP")
+    ax.hist(alphasamples_proj, bins=int(nsamples/50),
+            histtype="step", color=proj_colour, label=f"dim-{dim_alg} proj")
+
+    ax.legend(fontsize=fsize)
     ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
                   fontsize=axislabelsize)
     ax.set_ylabel(f"Counts per {nsamples}")
-    plotpath = os.path.join(plotfolder, f"alphaNP_histogram_ns{nsamples}.pdf")
+    plotpath = os.path.join(plotfolder, f"alphaNP_histogram_ns{nsamples}_gkproj.pdf")
     plt.savefig(plotpath)
-
-    return fig, ax
 
 
 if __name__ == "__main__":
     test_GKP_combinations()
     test_NMGKP_combinations()
     test_proj_combinations()
-    # temp_test()
+    test_alphaNP_histogram()

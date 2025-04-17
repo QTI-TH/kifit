@@ -297,7 +297,7 @@ def sample_alphaNP_det(
         elem=elem,
         nsamples=messenger.params.num_det_samples,
         dim=dim,
-        detstr="gkp")
+        detstr=detstr)
 
     (
         minpos, maxneg, allpos, allneg
