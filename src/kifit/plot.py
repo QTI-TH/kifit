@@ -1011,12 +1011,14 @@ def plot_one_mphi_alphaNP_run(
         color, 
         label, 
         return_common_features=False, 
+        print_all_alg_results=False,
         alg_mode=None,
         marker=None,
     ):
     """Helper function to plot many fits together."""
     # collecting data
     if alg_mode is not None:
+        # TODO: print allpost and allneg if a flag variable is askiong for this
         best_alphas, sig_best_alphas, ub, allpos, lb, allneg = collect_det_X_data(
             messenger.config, 3, alg_mode,
         )
