@@ -24,6 +24,10 @@ default_colour = [
     "#17becf",
 ]
 
+default_markers = [
+    "o", "s", "v", ">", 
+]
+
 mc_scatter_colour = 'C0'
 fit_scatter_colour = 'orangered'
 fit_colour = 'orange'
@@ -907,6 +911,9 @@ def plot_mphi_alphaNP(
 
 def multi_plot_mphi_alphaNP(
         messengers_list, 
+        labels_list=None,
+        colors_list=None,
+        markers_list=None,
         show_alg_for=[], 
         algebraic_methods=[],
         img_name="multifit_plot",
@@ -918,25 +925,42 @@ def multi_plot_mphi_alphaNP(
 
     plt.figure(figsize=(5, 5 * 6 / 8))
 
+
     for i, messenger in enumerate(messengers_list):
         if len(messenger.config.params.element_list) > 1:
             name = "Combination Ca-Yb"
         else:
             name = messenger.config.params.element_list[0]
         
+        if labels_list is None:
+            label_i = f"Fit - {name}"
+        else:
+            label_i = labels_list[i]
+
+        if markers_list is None:
+            markers_list = default_markers
+
+        if colors_list is None:
+            color_fit = fit_colour
+        else:
+            color_fit = colors_list[i]
+            print(color_fit)
+
         if i == 0:
             # plot and return common features mphix and linlim
             mphix, linlim = plot_one_mphi_alphaNP_run(
                 messenger=messenger, 
-                color=color_codes[name], 
-                label=f"Fit - {name}", 
+                color=color_fit, 
+                label=label_i, 
+                marker=markers_list[i],
                 return_common_features=True,
             )
         else:
             plot_one_mphi_alphaNP_run(
                 messenger, 
-                label=f"Fit - {name}", 
-                color=color_codes[name],
+                color=color_fit,
+                label=label_i, 
+                marker=markers_list[i],
             )
 
     if len(show_alg_for) != 0:
@@ -948,9 +972,9 @@ def multi_plot_mphi_alphaNP(
                             messenger, 
                             color=color_codes[name], 
                             label=f"{alg_method} - {name}", 
+                            marker=markers_list[i],
                             return_common_features=False,
                             alg_mode=alg_method,
-                            marker="x",
                         )
 
     strongest_lb, strongest_ub = extract_strongest_bounds(
@@ -968,6 +992,7 @@ def multi_plot_mphi_alphaNP(
     plt.xscale("log", base=10)
     plt.yticks([-1e-1, -1e-6, -1e-10, 0,  1e-10, 1e-6, 1e-1])
     plt.legend(fontsize=8, loc=2, framealpha=1)
+    plt.ylim(-1e3, 1e3)
     plt.ylabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=14)
     plt.xlabel(r"m$_{\phi}$ [eV]", fontsize=14)
 
@@ -1010,10 +1035,10 @@ def plot_one_mphi_alphaNP_run(
         messenger, 
         color, 
         label, 
+        marker,
         return_common_features=False, 
         print_all_alg_results=False,
         alg_mode=None,
-        marker=None,
     ):
     """Helper function to plot many fits together."""
     # collecting data
@@ -1025,21 +1050,16 @@ def plot_one_mphi_alphaNP_run(
         color = get_alg_color(alg_mode)
     else:
         ub, sig_ub, lb, sig_lb, best_alphas, sig_best_alphas = collect_fit_X_data(messenger)
-        color = fit_colour
-
-    if marker is None:
-        marker = "."
-        markersize = 7
-    if marker == "x":
-        markersize = 7
+        color = color
 
     mphix = [messenger.collection.elems[0].mphis[x] for x in messenger.config.x_vals_fit]
 
     # setting limits
     linlim = 10 ** np.floor(np.log10(np.nanmax([np.abs(min(ub)), np.abs(max(lb))])) - 1)
 
-    plt.plot(mphix, ub, lw=1.5, alpha=0.85, marker=marker, color=color, label=label, markersize=markersize)
-    plt.plot(mphix, lb, lw=1.5, alpha=0.85, color=color)
+ 
+    plt.plot(mphix, ub, lw=1.5, alpha=0.85, marker=marker, color=color, label=label, markeredgecolor='#383737', markersize=5)
+    plt.plot(mphix, lb, lw=1.5, alpha=0.85, color=color, markeredgecolor='#383737', markersize=5, marker=marker)
 
     if return_common_features:
         return mphix, linlim
