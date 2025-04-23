@@ -5,7 +5,7 @@ import os
 from kifit.build import Elem
 from kifit.detools import (
         generate_alphaNP_dets, sample_gkp_combinations, sample_proj_combinations)
-from kifit.plot import (gkp_colour, proj_colour)
+from kifit.plot import (gkp_colour, nmgkp_colour, proj_colour)
 
 np.random.seed(1)
 fsize = 12
@@ -215,7 +215,8 @@ def test_proj_combinations():
 
     alphas_proj, sigalphas_proj, num_perm = generate_alphaNP_dets(
             elem=camin,
-            nsamples=1000,
+            nsamples=4,
+            # nsamples=1000,
             dim=dim_proj,
             detstr="proj")
 
@@ -249,13 +250,31 @@ def test_proj_combinations():
         abs_alphaNP_proj_UB_Mathematica - abs_alphaNP_proj_cv_Mathematica) / 2
 
     assert np.isclose(sig_alphaNP_proj_Mathematica, sigalphas_proj[0],
-        atol=0, rtol=1e-2)
+        atol=0, rtol=1e-3)
 
     assert np.isclose(np.abs(alphas_proj[0]), alphaca, atol=0, rtol=10)
     assert np.isclose(np.abs(alphas_proj[0]), abs_alphaNP_proj_cv_Mathematica,
         atol=0, rtol=10)
 
-    assert np.isclose(ca24.alphaNP_GKP(), ca24.alphaNP_proj(), atol=0, rtol=1)
+    assert np.isclose(ca24.alphaNP_GKP(), ca24.alphaNP_proj(), atol=0, rtol=1e-4)
+
+    alphaca1 = ca24.alphaNP_proj(ainds=[0, 1, 2], iinds=[0, 1])
+    alphaca2 = ca24.alphaNP_proj(ainds=[0, 1, 3], iinds=[0, 1])
+    alphaca3 = ca24.alphaNP_proj(ainds=[0, 2, 3], iinds=[0, 1])
+    alphaca4 = ca24.alphaNP_proj(ainds=[1, 2, 3], iinds=[0, 1])
+
+    alphas_proj_single = [alphaca1, alphaca2, alphaca3, alphaca4]
+
+    alphas_proj_all, sigalphas_proj_all, num_perm_all = generate_alphaNP_dets(
+            elem=ca24,
+            nsamples=1000,
+            dim=3,
+            detstr="proj")
+
+    assert np.allclose(alphas_proj_all, alphas_proj_single,
+                       atol=0, rtol=1e-30)
+    assert np.allclose(alphas_proj_single, alphas_proj_all,
+                       atol=0, rtol=1e-30)
 
     catest = Elem("Ca_testdata")
     assert np.isclose(catest.alphaNP_GKP(), catest.alphaNP_proj(), atol=0,
@@ -265,37 +284,114 @@ def test_proj_combinations():
     assert np.isclose(ca15.alphaNP_GKP(), ca15.alphaNP_proj(), atol=0,
                       rtol=1e-1)
 
-def test_alphaNP_histogram():
+    fullca = Elem("Ca_WT_Aarhus_PTB_2024")
 
-    camin = Elem("Camin")
+    lama1 = fullca.alphaNP_proj(ainds=[0, 1, 2], iinds=[0, 1])
+    lama2 = fullca.alphaNP_proj(ainds=[0, 1, 2], iinds=[0, 2])
+    lama3 = fullca.alphaNP_proj(ainds=[0, 1, 2], iinds=[0, 3])
+    lama4 = fullca.alphaNP_proj(ainds=[0, 1, 2], iinds=[1, 2])
+    lama5 = fullca.alphaNP_proj(ainds=[0, 1, 2], iinds=[1, 3])
+    lama6 = fullca.alphaNP_proj(ainds=[0, 1, 2], iinds=[2, 3])
+
+    lamasingle = [lama1, lama2, lama3, lama4, lama5, lama6]
+
+    lamall, siglamall, _ = generate_alphaNP_dets(
+            elem=fullca,
+            nsamples=1000,
+            dim=3,
+            detstr="proj")
+
+    assert np.allclose(lamall, lamasingle,
+                       atol=0, rtol=1e-30)
+    assert np.allclose(lamasingle, lamall,
+                       atol=0, rtol=1e-30)
+
+
+def test_alphaNP_histogram(elemstr="Camin", nsamples=1000):
+
+    elem = Elem(elemstr)
     dim_alg = 3
-    nsamples = 10000
 
     alphasamples_gkp, _ = sample_gkp_combinations(
-            elem=camin,
+            elem=elem,
             nsamples=nsamples,
             dim=dim_alg,
             detstr="gkp")
 
     alphasamples_proj, _ = sample_proj_combinations(
-            elem=camin,
+            elem=elem,
             nsamples=nsamples,
             dim=dim_alg)
+
+    Nperm = alphasamples_gkp.shape[1]
+
+    if elem.ntransitions > 2:
+        alphasamples_nmgkp, _ = sample_gkp_combinations(
+                elem=elem,
+                nsamples=nsamples,
+                dim=dim_alg,
+                detstr="nmgkp")
+        Nperm_nmgkp = alphasamples_nmgkp.shape[1]
 
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots()
 
-    ax.hist(alphasamples_gkp, bins=int(nsamples/50),
-            histtype="step", color=gkp_colour, label=f"dim-{dim_alg} GKP")
-    ax.hist(alphasamples_proj, bins=int(nsamples/50),
-            histtype="step", color=proj_colour, label=f"dim-{dim_alg} proj")
+    # remove outliers
+
+    if elem.ntransitions > 2:
+        allsamples = np.hstack((
+            alphasamples_gkp.flatten(),
+            alphasamples_nmgkp.flatten(),
+            alphasamples_proj.flatten()
+            ))
+    else:
+        allsamples = np.hstack((
+            alphasamples_gkp.flatten(),
+            alphasamples_proj.flatten()
+            ))
+
+    minsample = np.percentile(allsamples, 10)
+    maxsample = np.percentile(allsamples, 90)
+
+    filteredsamples = np.array([sample for sample in allsamples if
+                                (sample > minsample and sample < maxsample)])
+
+    bin_edges = np.histogram(filteredsamples, bins=int(nsamples/50))[1]
+
+    for p in range(Nperm):
+        if p == 0:
+            gkp_label = f"dim-{dim_alg} GKP"
+            proj_label = f"dim-{dim_alg} proj"
+        else:
+            gkp_label = ""
+            proj_label = ""
+
+        ax.hist(alphasamples_gkp[:, p], bins=bin_edges,
+                histtype="step",
+                color=gkp_colour, label=gkp_label)
+        ax.hist(alphasamples_proj[:, p], bins=bin_edges,
+                histtype="step", color=proj_colour, label=proj_label)
+
+    if elem.ntransitions > 2:
+        for p in range(Nperm_nmgkp):
+            if p == 0:
+                nmgkp_label = f"dim-{dim_alg} NMGKP"
+            else:
+                nmgkp_label = ""
+
+            ax.hist(alphasamples_nmgkp[:, p], bins=bin_edges,
+                    histtype="step", color=nmgkp_colour, label=nmgkp_label)
+
 
     ax.legend(fontsize=fsize)
     ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
                   fontsize=axislabelsize)
     ax.set_ylabel(f"Counts per {nsamples}")
-    plotpath = os.path.join(plotfolder, f"alphaNP_histogram_ns{nsamples}_gkproj.pdf")
+    ax.set_title(elemstr)
+    plotpath = os.path.join(
+            plotfolder,
+            f"alphaNP_histogram_{elemstr}_ns{nsamples}_gkproj.pdf")
     plt.savefig(plotpath)
 
 

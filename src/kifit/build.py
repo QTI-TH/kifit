@@ -1326,15 +1326,15 @@ class Elem:
 
     # ### projection method ###################################################
 
-    def pvec(self, v1, v2):
+    def pvec(self, v0, v1, v2):
 
         Dmat = np.c_[v1, v2]
 
-        return (Dmat @ inv(Dmat.T @ Dmat) @ Dmat.T) @ self.mutilvec
+        return ((Dmat @ inv(Dmat.T @ Dmat) @ Dmat.T) @ v0)
 
     def Vproj(self, v0, v1, v2):
 
-        pv = self.pvec(v1, v2)
+        pv = self.pvec(v0, v1, v2)
 
         return np.linalg.norm(v0 - pv) * np.sqrt(
             (v1 @ v1) * (v2 @ v2) - (v1 @ v2)**2)
@@ -1355,11 +1355,17 @@ class Elem:
             raise ValueError("""Projection method requires at least 3 isotope
             pairs.""")
 
-        mnu1 = (self.nutil.T)[0]
-        mnu2 = (self.nutil.T)[1]
+        mnu1 = np.array([(self.nutil)[a, iinds[0]] for a in ainds]) # (self.nutil.T)[0]
+        mnu2 = np.array([(self.nutil)[a, iinds[1]] for a in ainds]) # (self.nutil.T)[1]
 
-        Vexp = self.Vproj(self.mutilvec, mnu1, mnu2)
-        XindepVth = self.Vproj(self.mutilvec, mnu1, self.gammatilvec)
+        mmu = np.array([self.mutilvec[a] for a in ainds])
+        mgamma = np.array([self.gammatilvec[a] for a in ainds])
+
+        # Vexp = self.Vproj(self.mutilvec, mnu1, mnu2)
+        # XindepVth = self.Vproj(self.mutilvec, mnu1, self.gammatilvec)
+
+        Vexp = self.Vproj(mmu, mnu1, mnu2)
+        XindepVth = self.Vproj(mmu, mnu1, mgamma)
 
         return Vexp / XindepVth
 

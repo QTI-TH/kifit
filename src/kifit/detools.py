@@ -117,6 +117,9 @@ def sample_proj_combinations(
     Returns:
         alphasamples:  np.array of alphaNP samples
                        (dimension (number of data permutations, ))
+    elemparamsamples: np.array of input parameter samples
+                       (dimension (nsamples, ))
+
     """
     if nsamples == 1:
         elemparamsamples = np.array([elem.means_input_params])
