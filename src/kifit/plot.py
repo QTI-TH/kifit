@@ -916,6 +916,7 @@ def multi_plot_mphi_alphaNP(
         markers_list=None,
         show_alg_for=[], 
         algebraic_methods=[],
+        print_all_alg_results=False,
         img_name="multifit_plot",
     ):
     """Many messengers can be used here to construct a multi-fit plot."""
@@ -968,13 +969,19 @@ def multi_plot_mphi_alphaNP(
             name = messengers_list[i].config.params.element_list[0]
             if name in show_alg_for:
                 for alg_method in algebraic_methods:
+                    if alg_method == "gkp":
+                        alg_name = "kp"
+                    else:
+                        alg_name = alg_method
+                    
                     plot_one_mphi_alphaNP_run(
                             messenger, 
                             color=color_codes[name], 
-                            label=f"{alg_method} - {name}", 
+                            label=f"{alg_name.upper()} - {name}", 
                             marker=markers_list[i],
                             return_common_features=False,
                             alg_mode=alg_method,
+                            print_all_alg_results=print_all_alg_results,
                         )
 
     strongest_lb, strongest_ub = extract_strongest_bounds(
@@ -982,17 +989,28 @@ def multi_plot_mphi_alphaNP(
         show_alg_for,
         algebraic_methods,
     )
-    plt.fill_between(mphix, strongest_ub, 1e3, color="black", alpha=0.2, label="Exclusion region")
-    plt.fill_between(mphix, -1e3, strongest_lb, color="black", alpha=0.2)
+
+    tmp_x_axis = [mphix[0]-mphix[0]*0.5]
+    tmp_x_axis.extend(mphix)
+    tmp_x_axis.append(mphix[-1]+mphix[-1]*0.5)
+
+    strongest_lb = [strongest_lb[0]] + strongest_lb + [strongest_lb[-1]]
+    strongest_ub = [strongest_ub[0]] + strongest_ub + [strongest_ub[-1]]
+
+
+    plt.fill_between(tmp_x_axis, strongest_ub, 1e5, color="black", alpha=0.2, label="Exclusion region")
+    plt.fill_between(tmp_x_axis, -1e5, strongest_lb, color="black", alpha=0.2)
     
     plt.hlines(0, min(mphix), max(mphix), color="black", lw=1)
     plt.hlines(linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
     plt.hlines(-linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
     plt.yscale("symlog", linthresh=linlim)
     plt.xscale("log", base=10)
-    plt.yticks([-1e-1, -1e-6, -1e-10, 0,  1e-10, 1e-6, 1e-1])
+    plt.yticks([-1e-1, -1e-6, -1e-9, 0,  1e-9, 1e-6, 1e-1])
     plt.legend(fontsize=8, loc=2, framealpha=1)
-    plt.ylim(-1e3, 1e3)
+    plt.ylim(-1e5, 1e5)
+    plt.xlim(min(mphix)-0.5*mphix[0], max(mphix)+0.5*mphix[-1])
+
     plt.ylabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=14)
     plt.xlabel(r"m$_{\phi}$ [eV]", fontsize=14)
 
@@ -1047,6 +1065,10 @@ def plot_one_mphi_alphaNP_run(
         best_alphas, sig_best_alphas, ub, allpos, lb, allneg = collect_det_X_data(
             messenger.config, 3, alg_mode,
         )
+        
+        allpos = np.asarray(allpos)
+        allneg = np.asarray(allneg)
+
         color = get_alg_color(alg_mode)
     else:
         ub, sig_ub, lb, sig_lb, best_alphas, sig_best_alphas = collect_fit_X_data(messenger)
@@ -1057,8 +1079,11 @@ def plot_one_mphi_alphaNP_run(
     # setting limits
     linlim = 10 ** np.floor(np.log10(np.nanmax([np.abs(min(ub)), np.abs(max(lb))])) - 1)
 
- 
     plt.plot(mphix, ub, lw=1.5, alpha=0.85, marker=marker, color=color, label=label, markeredgecolor='#383737', markersize=5)
+    if print_all_alg_results:
+        for k in range(allpos.shape[1]):
+            plt.scatter(mphix, allpos.T[k], color=color, s=10)
+            plt.scatter(mphix, allneg.T[k], color=color, s=10)
     plt.plot(mphix, lb, lw=1.5, alpha=0.85, color=color, markeredgecolor='#383737', markersize=5, marker=marker)
 
     if return_common_features:
