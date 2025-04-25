@@ -4,7 +4,7 @@ from kifit.plot import multi_plot_mphi_alphaNP
 from kifit.run import Runner
 from kifit.config import RunParams
 
-configurations_path = "./configurations/ca24"
+configurations_path = "./configurations/combo"
 
 messengers_list = []
 
@@ -15,15 +15,16 @@ for conf in os.listdir(configurations_path):
 multi_plot_mphi_alphaNP(
     messengers_list=messengers_list,
     # labels_list=["globalogrid", "detlogrid"],   
-    # colors_list=["#e7a61b", "#7838c0", "darkgreen"],
+    colors_list=["#e7a61b", "#7838c0", "darkgreen"],
     show_alg_for=[
             "Ca_WT_Aarhus_PTB_2024",
             # "Ca_PTB_2015",
             # "Ca24min",
             # "Yb_Kyoto_MIT_GSI_PTB_MPIK_2024",
         ],
-    algebraic_methods=["gkp", "nmgkp"],
-    # algebraic_methods=["gkp"],
-    img_name="Ca24min_all_pos",
-    print_all_alg_results=True,
+    # algebraic_methods=["gkp", "nmgkp"],
+    algebraic_methods=["gkp"],
+    img_name="Combo",
+    # print_all_alg_results=True,
+    # title="Globalogrid"
     )

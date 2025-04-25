@@ -918,6 +918,7 @@ def multi_plot_mphi_alphaNP(
         algebraic_methods=[],
         print_all_alg_results=False,
         img_name="multifit_plot",
+        title=None,
     ):
     """Many messengers can be used here to construct a multi-fit plot."""
 
@@ -971,6 +972,8 @@ def multi_plot_mphi_alphaNP(
                 for alg_method in algebraic_methods:
                     if alg_method == "gkp":
                         alg_name = "kp"
+                    elif alg_method == "nmgkp":
+                        alg_name = "nmkp"
                     else:
                         alg_name = alg_method
                     
@@ -1006,6 +1009,8 @@ def multi_plot_mphi_alphaNP(
     plt.hlines(-linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
     plt.yscale("symlog", linthresh=linlim)
     plt.xscale("log", base=10)
+    if title is not None:
+        plt.title(title, fontsize=14)
     plt.yticks([-1e-1, -1e-6, -1e-9, 0,  1e-9, 1e-6, 1e-1])
     plt.legend(fontsize=8, loc=2, framealpha=1)
     plt.ylim(-1e5, 1e5)
@@ -1013,6 +1018,7 @@ def multi_plot_mphi_alphaNP(
 
     plt.ylabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=14)
     plt.xlabel(r"m$_{\phi}$ [eV]", fontsize=14)
+
 
     plt.savefig(f"{img_name}.pdf", dpi=200, bbox_inches="tight")
 
