@@ -1,8 +1,12 @@
 import os
+import matplotlib.pyplot as plt
 
 from kifit.plot import multi_plot_mphi_alphaNP
 from kifit.run import Runner
 from kifit.config import RunParams
+
+plt.rc('text', usetex=True)
+plt.rc('font', family='serif') 
 
 configurations_path = "./configurations/combo"
 
@@ -22,9 +26,9 @@ multi_plot_mphi_alphaNP(
             # "Ca24min",
             # "Yb_Kyoto_MIT_GSI_PTB_MPIK_2024",
         ],
-    # algebraic_methods=["gkp", "nmgkp"],
+    # algebraic_methods=["gkp", "nmgkp", "proj"],
     algebraic_methods=["gkp"],
     img_name="Combo",
     # print_all_alg_results=True,
-    # title="Globalogrid"
+    # title=r"\texttt{globalogrid}"
     )
