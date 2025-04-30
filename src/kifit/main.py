@@ -1,7 +1,6 @@
 from kifit.run import Runner
 from kifit.config import RunParams
 
-
 # set the kifit parameters from parser
 params = RunParams()
 
@@ -9,6 +8,6 @@ params = RunParams()
 runner = Runner(params)
 
 # run
-runner.run()
+# runner.run()
 
-# runner.generate_all_alphaNP_ll_plots()
+runner.generate_all_alphaNP_ll_plots()

@@ -212,14 +212,14 @@ class RunParams:
         parser.add_argument(
             "--x0_fit",
             nargs="+",
-            default=[0],
+            default=[],
             type=int,
             help="Target mphi indices for fit",
         )
         parser.add_argument(
             "--x0_det",
             nargs="+",
-            default=[0],
+            default=[],
             type=int,
             help="Target mphi indices for determinants",
         )

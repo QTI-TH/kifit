@@ -6,7 +6,11 @@ import numpy as np
 from kifit.build import ElemCollection
 from kifit.fitools import fit_keys, sample_alphaNP_fit
 from kifit.detools import det_keys, sample_alphaNP_det
-from kifit.plot import plot_linfit, plot_alphaNP_ll, plot_mphi_alphaNP
+from kifit.plot import (
+        plot_linfit,
+        plot_search_window,
+        plot_alphaNP_ll, plot_alphaNP_ll_zoom,
+        plot_mphi_alphaNP)
 from kifit.config import RunParams, Paths, Config
 
 
@@ -88,18 +92,25 @@ class Runner:
                 xind=x
             )
 
-            plot_alphaNP_ll(
-                self.collection,
-                messenger=self.config,
-                expstr="search",
-                logplot=True,
-                xind=x)
+            # plot_alphaNP_ll(
+            #     self.collection,
+            #     messenger=self.config,
+            #     expstr="search",
+            #     logplot=True,
+            #     xind=x)
 
             plot_alphaNP_ll(
                 self.collection,
                 messenger=self.config,
-                expstr="experiment",
+                # expstr="experiment",
                 xind=x)
+
+            if x==0:
+                plot_alphaNP_ll_zoom(
+                    self.collection,
+                    messenger=self.config,
+                    xind=x)
+
 
         if len(self.config.x_vals_fit) > 1 or len(self.config.x_vals_det) > 1:
 
@@ -111,26 +122,23 @@ class Runner:
 
         for x in self.config.x_vals_fit:
 
-            plot_alphaNP_ll(
-                self.collection,
+            plot_search_window(
                 messenger=self.config,
-                expstr="search",
-                logplot=True,
                 xind=x)
 
             plot_alphaNP_ll(
                 self.collection,
                 messenger=self.config,
-                expstr="experiment",
+                # expstr="experiment",
                 xind=x)
 
-            plot_alphaNP_ll(
-                self.collection,
-                messenger=self.config,
-                expstr="experiment",
-                xlims=[-5e-10, 5e-10],
-                ylims=[-5,100],
-                xind=x)
+            if x==0:
+
+                plot_alphaNP_ll_zoom(
+                    self.collection,
+                    messenger=self.config,
+                    xind=x)
+
 
     def generate_mphi_alphaNP_plot(self):
 
