@@ -12,7 +12,7 @@ packages = [{ include = "kifit", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
-numpy = "^1.26.4"
+numpy = "^2.1.0"
 matplotlib = "^3.9.1"
 scipy = "^1.14.0"
 

@@ -1,12 +1,16 @@
 user_elems = [
-    "oldCa",
     "Ca_testdata",
+    "Camin_testdata",
     "Camin",
     "Camin_swap",
+    "Ca24min_mod",
+    "Ca3pointTEST",
+    "Ca4pointTEST",
+    "Ca10pointTEST",
     "Camin_exp",
     "Ca24min",
     "Ca_PTB_2015",
-    # "Ca_WT_Aarhus_2020",
+    "Ca_WT_Aarhus_2020",
     "Ca_WT_Aarhus_2024",
     "Ca_WT_Aarhus_PTB_2020",
     "Ca_WT_Aarhus_PTB_2024",
@@ -17,5 +21,7 @@ user_elems = [
     "weakest_Yb_Kyoto_MIT_GSI_2022",
     "strongest_Yb_Kyoto_MIT_GSI_2022",
     "weakest_Yb_Kyoto_MIT_GSI_PTB_2024",
-    "strongest_Yb_Kyoto_MIT_GSI_PTB_2024"
+    "strongest_Yb_Kyoto_MIT_GSI_PTB_2024",
+    "Ca24min_red10",
+    "Ca24min_red100",
 ]

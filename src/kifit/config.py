@@ -37,6 +37,10 @@ class RunParams:
         return self.__runparams.element_list
 
     @property
+    def reference_transitions(self):
+        return self.__runparams.reference_transitions
+
+    @property
     def num_alphasamples_search(self):
         return self.__runparams.num_alphasamples_search
 
@@ -137,6 +141,14 @@ class RunParams:
             help="List of strings corresponding to names of data folders",
         )
         parser.add_argument(
+            "--reference_transitions",
+            nargs="+",
+            type=int,
+            required=False,
+            help="""List of reference transition indices for the data sets defined
+            in element_list""",
+        )
+        parser.add_argument(
             "--num_alphasamples_search",
             default=1000,
             type=int,
@@ -200,14 +212,14 @@ class RunParams:
         parser.add_argument(
             "--x0_fit",
             nargs="+",
-            default=[0],
+            default=[],
             type=int,
             help="Target mphi indices for fit",
         )
         parser.add_argument(
             "--x0_det",
             nargs="+",
-            default=[0],
+            default=[],
             type=int,
             help="Target mphi indices for determinants",
         )
@@ -224,7 +236,7 @@ class RunParams:
         parser.add_argument(
             "--gkp_dims",
             nargs="+",
-            default=[3],
+            default=[],
             type=int,
             help="List of generalised King plot dimensions",
         )
@@ -238,7 +250,7 @@ class RunParams:
         parser.add_argument(
             "--proj_dims",
             nargs="+",
-            default=[3],
+            default=[],
             type=int,
             help="List of projection method dimensions",
         )
@@ -343,7 +355,7 @@ class Paths:
             f"{plotname}_"
             + (f"{self.__elem_collection_id}" if elemid is None else f"{elemid}")
             + (f"_x{str(xind)}" if xind is not None else "")
-            + ".png")
+            + ".pdf")
 
     def search_output_path(self, xind):
         # path where to save fit results for x=xind
@@ -428,9 +440,10 @@ class Paths:
 
         return 0
 
-    def read_from_path(self, path, keys):
+    def read_from_path(self, path, keys, verbose=False):
         if os.path.exists(path):
-            logging.info("Loading data from %s", path)
+            if verbose:
+                logging.info("Loading data from %s", path)
 
             with open(path) as json_file:
                 res = json.load(json_file)
@@ -472,7 +485,7 @@ class Config:
         assert isinstance(runparams, RunParams)
         self.paths = paths
         assert isinstance(paths, Paths)
-        print("paths", paths.fit_output_path(0))
+        #print("paths", paths.fit_output_path(0))
 
         self.__init_x_vals(collectionxvals)
 
