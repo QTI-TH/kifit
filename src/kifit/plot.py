@@ -918,6 +918,7 @@ def multi_plot_mphi_alphaNP(
         algebraic_methods=[],
         print_all_alg_results=False,
         img_name="multifit_plot",
+        dataset_name=True,
         title=None,
     ):
     """Many messengers can be used here to construct a multi-fit plot."""
@@ -935,7 +936,10 @@ def multi_plot_mphi_alphaNP(
             name = messenger.config.params.element_list[0]
         
         if labels_list is None:
-            label_i = f"Fit - {name}"
+            if dataset_name:
+                label_i = rf"Fit - $\texttt{{{name}}}$"
+            else:
+                label_i = "Fit"
         else:
             label_i = labels_list[i]
 
@@ -977,10 +981,15 @@ def multi_plot_mphi_alphaNP(
                     else:
                         alg_name = alg_method
                     
+                    if dataset_name:
+                        final_label = rf"{alg_name.upper()} - $\texttt{{{name}}}$"
+                    else:
+                        final_label = f"{alg_name.upper()}"
+                        
                     plot_one_mphi_alphaNP_run(
                             messenger, 
                             color=color_codes[name], 
-                            label=f"{alg_name.upper()} - {name}", 
+                            label=final_label, 
                             marker=markers_list[i],
                             return_common_features=False,
                             alg_mode=alg_method,
@@ -1017,7 +1026,7 @@ def multi_plot_mphi_alphaNP(
     plt.xlim(min(mphix)-0.5*mphix[0], max(mphix)+0.5*mphix[-1])
 
     plt.ylabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=14)
-    plt.xlabel(r"m$_{\phi}$ [eV]", fontsize=14)
+    plt.xlabel(r"$m_{\phi}$ [eV]", fontsize=14)
 
 
     plt.savefig(f"{img_name}.pdf", dpi=200, bbox_inches="tight")
