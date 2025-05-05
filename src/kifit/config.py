@@ -13,14 +13,14 @@ class CustomNamespace:
 def check_input_logrid_frac(value):
     intval = int(value)
 
-    if intval > 0:
+    if intval < 0:
         raise ArgumentTypeError(
             f"""{value} is not a valid value for logrid_frac.
-            Provide negative integer.""")
-    elif intval < -10:
+            Provide positive integer.""")
+    elif intval > 10:
         raise ArgumentTypeError(
-            f"""{value} seems like a ridiculously small number for logrid_frac.
-            Give it a larger (but still negative) integer value.""")
+            f"""{value} seems like a ridiculously large number for logrid_frac.
+            Give it a smaller (but still positive) integer value.""")
     return intval
 
 
@@ -35,6 +35,10 @@ class RunParams:
     @property
     def element_list(self):
         return self.__runparams.element_list
+
+    @property
+    def reference_transitions(self):
+        return self.__runparams.reference_transitions
 
     @property
     def num_alphasamples_search(self):
@@ -137,6 +141,14 @@ class RunParams:
             help="List of strings corresponding to names of data folders",
         )
         parser.add_argument(
+            "--reference_transitions",
+            nargs="+",
+            type=int,
+            required=False,
+            help="""List of reference transition indices for the data sets defined
+            in element_list""",
+        )
+        parser.add_argument(
             "--num_alphasamples_search",
             default=1000,
             type=int,
@@ -152,17 +164,19 @@ class RunParams:
         parser.add_argument(
             "--search_mode",
             default="detlogrid",
-            choices=["detlogrid", "globalogrid"], 
+            choices=["detlogrid", "globalogrid"],
             help="""method used during search phase. logrid uses input from determinant methods, globalopt does not""",
         )
         parser.add_argument(
             "--logrid_frac",
-            default=-5,
+            default=5,
             type=check_input_logrid_frac,
-            help="""log10 of fraction defining the alphaNP scan region for
-            initial search. Should be a negative or zero integer: 0 -> scan
-            region -> 0, -infty -> scan region infinite. Please provide integers
-            larger or equal to -10.""",
+            help="""orders to be added/subtracted from determinant results when
+            defining the alphaNP scan region for initial search.
+            Should be a positive or zero integer:
+            0 -> scan region -> 0,
+            -infty -> scan region infinite.
+            Please provide integers smaller or equal to 10.""",
         )
         parser.add_argument(
             "--num_exp",
@@ -191,21 +205,21 @@ class RunParams:
         parser.add_argument(
             "--min_percentile",
             default=1,
-            choices=range(1, 50),
+            choices=range(50),
             type=int,
             help="Min percentile value used to compute a robust estimation of min(logL)",
         )
         parser.add_argument(
             "--x0_fit",
             nargs="+",
-            default=[0],
+            default=[],
             type=int,
             help="Target mphi indices for fit",
         )
         parser.add_argument(
             "--x0_det",
             nargs="+",
-            default=[0],
+            default=[],
             type=int,
             help="Target mphi indices for determinants",
         )
@@ -222,21 +236,21 @@ class RunParams:
         parser.add_argument(
             "--gkp_dims",
             nargs="+",
-            default=[3],
+            default=[],
             type=int,
             help="List of generalised King plot dimensions",
         )
         parser.add_argument(
             "--nmgkp_dims",
             nargs="+",
-            default=[3],
+            default=[],
             type=int,
             help="List of no-mass generalised King plot dimensions",
         )
         parser.add_argument(
             "--proj_dims",
             nargs="+",
-            default=[3],
+            default=[],
             type=int,
             help="List of projection method dimensions",
         )
@@ -275,10 +289,10 @@ class RunParams:
         )
 
         return parser.parse_args()
-    
+
     def load_arguments_from_file(self, json_file):
         """Load arguments from a JSON file and set them as attributes."""
-        
+
         with open(json_file, 'r') as f:
             data = json.load(f)
 
@@ -341,7 +355,7 @@ class Paths:
             f"{plotname}_"
             + (f"{self.__elem_collection_id}" if elemid is None else f"{elemid}")
             + (f"_x{str(xind)}" if xind is not None else "")
-            + ".png")
+            + ".pdf")
 
     def search_output_path(self, xind):
         # path where to save fit results for x=xind
@@ -496,4 +510,4 @@ class Config:
             logging.info("Initialised x range for determinants: %s", self.params.x0_det)
             self.x_vals_det = self.params.x0_det
 
-    
+

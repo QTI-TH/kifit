@@ -1,6 +1,8 @@
 import os
 import logging
 import numpy as np
+from scipy.linalg import lu, det, inv
+from math import factorial
 
 from scipy.odr import ODR, Model, RealData
 from scipy.stats import linregress
@@ -33,6 +35,10 @@ def sec(x: float):
     """
     return 1 / np.cos(x)
 
+def det_64(mat):
+    mat_64 = np.array(mat, dtype=np.float64)
+
+    return np.linalg.det(mat_64)
 
 def Levi_Civita_generator(n):
     """
@@ -83,7 +89,7 @@ def get_odr_residuals(p, x, y, sx, sy):
     return residuals, sigresiduals
 
 
-def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
+def perform_linreg(isotopeshiftdata):  # , reference_transition_index: int = 0):
     """
     Perform linear regression.
 
@@ -100,20 +106,21 @@ def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
         sig_ph1s:    uncertainties on ph1s
 
     """
+    isotopeshiftdata_64 = isotopeshiftdata.astype(np.float64)
 
-    x = isotopeshiftdata.T[reference_transition_index]
-    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
+    x = isotopeshiftdata_64.T[0]  # [reference_transition_index]
+    y = np.delete(isotopeshiftdata_64, 0, axis=1)
+    # y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
 
     betas = []
     sig_betas = []
 
     for i in range(y.shape[1]):
         res = linregress(x, y.T[i])
-        betas.append([res.slope, res.intercept])
-        sig_betas.append([res.stderr, res.intercept_stderr])
+        betas.append(np.array([res.slope, res.intercept]))
+        sig_betas.append(np.array([res.stderr, res.intercept_stderr]))
 
     betas = np.array(betas)
-
     sig_betas = np.array(sig_betas)
 
     ph1s = np.arctan(betas.T[0])
@@ -130,8 +137,8 @@ def perform_linreg(isotopeshiftdata, reference_transition_index: int = 0):
     return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s)
 
 
-def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
-                reference_transition_index: int = 0):
+def perform_odr(isotopeshiftdata, sigisotopeshiftdata):
+#, reference_transition_index: int = 0):
     """
     Perform separate orthogonal distance regression for each transition pair.
 
@@ -150,11 +157,17 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
     """
     lin_model = Model(linfit)
 
-    x = isotopeshiftdata.T[reference_transition_index]
-    y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
+    isotopeshiftdata_64 = isotopeshiftdata.astype(np.float64)
+    sigisotopeshiftdata_64 = sigisotopeshiftdata.astype(np.float64)
 
-    sigx = sigisotopeshiftdata.T[reference_transition_index]
-    sigy = np.delete(sigisotopeshiftdata, reference_transition_index, axis=1)
+    x = isotopeshiftdata_64.T[0]  # [reference_transition_index]
+    y = np.delete(isotopeshiftdata_64, 0, axis=1)
+    # y = np.delete(isotopeshiftdata, reference_transition_index, axis=1)
+
+    sigx = sigisotopeshiftdata_64.T[0]
+    sigy = np.delete(sigisotopeshiftdata_64, 0, axis=1)
+    # sigx = sigisotopeshiftdata.T[reference_transition_index]
+    # sigy = np.delete(sigisotopeshiftdata, reference_transition_index, axis=1)
 
     betas = []
     sig_betas = []
@@ -167,18 +180,21 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
         out = odr.run()
 
         # Extract beta and covariance matrix
-        betas.append(out.beta)
-        sig_betas.append(out.sd_beta)
-        cov_beta = out.cov_beta
+
+        beta_out = (out.beta)
+        sig_beta_out = (out.sd_beta)
+
+        betas.append(beta_out)
+        sig_betas.append(sig_beta_out)
+        cov_beta = (out.cov_beta)
 
         # Calculate ph1 and kperp1
-        ph1 = np.arctan(out.beta[0])
-        # kperp1 = out.beta[1] * np.cos(ph1)
+        ph1 = np.arctan(beta_out[0])
 
         # Derivatives for the delta method
-        d_kperp1_d_beta0 = -out.beta[1] * np.sin(ph1)
+        d_kperp1_d_beta0 = -beta_out[1] * np.sin(ph1)
         d_kperp1_d_beta1 = np.cos(ph1)
-        d_ph1_d_beta0 = 1 / (1 + out.beta[0]**2)
+        d_ph1_d_beta0 = 1 / (1 + beta_out[0]**2)
         d_ph1_d_beta1 = 0
 
         # Jacobian matrix J
@@ -201,6 +217,8 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
         + (betas.T[1] * sig_ph1s * np.sin(ph1s)) ** 2
     )
 
+    cov_kperp1_ph1s = np.array(cov_kperp1_ph1s)
+
     return (betas, sig_betas,
         kperp1s, ph1s, sig_kperp1s, sig_ph1s, cov_kperp1_ph1s)
 
@@ -210,16 +228,20 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata,
 
 class ElemCollection:
 
-    def __init__(self, elemlist, gkpdims, nmgkpdims):
+    def __init__(self, elemlist, reference_transitions):
         elem_collection = []
         elem_collection_id = ""
 
-        for elemstr in elemlist[:-1]:
-            elem = Elem(str(elemstr))
+        if reference_transitions is None:
+            reference_transitions = np.zeros(len(elemlist), dtype=int)
+
+        for elemstr, ref_trans_ind in zip(elemlist[:-1],
+                                          reference_transitions[:-1]):
+            elem = Elem(str(elemstr), ref_trans_ind)
             elem_collection.append(elem)
             elem_collection_id += elem.id + "_"
 
-        elem = Elem(str(elemlist[-1]))
+        elem = Elem(str(elemlist[-1]), reference_transitions[-1])
         elem_collection.append(elem)
         elem_collection_id += elem.id
 
@@ -279,7 +301,8 @@ class Elem:
         'nu_in', 'sig_nu_in', 'isotope_data', 'Eb_data',
         'Xcoeff_data', 'sig_Xcoeff_data']
 
-    def __init__(self, element: str):
+    def __init__(self, element: str,
+                 reference_transition_index=0):
         """
         Load all data files associated to element and initialises Elem.
         instance.
@@ -290,37 +313,79 @@ class Elem:
                     to src/kifit/user_elems""".format(element))
 
         logging.info("Loading raw data")
+
         self.id = element
+        self.reference_transition_index = reference_transition_index
         self._init_elemdata()
         self._init_masses()
         self._init_Xcoeffs()
         self._init_MC()
         self._init_fit_params()
 
-    def __load(self, atr: str, file_type: str, file_path: str):
+    def __transform_Xcoeffs(self, val):
+
+        if self.reference_transition_index > 0:
+
+            mphi = val.T[0]
+            xs = val[:, 1:]
+            x0 = xs.T[self.reference_transition_index]
+            xj = np.delete(xs, self.reference_transition_index, axis=1)
+
+            val = np.c_[mphi, x0, xj]
+
+        return val
+
+    def __transform_nus(self, val):
+
+        x = val.T[self.reference_transition_index]
+        y = np.delete(val, self.reference_transition_index, axis=1)
+
+        val = np.c_[x, y]
+
+        return val
+
+
+    def __init_input(self, atr: str, file_path: str):
+
         logging.info('Loading attribute {} for element {} from {}'.format(
             atr, self.id, file_path))
+
         val = np.loadtxt(file_path)
 
         if ((atr == 'Xcoeff_data') or (atr == 'sig_Xcoeff_data')):
 
             val = val.reshape(-1, self.ntransitions + 1)
+            val = self.__transform_Xcoeffs(val)
+
+        elif ((atr == 'nu_in') or (atr == 'sig_nu_in')):
+
+            val = self.__transform_nus(val)
 
         setattr(self, atr, val)
 
     def _init_elemdata(self):
         # load data from elem folder
-        for (i, file_type) in enumerate(self.INPUT_FILES):
-            if len(self.INPUT_FILES) != len(self.elem_init_atr):
-                raise NameError("""Number of INPUT_FILES does not match number
-                of elem_init_atr.""")
+        # for (i, file_type) in enumerate(self.INPUT_FILES):
+        #     if len(self.INPUT_FILES) != len(self.elem_init_atr):
+        #         raise NameError("""Number of INPUT_FILES does not match number
+        #         of elem_init_atr.""")
+        #
+        #     file_name = file_type + '_' + self.id + '.dat'
+        #     file_path = os.path.join(_data_path, self.id, file_name)
+        #
+        #     self.__load(self.elem_init_atr[i], file_type, file_path)
+        #
+        file_path = {filetype: os.path.join(_data_path, self.id,
+                                            filetype + '_' + self.id + '.dat')
+                     for filetype in self.INPUT_FILES}
 
-            file_name = file_type + '_' + self.id + '.dat'
-            file_path = os.path.join(_data_path, self.id, file_name)
+        self.__init_input('nu_in', file_path['nu'])
+        self.__init_input('sig_nu_in', file_path['sig_nu'])
+        self.__init_input('isotope_data', file_path['isotopes'])
+        self.__init_input('Eb_data', file_path['binding_energies'])
+        self.__init_input('Xcoeff_data', file_path['Xcoeffs'])
+        self.__init_input('sig_Xcoeff_data', file_path['sig_Xcoeffs'])
 
-            # if not os.path.exists(file_path):
-            #     raise ImportError(f"Path {file_path} does not exist.")
-            self.__load(self.elem_init_atr[i], file_type, file_path)
 
     def _init_masses(self):
         """
@@ -343,7 +408,7 @@ class Elem:
             sig_m_ap_0 = self.isotope_data[5]
 
             # ionisation energies in eV
-            if self.Eb_data.shape[0] == 0:
+            if not np.any(self.Eb_data):
                 Eb = np.array([0])
                 sig_Eb = np.array([0])
                 n_electrons = 0
@@ -351,6 +416,7 @@ class Elem:
                 Eb = self.Eb_data.T[0] * (-1) * eV_to_u
                 sig_Eb = self.Eb_data.T[1] * (-1) * eV_to_u
                 n_electrons = len(Eb)
+
 
             # nuclear masses
             self.m_a_in = m_a_0 - n_electrons * m_e + np.sum(Eb)
@@ -395,7 +461,8 @@ class Elem:
         self.m_ap = self.m_ap_in
 
         # initialise dvec rescaling factor
-        self.dnorm = np.mean(self.nu_in / self.sig_nu_in)  # 1.
+        # self.dnorm = np.mean(self.nu_in / self.sig_nu_in)
+        self.dnorm = 1
 
     def _init_fit_params(self):
         """
@@ -407,14 +474,15 @@ class Elem:
 
         # self.Kperp1 = np.zeros(self.ntransitions)
         # self.ph1 = np.zeros(self.ntransitions - 1)
+
         (
             _, _,
             self.kp1_init, self.ph1_init,
             self.sig_kp1_init, self.sig_ph1_init,
             self.cov_kperp1_ph1
         ) = perform_odr(
-            self.nutil_in, self.sig_nutil_in,
-            reference_transition_index=0)
+            self.nutil_in, self.sig_nutil_in)
+            # reference_transition_index=0)
 
         self.alphaNP_init = 0.
 
@@ -501,13 +569,19 @@ class Elem:
         #     quadrant.""")
 
         self.kp1 = thetas[:self.ntransitions - 1]
-        self.ph1 = thetas[self.ntransitions - 1: 2 * self.ntransitions - 2]
+        self.ph1 = thetas[
+                self.ntransitions - 1: 2 * self.ntransitions - 2]
         self.alphaNP = thetas[-1]
 
-        if ((len(self.kp1) != self.ntransitions - 1) or (len(self.ph1) != self.ntransitions - 1)):
-            raise AttributeError("""Passed fit parameters do not have appropriate dimensions""")
+        if (
+                (len(self.kp1) != self.ntransitions - 1)
+                or (len(self.ph1) != self.ntransitions - 1)):
+            raise AttributeError(
+                """Passed fit parameters do not have appropriate dimensions""")
         #
-        if np.array([(-np.pi / 2 > phij) or (phij > np.pi / 2) for phij in self.ph1]).any():
+        if np.array([
+            (-np.pi / 2 > phij) or (phij > np.pi / 2)
+            for phij in self.ph1]).any():
             raise ValueError("""Passed phij values are not within 1st / 4th
             quadrant.""")
 
@@ -733,8 +807,7 @@ class Elem:
         """
         dim = len(self.m_ap_in)
 
-        return np.divide(np.ones(dim), self.m_a_in) - np.divide(np.ones(dim),
-                self.m_ap_in)
+        return 1 / self.m_a_in - 1 / self.m_ap_in
 
     @cached_fct_property
     def nutil_in(self):
@@ -756,7 +829,7 @@ class Elem:
 
             nu / mu.
 
-        and write (nisotopepairs x ntransitions)-matrix to file.
+        This is a (nisotopepairs x ntransitions)-matrix.
 
         """
         return np.divide(self.nu.T, self.muvec).T
@@ -764,16 +837,28 @@ class Elem:
     @cached_fct_property
     def sig_nutil_in(self):
         """
-        Generate uncertainties on mass normalised isotope shifts and write
-        (nisotopepairs x ntransitions)-matrix to file.
+        Generate uncertainties on mass normalised isotope shifts.
+        Returns a (nisotopepairs x ntransitions)-matrix.
 
         """
-        return np.absolute(np.array([[self.nutil_in[a, i]
-            * np.sqrt((self.sig_nu_in[a, i] / self.nu_in[a, i])**2
-                + (self.m_a_in[a]**2 * self.sig_m_ap_in[a]**2 / self.m_ap_in[a]**2
-                    + self.m_ap_in[a]**2 * self.sig_m_a_in[a]**2 / self.m_a_in[a]**2)
-                / (self.m_a_in[a] - self.m_ap_in[a])**2) for i in self.range_i] for a
-            in self.range_a]))
+
+        signutil = np.absolute(np.array(
+            [
+                [
+                    self.nutil_in[a, i]
+                    * np.sqrt(
+                        (self.sig_nu_in[a, i] / self.nu_in[a, i])**2
+                        + 1 / (1 / self.m_a_in[a] - 1 / self.m_ap_in[a])**2 * (
+                            (self.sig_m_a_in[a] / self.m_a_in[a]**2)**2
+                            + (self.sig_m_ap_in[a] / self.m_ap_in[a]**2)**2)
+                        )
+                        for i in self.range_i]
+                for a in self.range_a]
+            ))
+
+        return signutil
+
+
 
 
     # QUANTITIES DERIVED FROM SAMPLED ELEMENT PROPERTIES ######################
@@ -857,6 +942,10 @@ class Elem:
         return self.F1 @ self.F1
 
     @cached_fct_property
+    def eF(self):
+        return self.F1 / np.sqrt(self.F1sq)
+
+    @cached_fct_property
     def secph1(self):
         """
         Return secant of angle phi_ij (sec(phi_ij)).
@@ -880,7 +969,7 @@ class Elem:
         ]
 
         betas, _, _, _, _, _, _ = perform_odr(
-            isotopeshiftdata, sigisotopeshiftdata, reference_transition_index=0)
+            isotopeshiftdata, sigisotopeshiftdata)
 
         return betas[0, 0]
 
@@ -901,18 +990,26 @@ class Elem:
         return (self.Xvec - self.F1 * self.Xvec[0])
 
     # Construction of the Loglikelihood Function ##############################
-    @cached_fct_property
-    def avg_np_term(self):
+    @cached_fct
+    def diff_np_term(self, symm: bool):
         """
         Generate the (nisotopepairs x ntransitions)-dimensional new physics term
         starting from theoretical input and fit parameters.
 
         """
-        return self.alphaNP * np.tensordot(
-            self.gammatilvec - np.average(self.gammatilvec), self.X1, axes=0)
+        if symm:
+            return self.alphaNP * np.tensordot(
+                self.gammatilvec - np.average(self.gammatilvec), self.X1, axes=0)
+
+        else:
+            np_term_1 = np.tensordot(self.gammatilvec, self.X1, axes=0)
+            avg_a_np_term_1 = (
+                    np.sum(np_term_1 * self.sig_nutil_in, axis=0) /
+                    np.sum(self.sig_nutil_in, axis=0))
+            return self.alphaNP * (np_term_1 - avg_a_np_term_1)
 
     @cached_fct
-    def D_a1i(self, a: int, i: int):
+    def D_a1i(self, a: int, i: int, symm: bool):
         """
         Returns object D_{1j}^a, where a is an isotope pair index and j is a
         transition index.
@@ -923,54 +1020,53 @@ class Elem:
 
         elif ((i in self.range_j) and (a in self.range_a)):
             return (self.nutil[a, i] - self.F1[i] * self.nutil[a, 0]
-                    - self.avg_np_term[a, i])
+                    - self.diff_np_term(symm)[a, i])
         else:
             raise IndexError('Index passed to D_a1i is out of range.')
 
     @cached_fct
-    def d_ai(self, a: int, i: int):
+    def d_ai(self, a: int, i: int, symm: bool):
         """
         Returns element d_i^{AA'} of the n-vector d^{AA'}.
 
         """
         if ((i == 0) & (a in self.range_a)):
             return (- 1 / self.F1sq * np.sum(np.array([self.F1[j]
-                * (self.D_a1i(a, j)
+                * (self.D_a1i(a, j, symm)
                     - self.secph1[j] * self.Kperp1[j])
                 for j in self.range_j])))
 
         elif ((i in self.range_j) & (a in self.range_a)):
-            return (self.D_a1i(a, i)
+            return (self.D_a1i(a, i, symm)
                     - self.secph1[i] * self.Kperp1[i]
-                    + self.F1[i] * self.d_ai(a, 0))
+                    + self.F1[i] * self.d_ai(a, 0, symm))
         else:
             raise IndexError('Index passed to d_ai is out of range.')
 
-    @cached_fct_property
-    def dmat(self):
+    @cached_fct
+    def dmat(self, symm: bool):
         """
         Return full distances matrix.
 
         """
         return (np.array([[
-            self.d_ai(a, i) for i in self.range_i] for a in self.range_a])
+            self.d_ai(a, i, symm) for i in self.range_i] for a in self.range_a])
             / self.dnorm)
 
-    @cached_fct_property
-    def absd(self):
+    @cached_fct
+    def absd(self, symm: bool):
         """
         Returns (nisotopepairs)-vector of Euclidean norms of the
         (ntransitions)-vectors d^{AA'}.
 
         """
-        return np.sqrt(np.diag(self.dmat @ self.dmat.T))
+        return np.sqrt(np.diag(self.dmat(symm) @ (self.dmat(symm)).T))
 
     # Determinant Methods
     ###########################################################################
 
     # ### GKP #################################################################
 
-    @cached_fct
     def alphaNP_GKP(self, ainds=[0, 1, 2], iinds=[0, 1]):
         """
         Returns value for alphaNP computed using the Generalised King plot
@@ -998,15 +1094,21 @@ class Elem:
 
         hmat = self.gammatilvec[np.ix_(ainds)]
 
-        vol_data = np.linalg.det(np.c_[numat, mumat])
+        vol_data = det_64(np.c_[numat, mumat])
 
         vol_alphaNP1 = 0
         for i, eps_i in LeviCivita(dim - 1):
-            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+            vol_alphaNP1 += (eps_i * det_64(np.c_[
                 Xmat[i[0]] * hmat,
                 np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
                 mumat]))
-        alphaNP = np.math.factorial(dim - 2) * np.array(vol_data / vol_alphaNP1)
+
+        # print("single alphaNP_GKP")
+        # print("vol_data    ", vol_data)
+        # print("vol_alphaNP1", vol_alphaNP1)
+        # print("gammatil", hmat)
+
+        alphaNP = factorial(dim - 2) * np.array(vol_data / vol_alphaNP1)
 
         return alphaNP
 
@@ -1051,13 +1153,13 @@ class Elem:
             mumat = self.mutilvec[np.ix_(a_inds)]
             hmat = self.gammatilvec[np.ix_(a_inds)]
 
-            voldatlist.append(np.linalg.det(np.c_[numat, mumat]))
+            voldatlist.append(det_64(np.c_[numat, mumat]))
             vol1part = []
             xindpart = []
             for i, eps_i in LeviCivita(dim - 1):
                 xindpart.append(i_inds[i[0]])  # X always gets first index
                 vol1part.append(
-                    eps_i * np.linalg.det(np.c_[
+                    eps_i * det_64(np.c_[
                         hmat,  # to be multiplied by Xmat[i[0]]
                         np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,
                         mumat]))
@@ -1089,7 +1191,12 @@ class Elem:
         for p, xpinds in enumerate(xindlist):
             vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
             alphalist.append(voldat[p] / vol1p)
-        alphalist = np.math.factorial(dim - 2) * alphalist
+
+            # print("combination " + str(p))
+            # print("vol_data    ", voldat[p])
+            # print("vol_alphaNP1", vol1p)
+
+        alphalist = factorial(dim - 2) * np.array(alphalist)
 
         return alphalist
 
@@ -1121,14 +1228,14 @@ class Elem:
         Xmat = self.Xvec[np.ix_(iinds)]  # X-coefficients for a given mphi
         hmat = self.gammatilvec[np.ix_(ainds)]
 
-        vol_data = np.linalg.det(numat)
+        vol_data = det_64(numat)
 
         vol_alphaNP1 = 0
         for i, eps_i in LeviCivita(dim):
-            vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
+            vol_alphaNP1 += (eps_i * det_64(np.c_[
                 Xmat[i[0]] * hmat,
                 np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
-        alphaNP = np.math.factorial(dim - 1) * np.array(vol_data / vol_alphaNP1)
+        alphaNP = factorial(dim - 1) * np.array(vol_data / vol_alphaNP1)
 
         return alphaNP
 
@@ -1168,20 +1275,21 @@ class Elem:
         vol1st = []
         xindlist = []
 
-        for a_inds, i_inds in product(combinations(self.range_a, dim),
+        for a_inds, i_inds in product(
+                combinations(self.range_a, dim),
                 combinations(self.range_i, dim)):
             # taking into account ordering
             numat = self.nutil[np.ix_(a_inds, i_inds)]
             hmat = self.gammatilvec[np.ix_(a_inds)]
 
-            voldatlist.append(np.linalg.det(numat))
+            voldatlist.append(det_64(numat))
             vol1part = []
             xindpart = []
             for i, eps_i in LeviCivita(dim):  # i: indices, eps_i: value
                 # continue here: what is GKP doing, is it correct, then NMGKP
                 xindpart.append(i_inds[i[0]])  # X always gets first index
                 vol1part.append(
-                    eps_i * np.linalg.det(np.c_[
+                    eps_i * det_64(np.c_[
                         hmat,  # to be multiplied by Xmat[i[0]]
                         np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
             vol1st.append(vol1part)
@@ -1212,21 +1320,21 @@ class Elem:
         for p, xpinds in enumerate(xindlist):
             vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
             alphalist.append(voldat[p] / vol1p)
-        alphalist = np.math.factorial(dim - 2) * alphalist
+        alphalist = factorial(dim - 1) * np.array(alphalist)
 
         return alphalist
 
     # ### projection method ###################################################
 
-    def pvec(self, v1, v2):
+    def pvec(self, v0, v1, v2):
 
         Dmat = np.c_[v1, v2]
 
-        return (Dmat @ np.linalg.inv(Dmat.T @ Dmat) @ Dmat.T) @ self.mutilvec
+        return ((Dmat @ inv(Dmat.T @ Dmat) @ Dmat.T) @ v0)
 
     def Vproj(self, v0, v1, v2):
 
-        pv = self.pvec(v1, v2)
+        pv = self.pvec(v0, v1, v2)
 
         return np.linalg.norm(v0 - pv) * np.sqrt(
             (v1 @ v1) * (v2 @ v2) - (v1 @ v2)**2)
@@ -1247,11 +1355,17 @@ class Elem:
             raise ValueError("""Projection method requires at least 3 isotope
             pairs.""")
 
-        mnu1 = (self.nutil.T)[0]
-        mnu2 = (self.nutil.T)[1]
+        mnu1 = np.array([(self.nutil)[a, iinds[0]] for a in ainds]) # (self.nutil.T)[0]
+        mnu2 = np.array([(self.nutil)[a, iinds[1]] for a in ainds]) # (self.nutil.T)[1]
 
-        Vexp = self.Vproj(self.mutilvec, mnu1, mnu2)
-        XindepVth = self.Vproj(self.mutilvec, mnu1, self.gammatilvec)
+        mmu = np.array([self.mutilvec[a] for a in ainds])
+        mgamma = np.array([self.gammatilvec[a] for a in ainds])
+
+        # Vexp = self.Vproj(self.mutilvec, mnu1, mnu2)
+        # XindepVth = self.Vproj(self.mutilvec, mnu1, self.gammatilvec)
+
+        Vexp = self.Vproj(mmu, mnu1, mnu2)
+        XindepVth = self.Vproj(mmu, mnu1, mgamma)
 
         return Vexp / XindepVth
 

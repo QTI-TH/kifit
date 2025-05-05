@@ -40,6 +40,7 @@ def generate_paramsamples(means, stdevs, nsamples):
 
     """
     return multivariate_normal.rvs(means, np.diag(stdevs**2), size=nsamples)
+    # return means + stdevs * np.random.randn(nsamples, len(means))
 
 
 def generate_elemsamples(elem, nsamples: int):
@@ -54,7 +55,7 @@ def generate_elemsamples(elem, nsamples: int):
 
 
     """
-    inputparam_samples = generate_paramsamples(
+    inputparamsamples = generate_paramsamples(
         elem.means_input_params, elem.stdevs_input_params, nsamples
     )
 
@@ -63,16 +64,25 @@ def generate_elemsamples(elem, nsamples: int):
     for kp1, ph1, cov in zip(elem.kp1_init, elem.ph1_init, elem.cov_kperp1_ph1):
         samples_per_transition.append(
             np.random.multivariate_normal([kp1, ph1], cov, size=nsamples))
-    fitparam_samples = []
-    for i in range(nsamples):
-        these_fitparams = []
-        for j in range(len(elem.kp1_init)):
-            these_fitparams.append(samples_per_transition[j][i][0])
-        for j in range(len(elem.kp1_init)):
-            these_fitparams.append(samples_per_transition[j][i][1])
-        fitparam_samples.append(these_fitparams)
 
-    return inputparam_samples, fitparam_samples
+    # for kp1, ph1, skp1, sph1 in zip(elem.kp1_init, elem.ph1_init,
+    #                                 1e-1 * elem.sig_kp1_init,
+    #                                 1e-1 * elem.sig_ph1_init):
+    #     samples_per_transition.append(
+    #             np.random.multivariate_normal([kp1, ph1],
+    #                                           [[skp1**2, 0], [0, sph1**2]],
+    #                                           size=nsamples))
+
+    fitparamsamples = []
+    for i in range(nsamples):
+        fitparams = []
+        for j in range(len(elem.kp1_init)):
+            fitparams.append(samples_per_transition[j][i][0])
+        for j in range(len(elem.kp1_init)):
+            fitparams.append(samples_per_transition[j][i][1])
+        fitparamsamples.append(fitparams)
+
+    return inputparamsamples, np.array(fitparamsamples)
 
 
 def objective(trial, elem_collection, nelemsamples, min_percentile,
@@ -81,10 +91,10 @@ def objective(trial, elem_collection, nelemsamples, min_percentile,
     alphaNP = trial.suggest_float('alphaNP', 1e-16, 1, log=True)
 
     if pos_alphaNP:
-        loss = logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile)
+        loss = logL_alphaNP(alphaNP, elem_collection, nelemsamples)  #, min_percentile)
 
     else:
-        loss = logL_alphaNP(-alphaNP, elem_collection, nelemsamples, min_percentile)
+        loss = logL_alphaNP(-alphaNP, elem_collection, nelemsamples)  #, min_percentile)
 
     return loss
 
@@ -94,7 +104,7 @@ def generate_alphaNP_samples(elem,
         search_mode: str = "normal",
         lbmin: float = None, lbmax: float = None,
         ubmin: float = None, ubmax: float = None,
-        logridfrac: float = -17):
+        logridfrac: float = 17):
     """
     Generate ``nsamples`` of alphaNP according to the initial conditions set in
     the instance ``elem`` of the Elem class. alphaNP is either sampled from a
@@ -130,8 +140,8 @@ def generate_alphaNP_samples(elem,
             num=nsamples
         )
     elif search_mode == "globalogrid":
-        
-        posgrid = np.logspace(-15, -1, nsamples)
+        max_exponent = 0.0075 * elem.x - 6
+        posgrid = np.logspace(-15, max_exponent, nsamples)
         alphaNP_samples = np.concatenate((- posgrid[::-1], posgrid))
 
     elif search_mode == "detlogrid":
@@ -157,9 +167,11 @@ def generate_alphaNP_samples(elem,
             nnegsamples = nsamples // 2
             nposamples = nsamples - nnegsamples
 
-            negrid = -np.logspace(np.log10(-lbmax) + logridfrac, np.log10(-lbmin),
+            negrid = -np.logspace(
+                np.log10(-lbmax) + logridfrac, np.log10(-lbmin) - logridfrac,
                 num=nnegsamples)[::-1]
-            posgrid = np.logspace(np.log10(ubmin) + logridfrac, np.log10(ubmax),
+            posgrid = np.logspace(
+                np.log10(ubmin) - logridfrac, np.log10(ubmax) + logridfrac,
                 num=nposamples)
 
             logging.info(f"""
@@ -185,6 +197,8 @@ def choLL(absd, covmat, lam=0):
     negative log-likelihood using the Cholesky decomposition of covmat.
 
     """
+    absd = np.array(absd)
+
     chol_covmat, lower = cho_factor(covmat + lam * np.eye(covmat.shape[0]), lower=True)
 
     absd_covinv_absd = absd.dot(cho_solve((chol_covmat, lower), absd))
@@ -214,7 +228,7 @@ def spectraLL(absd, covmat, lam=0):
 
 # when to compute them
 
-def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky"):
+def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky", lam=0.):
     """
     Since the loglikelihood is estimated numerically, it requires a list of
     samples of the input parameters.
@@ -231,6 +245,7 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky"):
 
     """
     # estimate covariance matrix using absdsamples, computed for fixed alpha value
+
     cov_absd = np.cov(np.array(absdsamples), rowvar=False)
 
     if cov_decomp_method == "cholesky":
@@ -241,12 +256,17 @@ def get_llist_elemsamples(absdsamples, cov_decomp_method="cholesky"):
     llist = []
 
     for absd in absdsamples:
-        llist.append(LL(absd, cov_absd))
+        llist.append(LL(absd, cov_absd, lam=lam))
 
     return np.array(llist)
 
 
-def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
+
+def logL_alphaNP(alphaNP,
+                 elem_collection,
+                 nelemsamples,
+                 # min_percentile,
+                 symm=False):
     """
     For elem_collection, compute negative loglikelihood for fixed alphaNP from
     ``nelemsamples`` samples of the input parameters associated to the elements
@@ -257,10 +277,8 @@ def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
         elem_collection:  element collection of interest
         nelemsamples:     number of samples of the input parameters to be used
                           for estimation of loglikelihood.
-        min_percentile:   percentile of samples to be used in comuptation of
-                          minimum log-likelihood value min_ll
     Returns:
-        min_ll:           log-likelihood value at min_percentile
+        min_ll:           minimum log-likelihood value
 
     """
 
@@ -273,23 +291,25 @@ def logL_alphaNP(alphaNP, elem_collection, nelemsamples, min_percentile):
 
     for elem in elem_collection.elems:
         absdsamples = []
-        inputparams_samples, fitparams_samples = generate_elemsamples(
+
+        inputparamsamples, fitparamsamples = generate_elemsamples(
             elem, nelemsamples)
 
-        for i, inputparam in enumerate(inputparams_samples):
+        for i, inputparams in enumerate(inputparamsamples):
             # generate_elemsamples(elem, nelemsamples)
-            elem._update_elem_params(inputparam)
-            these_fitparams = fitparams_samples[i]
-            these_fitparams.append(alphaNP)
-            elem._update_fit_params(these_fitparams)
-            absdsamples.append(elem.absd)
+            elem._update_elem_params(inputparams)
+            fitparams = fitparamsamples[i].tolist()
+            fitparams.append(alphaNP)
+            elem._update_fit_params(fitparams)
+            absdsamples.append(elem.absd(symm))
 
         lls = get_llist_elemsamples(np.array(absdsamples),
             cov_decomp_method="cholesky")
 
         loss += lls
 
-    return np.percentile(loss, min_percentile)  # np.mean(loss)
+    # return np.percentile(loss, min_percentile)  # np.mean(loss)
+    return np.min(loss)
 
 
 def compute_ll_experiments(
@@ -326,7 +346,8 @@ def compute_ll_experiments(
             alphaNP=alpha,
             elem_collection=elem_collection,
             nelemsamples=nelemsamples,
-            min_percentile=min_percentile)
+            # min_percentile=min_percentile
+            )
         )
 
     return np.array(alphasamples), np.array(lls)
@@ -344,6 +365,7 @@ def get_delchisq(llist, minll=None):
         minll = min(llist)
 
     if len(llist) > 0:
+        llist = np.array(llist)
         delchisqlist = 2 * (llist - minll)
 
         return delchisqlist
@@ -362,6 +384,16 @@ def get_delchisq_crit(nsigmas=2, dof=1):
 
     return chi2.ppf(conf_level, dof)
 
+
+def perform_polyfit(alphasamples, llsamples, degree=2):
+
+    return np.polyfit(alphasamples, llsamples, deg=degree)
+
+def polyfit_fct(pvec, xvals):
+
+    polly = np.poly1d(pvec)
+
+    return polly(xvals)
 
 # determine bounds & their uncertainties
 ##############################################################################
@@ -521,7 +553,7 @@ def get_bestalphaNP_and_bounds(
     upperbounds_exps = confints.T[1]
     ub_nans = np.argwhere(np.isnan(upperbounds_exps))
 
-    np.alltrue(lb_nans == ub_nans)
+    assert (lb_nans == ub_nans).all()
 
     lowerbounds_exps = lowerbounds_exps[~np.isnan(lowerbounds_exps)]
     upperbounds_exps = upperbounds_exps[~np.isnan(upperbounds_exps)]
@@ -722,9 +754,6 @@ def determine_search_interval(
 
 def organise_search_results(messenger, nexps, alphas, delchisqs, bestalphas, xind):
 
-    print("organise_search_results")
-    print("alphas.shape", np.array(alphas).shape)
-
     # alphas = np.array(alphas).flatten()
     # delchisqs = np.array(delchisqs).flatten()
 
@@ -733,7 +762,8 @@ def organise_search_results(messenger, nexps, alphas, delchisqs, bestalphas, xin
     # take larger of the two:
     #  - interval defined by median delchisq samples
     #  - 5 sigma interval
-    delchisqcrit_search = max(np.median(delchisqs), get_delchisq_crit(5))
+
+    delchisqcrit_search = max(.25 * np.median(delchisqs), get_delchisq_crit(5))
 
     search_interval = np.array(
         [
@@ -861,7 +891,7 @@ def perform_experiments(
             delchisqlist = get_delchisq(lls, minll=minll_1)
 
         elif expstr == "search":
-            delchisqlist = get_delchisq(lls, minll=min(lls))
+            delchisqlist = get_delchisq(lls, minll=None)
 
         if messenger.params.verbose is True:
 
@@ -889,7 +919,11 @@ def perform_experiments(
     # using results of all experiments, compute confidence intervals
 
     if expstr == "experiment":
-        delchisqcrit = get_delchisq_crit(nsigmas)
+
+        totaldof = np.sum([len(elem.means_fit_params) - 1 for elem in
+                       elem_collection.elems]) + 1
+
+        delchisqcrit = get_delchisq_crit(nsigmas, dof=totaldof)
 
         confints_exps = np.array(
             [
