@@ -37,5 +37,5 @@ python3 main.py --elements_list "Camin,Ybmin" \
 # The code in a diagram
 
 In the following diagram you can find a schematic overview of the `kifit` algorithm.
+![kifit_diagram](https://github.com/user-attachments/assets/0d9c918f-eef3-4fc1-ab5c-5845907d40b1)
 
-![image](https://github.com/user-attachments/assets/317d2e44-4f35-4f7d-a648-075a8267f72b)
