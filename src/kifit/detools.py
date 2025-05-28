@@ -74,11 +74,6 @@ def sample_gkp_combinations(
         elemparamsamples = generate_paramsamples(
             elem.means_input_params, elem.stdevs_input_params, nsamples)
 
-    # np.savetxt(os.path.join(plotfolder,
-    #                         f"{elem.id}_elemparamsamples_Ns{nsamples}.txt"),
-    #                elemparamsamples, delimiter=",")
-    #
-
     alphasamples = []
 
     for s, paramsample in enumerate(elemparamsamples):
