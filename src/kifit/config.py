@@ -1,5 +1,6 @@
 import os
 import json
+from pathlib import Path
 import numpy as np
 import logging
 from argparse import ArgumentParser, ArgumentTypeError
@@ -307,6 +308,7 @@ class Paths:
     def __init__(
         self, params: RunParams, collectionid: str, fit_keys: list, det_keys: list
     ):
+
         self.__params = params
         self.__elem_collection_id = collectionid
         self.generate_result_folder()
