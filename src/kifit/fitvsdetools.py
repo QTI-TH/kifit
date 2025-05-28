@@ -50,19 +50,12 @@ def covnutil_ai(elem, ainds, iinds, nsamples):
 
     covectorised = np.cov(vectorised_nutil, rowvar=False)
 
-    # print("cov")
-    # print(covectorised)
-    #
+
     return covectorised
-     #  .reshape(elem.nisotopepairs, elem.nisotopepairs, elem.ntransitions, elem.ntransitions)
 
 
 def LU_det(mat):
-    # _, _, U = lu(mat)
-    # return np.prod(np.diag(U))
-    # U, S, Vh = np.linalg.svd(mat)
-    # print("S", S)
-    # return np.prod(S)
+
     (sign, logabsdet) = np.linalg.slogdet(mat)
     if sign == 0:
         return -np.inf
@@ -151,9 +144,6 @@ def grad_alphaNP_nutil(nutil, Xcoeffs, gammatil, mutil, eps=1e-17):
     gradalpha = np.zeros_like(nutil)
 
     nutil_normed, norms_nutil = normalise_columns(nutil)
-    # gammatil_normed, norms_gammatil = normalise_columns(gammatil.reshape(-1,1))
-    # gammatil_normed = gammatil_normed.flatten()  # back to 1d array
-    #
     nutilmat = np.c_[nutil_normed, mutil]
 
     Vd = LU_det(nutilmat) * np.prod(norms_nutil)
@@ -170,7 +160,6 @@ def grad_alphaNP_nutil(nutil, Xcoeffs, gammatil, mutil, eps=1e-17):
             dVd = LU_det(np.c_[del_nutil, mutil])
             dV1 = V1_GKP_nutil(del_nutil, Xcoeffs, gammatil)
 
-            # gradalpha[a, i] = (V1 * dVd - Vd * dV1) / (V1**2 + eps)
             gradalpha[a, i] = Vd * dV1 / V1**2 * (V1 * dVd / (Vd * dV1) - 1)
 
 
