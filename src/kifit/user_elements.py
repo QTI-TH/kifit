@@ -21,5 +21,5 @@ user_elems = [
     "weakest_Yb_Kyoto_MIT_GSI_2022",
     "strongest_Yb_Kyoto_MIT_GSI_2022",
     "weakest_Yb_Kyoto_MIT_GSI_PTB_2024",
-    "strongest_Yb_Kyoto_MIT_GSI_PTB_2024"
+    "strongest_Yb_Kyoto_MIT_GSI_PTB_2024",
 ]

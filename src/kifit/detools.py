@@ -2,10 +2,7 @@ import numpy as np
 import os
 from math import factorial
 
-from itertools import (
-    product,
-    combinations
-)
+from itertools import product, combinations
 
 from kifit.fitools import generate_paramsamples
 
@@ -24,13 +21,13 @@ det_keys = [
     "allpos",
     "allneg",
     "nsigmas",
-    "x_ind"
+    "x_ind",
 ]
 
 
 plotfolder = os.path.abspath(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                     "test_output"))
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_output")
+)
 
 if not os.path.exists(plotfolder):
     os.mkdir(plotfolder)
@@ -39,12 +36,8 @@ if not os.path.exists(plotfolder):
 # generate samples
 ##############################################################################
 
-def sample_gkp_combinations(
-    elem,
-    nsamples,
-    dim,
-    detstr='gkp'
-):
+
+def sample_gkp_combinations(elem, nsamples, dim, detstr="gkp"):
     """
     Using the determinant formula specified by the dim and gkp arguments,
     generate mean & uncertainties of the numerator (voldat) and of the part of
@@ -72,33 +65,32 @@ def sample_gkp_combinations(
 
     else:
         elemparamsamples = generate_paramsamples(
-            elem.means_input_params, elem.stdevs_input_params, nsamples)
+            elem.means_input_params, elem.stdevs_input_params, nsamples
+        )
 
     alphasamples = []
 
     for s, paramsample in enumerate(elemparamsamples):
         elem._update_elem_params(paramsample)
 
-        if detstr=="gkp":
+        if detstr == "gkp":
             alphasamples.append(elem.alphaNP_GKP_combinations(dim))
 
-        elif detstr=="nmgkp":
+        elif detstr == "nmgkp":
             alphasamples.append(elem.alphaNP_NMGKP_combinations(dim))
 
         else:
-            raise ValueError("""Invalid detstr in sample_gkp_parts.
-                Only gkp or nmgkp are valid here.""")
+            raise ValueError(
+                """Invalid detstr in sample_gkp_parts.
+                Only gkp or nmgkp are valid here."""
+            )
 
     alphasamples = np.array(alphasamples)
 
     return alphasamples, elemparamsamples
 
 
-def sample_proj_combinations(
-    elem,
-    nsamples,
-    dim
-):
+def sample_proj_combinations(elem, nsamples, dim):
     """
     Using the determinant formula specified by the dim and gkp arguments,
     generate mean & uncertainties of the numerator (voldat) and of the part of
@@ -121,7 +113,8 @@ def sample_proj_combinations(
 
     else:
         elemparamsamples = generate_paramsamples(
-            elem.means_input_params, elem.stdevs_input_params, nsamples)
+            elem.means_input_params, elem.stdevs_input_params, nsamples
+        )
 
     alphasamples = []
 
@@ -133,12 +126,7 @@ def sample_proj_combinations(
     return alphasamples, elemparamsamples
 
 
-def generate_alphaNP_dets(
-    elem,
-    nsamples,
-    dim,
-    detstr="gkp"
-):
+def generate_alphaNP_dets(elem, nsamples, dim, detstr="gkp"):
     """
     Generate Get a set of ``nsamples`` of alphaNP by varying the masses and isotope
     shifts according to the means and standard deviations given in the input
@@ -165,58 +153,62 @@ def generate_alphaNP_dets(
 
     """
 
-
     # GKP / NMGKP #############################################################
 
     if detstr == "gkp" or detstr == "nmgkp" and nsamples > 1:
         # Part independent of X-coeffs
         alphasamples, _ = sample_gkp_combinations(
-            elem=elem,
-            nsamples=nsamples,
-            dim=dim,
-            detstr=detstr)
+            elem=elem, nsamples=nsamples, dim=dim, detstr=detstr
+        )
 
-
-    if detstr=="gkp":
-        lenp = len(list(
-            product(
-                combinations(elem.range_a, dim),
-                combinations(elem.range_i, dim - 1))))
+    if detstr == "gkp":
+        lenp = len(
+            list(
+                product(
+                    combinations(elem.range_a, dim), combinations(elem.range_i, dim - 1)
+                )
+            )
+        )
 
         elem._update_elem_params(elem.means_input_params)
         meanalphas = elem.alphaNP_GKP_combinations(dim)  # [permutation]
 
-    elif detstr=="nmgkp":
-        lenp = len(list(
-            product(
-                combinations(elem.range_a, dim),
-                combinations(elem.range_i, dim))))
+    elif detstr == "nmgkp":
+        lenp = len(
+            list(
+                product(
+                    combinations(elem.range_a, dim), combinations(elem.range_i, dim)
+                )
+            )
+        )
 
         elem._update_elem_params(elem.means_input_params)
         meanalphas = elem.alphaNP_NMGKP_combinations(dim)  # [permutation]
 
     # proj ####################################################################
 
-    elif detstr=="proj":
+    elif detstr == "proj":
         # Part independent of X-coeffs
 
         if nsamples > 1:
             alphasamples, _ = sample_proj_combinations(
-                elem=elem,
-                nsamples=nsamples,
-                dim=dim)
+                elem=elem, nsamples=nsamples, dim=dim
+            )
 
-        lenp = len(list(
-            product(
-                combinations(elem.range_a, dim),
-                combinations(elem.range_i, 2))))
+        lenp = len(
+            list(
+                product(combinations(elem.range_a, dim), combinations(elem.range_i, 2))
+            )
+        )
 
         elem._update_elem_params(elem.means_input_params)
         meanalphas = elem.alphaNP_proj_combinations(dim)  # [permutation]
 
     else:
-        raise ValueError("""Invalid detstr in generate_alphaNP_dets.
-            Only gkp, nmgkp or proj are valid.""")
+        raise ValueError(
+            """Invalid detstr in generate_alphaNP_dets.
+            Only gkp, nmgkp or proj are valid."""
+        )
 
     # meanalphas = np.average(alphasamples, axis=0)  # [permutation]
 
@@ -234,6 +226,7 @@ def generate_alphaNP_dets(
 
 # determine bounds
 ##############################################################################
+
 
 def get_minpos_maxneg_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
     """
@@ -263,13 +256,8 @@ def get_minpos_maxneg_alphaNP_bounds(alphaNPs, sigalphaNPs, nsigmas=2):
 # det procedure
 ##############################################################################
 
-def sample_alphaNP_det(
-    elem,
-    messenger,
-    dim,
-    detstr,
-    xind=0
-):
+
+def sample_alphaNP_det(elem, messenger, dim, detstr, xind=0):
     """
     Generate determinant results for elem specified by
 
@@ -292,15 +280,12 @@ def sample_alphaNP_det(
     """
 
     alphas, sigalphas, nb_permutations = generate_alphaNP_dets(
-        elem=elem,
-        nsamples=messenger.params.num_det_samples,
-        dim=dim,
-        detstr=detstr)
+        elem=elem, nsamples=messenger.params.num_det_samples, dim=dim, detstr=detstr
+    )
 
-    (
-        minpos, maxneg, allpos, allneg
-    ) = get_minpos_maxneg_alphaNP_bounds(alphas, sigalphas,
-        messenger.params.num_sigmas)
+    (minpos, maxneg, allpos, allneg) = get_minpos_maxneg_alphaNP_bounds(
+        alphas, sigalphas, messenger.params.num_sigmas
+    )
 
     det_results_x = [
         elem.id,
@@ -314,7 +299,7 @@ def sample_alphaNP_det(
         allpos,
         allneg,
         messenger.params.num_sigmas,
-        xind
+        xind,
     ]
 
     messenger.paths.write_det_output(detstr, dim, xind, det_results_x)
@@ -324,6 +309,7 @@ def sample_alphaNP_det(
 
 # collect all data for mphi-vs-alphaNP plot
 ##############################################################################
+
 
 def collect_det_X_data(config, dim, detstr):
     """
@@ -377,6 +363,4 @@ def collect_det_X_data(config, dim, detstr):
     UB = np.array(UB).reshape(len(config.x_vals_det))
     LB = np.array(LB).reshape(len(config.x_vals_det))
 
-    return (alphas, sigalphas,
-            UB, allpos, LB, allneg)
-
+    return (alphas, sigalphas, UB, allpos, LB, allneg)

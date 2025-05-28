@@ -34,22 +34,19 @@ def covnutil_ai(elem, ainds, iinds, nsamples):
     nisotopepairs = len(ainds)
     ntransitions = len(iinds)
 
-
     m_samples = generate_paramsamples(m_a, sig_m_a, nsamples)
     mp_samples = generate_paramsamples(m_ap, sig_m_ap, nsamples)
     mu_samples = 1 / m_samples - 1 / mp_samples
 
     nu_samples = generate_paramsamples(
-            nu.flatten(), sig_nu.flatten(),
-            nsamples).reshape(nsamples, nisotopepairs, ntransitions)
+        nu.flatten(), sig_nu.flatten(), nsamples
+    ).reshape(nsamples, nisotopepairs, ntransitions)
 
     nutil_samples = nu_samples / mu_samples[:, :, np.newaxis]
 
-    vectorised_nutil = nutil_samples.reshape(nsamples,
-                                             nisotopepairs * ntransitions)
+    vectorised_nutil = nutil_samples.reshape(nsamples, nisotopepairs * ntransitions)
 
     covectorised = np.cov(vectorised_nutil, rowvar=False)
-
 
     return covectorised
 
@@ -68,6 +65,7 @@ def normalise_columns(mat):
     norms[norms == 0] = 1
     return mat / norms, norms.flatten()
 
+
 def V1_GKP_nutil(nutil, Xcoeffs, gammatil):
 
     dim = nutil.shape[0]
@@ -75,11 +73,15 @@ def V1_GKP_nutil(nutil, Xcoeffs, gammatil):
 
     V1 = 0
     for i, eps_i in LeviCivita(dim - 1):
-        V1 += (eps_i * LU_det(np.c_[
-            Xcoeffs[i[0]] * gammatil,
-            np.array([nutil[:, i[s]] for s in range(1, dim - 1)]).T,
-            mutil]))
+        V1 += eps_i * LU_det(
+            np.c_[
+                Xcoeffs[i[0]] * gammatil,
+                np.array([nutil[:, i[s]] for s in range(1, dim - 1)]).T,
+                mutil,
+            ]
+        )
     return V1
+
 
 def V1_GKP_nutil_normed(nutil, Xcoeffs, gammatil):
 
@@ -90,10 +92,13 @@ def V1_GKP_nutil_normed(nutil, Xcoeffs, gammatil):
 
     V1 = 0
     for i, eps_i in LeviCivita(dim - 1):
-        det_mat = LU_det(np.c_[
-            Xcoeffs[i[0]] * gammatil,
-            np.array([nutil_normed[:, i[s]] for s in range(1, dim - 1)]).T,
-            mutil])
+        det_mat = LU_det(
+            np.c_[
+                Xcoeffs[i[0]] * gammatil,
+                np.array([nutil_normed[:, i[s]] for s in range(1, dim - 1)]).T,
+                mutil,
+            ]
+        )
         norm_factor = np.prod(norms_nutil[i[1:]])
 
         V1 += eps_i * det_mat * norm_factor
@@ -129,10 +134,7 @@ def alphaNP_GKP_nutil_normed(nutil, Xcoeffs, gammatil):
     print("Vd normed", Vd)
     print("V1 normed", V1)
 
-
     return factorial(dim - 2) * np.array(Vd / V1)
-
-
 
 
 def grad_alphaNP_nutil(nutil, Xcoeffs, gammatil, mutil, eps=1e-17):
@@ -162,17 +164,15 @@ def grad_alphaNP_nutil(nutil, Xcoeffs, gammatil, mutil, eps=1e-17):
 
             gradalpha[a, i] = Vd * dV1 / V1**2 * (V1 * dVd / (Vd * dV1) - 1)
 
-
             print("a", a)
             print("i", i)
             print("V1 dVd", V1 * dVd)
             print("Vd dV1", Vd * dV1)
             print("V1 dVd - Vd dV1", (V1 * dVd - Vd * dV1))
-            print("1/V1^2", 1/ V1**2)
+            print("1/V1^2", 1 / V1**2)
             print("gradalpha", (V1 * dVd - Vd * dV1) / V1**2)
 
-            print("new frac", V1 * dVd / (Vd * dV1) )
-
+            print("new frac", V1 * dVd / (Vd * dV1))
 
     return gradalpha.flatten()
 
@@ -183,9 +183,12 @@ def V1_NMGKP_nutil(nutil, Xcoeffs, gammatil):
 
     V1 = 0
     for i, eps_i in LeviCivita(dim):
-        V1 += (eps_i * LU_det(np.c_[
-            Xcoeffs[i[0]] * gammatil,
-            np.array([nutil[:, i[s]] for s in range(1, dim)]).T]))
+        V1 += eps_i * LU_det(
+            np.c_[
+                Xcoeffs[i[0]] * gammatil,
+                np.array([nutil[:, i[s]] for s in range(1, dim)]).T,
+            ]
+        )
 
     return V1
 
@@ -220,8 +223,9 @@ def SigmalphaNP(elem, nsamples, dim=3, detstr="gkp"):
 
     sa, sa_perp, sa_para = [], [], []
 
-    for a_inds, i_inds in product(combinations(elem.range_a, dim),
-            combinations(elem.range_i, dim - 1)):
+    for a_inds, i_inds in product(
+        combinations(elem.range_a, dim), combinations(elem.range_i, dim - 1)
+    ):
 
         nutil, Xcoeffs, gammatil, mutil = prepare_dataset(elem, a_inds, i_inds)
 

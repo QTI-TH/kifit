@@ -13,10 +13,9 @@ from functools import cache
 from kifit.cache_update import update_fct, cached_fct, cached_fct_property
 from kifit.user_elements import user_elems
 
-_data_path = os.path.abspath(os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    '../kifit_data'
-))
+_data_path = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "../kifit_data")
+)
 
 ###############################################################################
 
@@ -35,10 +34,12 @@ def sec(x: float):
     """
     return 1 / np.cos(x)
 
+
 def det_64(mat):
     mat_64 = np.array(mat, dtype=np.float64)
 
     return np.linalg.det(mat_64)
+
 
 def Levi_Civita_generator(n):
     """
@@ -72,6 +73,7 @@ def LeviCivita(dim):
 
 # linear King fit
 ##############################################################################
+
 
 def linfit(p, x):
     return p[0] * x + p[1]
@@ -138,7 +140,7 @@ def perform_linreg(isotopeshiftdata):  # , reference_transition_index: int = 0):
 
 
 def perform_odr(isotopeshiftdata, sigisotopeshiftdata):
-#, reference_transition_index: int = 0):
+    # , reference_transition_index: int = 0):
     """
     Perform separate orthogonal distance regression for each transition pair.
 
@@ -181,12 +183,12 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata):
 
         # Extract beta and covariance matrix
 
-        beta_out = (out.beta)
-        sig_beta_out = (out.sd_beta)
+        beta_out = out.beta
+        sig_beta_out = out.sd_beta
 
         betas.append(beta_out)
         sig_betas.append(sig_beta_out)
-        cov_beta = (out.cov_beta)
+        cov_beta = out.cov_beta
 
         # Calculate ph1 and kperp1
         ph1 = np.arctan(beta_out[0])
@@ -194,12 +196,13 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata):
         # Derivatives for the delta method
         d_kperp1_d_beta0 = -beta_out[1] * np.sin(ph1)
         d_kperp1_d_beta1 = np.cos(ph1)
-        d_ph1_d_beta0 = 1 / (1 + beta_out[0]**2)
+        d_ph1_d_beta0 = 1 / (1 + beta_out[0] ** 2)
         d_ph1_d_beta1 = 0
 
         # Jacobian matrix J
-        J = np.array([[d_kperp1_d_beta0, d_kperp1_d_beta1],
-                      [d_ph1_d_beta0, d_ph1_d_beta1]])
+        J = np.array(
+            [[d_kperp1_d_beta0, d_kperp1_d_beta1], [d_ph1_d_beta0, d_ph1_d_beta1]]
+        )
 
         # Covariance matrix for (kperp1, ph1)
         cov_kperp1_ph1 = J @ cov_beta @ J.T
@@ -219,12 +222,12 @@ def perform_odr(isotopeshiftdata, sigisotopeshiftdata):
 
     cov_kperp1_ph1s = np.array(cov_kperp1_ph1s)
 
-    return (betas, sig_betas,
-        kperp1s, ph1s, sig_kperp1s, sig_ph1s, cov_kperp1_ph1s)
+    return (betas, sig_betas, kperp1s, ph1s, sig_kperp1s, sig_ph1s, cov_kperp1_ph1s)
 
 
 # Element Collection
 ##############################################################################
+
 
 class ElemCollection:
 
@@ -235,8 +238,7 @@ class ElemCollection:
         if reference_transitions is None:
             reference_transitions = np.zeros(len(elemlist), dtype=int)
 
-        for elemstr, ref_trans_ind in zip(elemlist[:-1],
-                                          reference_transitions[:-1]):
+        for elemstr, ref_trans_ind in zip(elemlist[:-1], reference_transitions[:-1]):
             elem = Elem(str(elemstr), ref_trans_ind)
             elem_collection.append(elem)
             elem_collection_id += elem.id + "_"
@@ -251,7 +253,7 @@ class ElemCollection:
         self.len = len(elem_collection)
 
         self._init_Xcoeffs()
-        #self.check_det_dims(gkpdims, nmgkpdims)
+        # self.check_det_dims(gkpdims, nmgkpdims)
 
     def _init_Xcoeffs(self):
         # check whether the Xcoeff are the same
@@ -264,8 +266,10 @@ class ElemCollection:
                     "Please prepare data with same mphi values for all "
                     + "elements in the collection."
                 )
-        logging.info("All elements have been given X-coefficients with "
-        + "compatible mphi values.")
+        logging.info(
+            "All elements have been given X-coefficients with "
+            + "compatible mphi values."
+        )
 
         self.mphis = first_list
         self.x_vals = (self.elems[0]).x_vals
@@ -281,7 +285,8 @@ class ElemCollection:
         if not (not gkpdims and not nmgkpdims and not projdims):
             if self.len != 1:
                 raise IndexError(
-                    "Determinant methods are only valid for single element.")
+                    "Determinant methods are only valid for single element."
+                )
             else:
                 (self.elems[0]).check_det_dims(gkpdims, nmgkpdims, projdims)
 
@@ -289,28 +294,42 @@ class ElemCollection:
 # Elem
 ##############################################################################
 
+
 class Elem:
     # ADMIN ####################################################################
     # Load raw data from data folder
     # VALID_ELEM = ['Ca']
     VALID_ELEM = user_elems
     INPUT_FILES = [
-        'nu', 'sig_nu', 'isotopes', 'binding_energies',
-        'Xcoeffs', 'sig_Xcoeffs']
+        "nu",
+        "sig_nu",
+        "isotopes",
+        "binding_energies",
+        "Xcoeffs",
+        "sig_Xcoeffs",
+    ]
     elem_init_atr = [
-        'nu_in', 'sig_nu_in', 'isotope_data', 'Eb_data',
-        'Xcoeff_data', 'sig_Xcoeff_data']
+        "nu_in",
+        "sig_nu_in",
+        "isotope_data",
+        "Eb_data",
+        "Xcoeff_data",
+        "sig_Xcoeff_data",
+    ]
 
-    def __init__(self, element: str,
-                 reference_transition_index=0):
+    def __init__(self, element: str, reference_transition_index=0):
         """
         Load all data files associated to element and initialises Elem.
         instance.
 
         """
         if element not in self.VALID_ELEM:
-            raise NameError("""Element {} not supported. You may want to add it
-                    to src/kifit/user_elems""".format(element))
+            raise NameError(
+                """Element {} not supported. You may want to add it
+                    to src/kifit/user_elems""".format(
+                    element
+                )
+            )
 
         logging.info("Loading raw data")
 
@@ -344,20 +363,22 @@ class Elem:
 
         return val
 
-
     def __init_input(self, atr: str, file_path: str):
 
-        logging.info('Loading attribute {} for element {} from {}'.format(
-            atr, self.id, file_path))
+        logging.info(
+            "Loading attribute {} for element {} from {}".format(
+                atr, self.id, file_path
+            )
+        )
 
         val = np.loadtxt(file_path)
 
-        if ((atr == 'Xcoeff_data') or (atr == 'sig_Xcoeff_data')):
+        if (atr == "Xcoeff_data") or (atr == "sig_Xcoeff_data"):
 
             val = val.reshape(-1, self.ntransitions + 1)
             val = self.__transform_Xcoeffs(val)
 
-        elif ((atr == 'nu_in') or (atr == 'sig_nu_in')):
+        elif (atr == "nu_in") or (atr == "sig_nu_in"):
 
             val = self.__transform_nus(val)
 
@@ -365,17 +386,19 @@ class Elem:
 
     def _init_elemdata(self):
         # load data from elem folder
-        file_path = {filetype: os.path.join(_data_path, self.id,
-                                            filetype + '_' + self.id + '.dat')
-                     for filetype in self.INPUT_FILES}
+        file_path = {
+            filetype: os.path.join(
+                _data_path, self.id, filetype + "_" + self.id + ".dat"
+            )
+            for filetype in self.INPUT_FILES
+        }
 
-        self.__init_input('nu_in', file_path['nu'])
-        self.__init_input('sig_nu_in', file_path['sig_nu'])
-        self.__init_input('isotope_data', file_path['isotopes'])
-        self.__init_input('Eb_data', file_path['binding_energies'])
-        self.__init_input('Xcoeff_data', file_path['Xcoeffs'])
-        self.__init_input('sig_Xcoeff_data', file_path['sig_Xcoeffs'])
-
+        self.__init_input("nu_in", file_path["nu"])
+        self.__init_input("sig_nu_in", file_path["sig_nu"])
+        self.__init_input("isotope_data", file_path["isotopes"])
+        self.__init_input("Eb_data", file_path["binding_energies"])
+        self.__init_input("Xcoeff_data", file_path["Xcoeffs"])
+        self.__init_input("sig_Xcoeff_data", file_path["sig_Xcoeffs"])
 
     def _init_masses(self):
         """
@@ -407,19 +430,16 @@ class Elem:
                 sig_Eb = self.Eb_data.T[1] * (-1) * eV_to_u
                 n_electrons = len(Eb)
 
-
             # nuclear masses
             self.m_a_in = m_a_0 - n_electrons * m_e + np.sum(Eb)
             self.sig_m_a_in = np.sqrt(
-                sig_m_a_0**2
-                + (n_electrons * sig_m_e)**2
-                + sig_Eb @ sig_Eb)
+                sig_m_a_0**2 + (n_electrons * sig_m_e) ** 2 + sig_Eb @ sig_Eb
+            )
 
             self.m_ap_in = m_ap_0 - n_electrons * m_e + np.sum(Eb)
             self.sig_m_ap_in = np.sqrt(
-                sig_m_ap_0**2
-                + (n_electrons * sig_m_e)**2
-                + sig_Eb @ sig_Eb)
+                sig_m_ap_0**2 + (n_electrons * sig_m_e) ** 2 + sig_Eb @ sig_Eb
+            )
 
     def _init_Xcoeffs(self):
         """
@@ -435,8 +455,10 @@ class Elem:
         self.Xvec = self.Xcoeff_data[self.x, 1:]
 
         if self.sig_Xcoeff_data[self.x, 0] != self.mphi:
-            raise ValueError("""Mediator masses mphi do not match in files with
-            X-coefficients and their uncertainties.""")
+            raise ValueError(
+                """Mediator masses mphi do not match in files with
+            X-coefficients and their uncertainties."""
+            )
         else:
             self.sig_Xvec = self.sig_Xcoeff_data[self.x, 1:]
 
@@ -462,22 +484,23 @@ class Elem:
         """
 
         (
-            _, _,
-            self.kp1_init, self.ph1_init,
-            self.sig_kp1_init, self.sig_ph1_init,
-            self.cov_kperp1_ph1
-        ) = perform_odr(
-            self.nutil_in, self.sig_nutil_in)
-            # reference_transition_index=0)
+            _,
+            _,
+            self.kp1_init,
+            self.ph1_init,
+            self.sig_kp1_init,
+            self.sig_ph1_init,
+            self.cov_kperp1_ph1,
+        ) = perform_odr(self.nutil_in, self.sig_nutil_in)
+        # reference_transition_index=0)
 
-        self.alphaNP_init = 0.
+        self.alphaNP_init = 0.0
 
         self.kp1 = self.kp1_init
         self.ph1 = self.ph1_init
         self.alphaNP = self.alphaNP_init
 
         self.sig_alphaNP_init = 1
-
 
     @update_fct
     def set_alphaNP_init(self, alpha, sigalpha):
@@ -501,7 +524,7 @@ class Elem:
         self.sig_alphaNP_init = sigalpha
 
     def __repr__(self):
-        return self.id + '[' + ','.join(list(self.__dict__.keys())) + ']'
+        return self.id + "[" + ",".join(list(self.__dict__.keys())) + "]"
 
     @classmethod
     def load_all(cls):
@@ -517,7 +540,7 @@ class Elem:
         a given mediator mass.
 
         """
-        if (x < 0 or len(self.Xcoeff_data) - 1 < x):
+        if x < 0 or len(self.Xcoeff_data) - 1 < x:
             raise IndexError(f"Index {x} not within permitted range for x.")
 
         self.x = x
@@ -525,8 +548,10 @@ class Elem:
         self.Xvec = self.Xcoeff_data[x, 1:]
 
         if self.sig_Xcoeff_data[x, 0] != self.mphi:
-            raise ValueError("""Mediator masses mphi do not match in files with
-                    X-coefficients and their uncertainties.""")
+            raise ValueError(
+                """Mediator masses mphi do not match in files with
+                    X-coefficients and their uncertainties."""
+            )
         else:
             self.sig_Xvec = self.sig_Xcoeff_data[x, 1:]
 
@@ -543,22 +568,24 @@ class Elem:
 
         """
 
-        self.kp1 = thetas[:self.ntransitions - 1]
-        self.ph1 = thetas[
-                self.ntransitions - 1: 2 * self.ntransitions - 2]
+        self.kp1 = thetas[: self.ntransitions - 1]
+        self.ph1 = thetas[self.ntransitions - 1 : 2 * self.ntransitions - 2]
         self.alphaNP = thetas[-1]
 
-        if (
-                (len(self.kp1) != self.ntransitions - 1)
-                or (len(self.ph1) != self.ntransitions - 1)):
+        if (len(self.kp1) != self.ntransitions - 1) or (
+            len(self.ph1) != self.ntransitions - 1
+        ):
             raise AttributeError(
-                """Passed fit parameters do not have appropriate dimensions""")
+                """Passed fit parameters do not have appropriate dimensions"""
+            )
         #
-        if np.array([
-            (-np.pi / 2 > phij) or (phij > np.pi / 2)
-            for phij in self.ph1]).any():
-            raise ValueError("""Passed phij values are not within 1st / 4th
-            quadrant.""")
+        if np.array(
+            [(-np.pi / 2 > phij) or (phij > np.pi / 2) for phij in self.ph1]
+        ).any():
+            raise ValueError(
+                """Passed phij values are not within 1st / 4th
+            quadrant."""
+            )
 
     @update_fct
     def _update_elem_params(self, vals):
@@ -570,10 +597,9 @@ class Elem:
         to the values provided in "vals".
 
         """
-        self.m_a = vals[:self.nisotopepairs]
-        self.m_ap = vals[self.nisotopepairs:2 * self.nisotopepairs]
-        self.nu = vals[2 * self.nisotopepairs:].reshape(self.nisotopepairs, -1)
-
+        self.m_a = vals[: self.nisotopepairs]
+        self.m_ap = vals[self.nisotopepairs : 2 * self.nisotopepairs]
+        self.nu = vals[2 * self.nisotopepairs :].reshape(self.nisotopepairs, -1)
 
     # ELEM PROPERTIES ##########################################################
 
@@ -625,8 +651,10 @@ class Elem:
 
         """
         print()
-        print(f"Loaded element {self.id} has {self.nisotopepairs} isotope pairs"
-            + f" and {self.ntransitions} transitions.")
+        print(
+            f"Loaded element {self.id} has {self.nisotopepairs} isotope pairs"
+            + f" and {self.ntransitions} transitions."
+        )
         print()
 
         return 0
@@ -655,26 +683,32 @@ class Elem:
 
         """
         if self.ntransitions < 2:
-            raise ValueError(
-                """Determinant methods require at least 2 transitions.""")
+            raise ValueError("""Determinant methods require at least 2 transitions.""")
 
         for dim in gkpdims:
             if dim < 3:
-                raise ValueError("""Generalised King Plot formula is only valid
-                for dim >=3.""")
+                raise ValueError(
+                    """Generalised King Plot formula is only valid
+                for dim >=3."""
+                )
             if dim > self.nisotopepairs or dim > self.ntransitions + 1:
-                raise ValueError("""GKP dim is larger than dimension of provided
-                data.""")
+                raise ValueError(
+                    """GKP dim is larger than dimension of provided
+                data."""
+                )
             else:
                 logging.info(f"GKP dimension {dim} is valid.")
 
         for dim in nmgkpdims:
             if dim < 3:
-                raise ValueError("""No-Mass Generalised King Plot formula is
-                only valid for dim >=3.""")
+                raise ValueError(
+                    """No-Mass Generalised King Plot formula is
+                only valid for dim >=3."""
+                )
             if dim > self.nisotopepairs or dim > self.ntransitions:
                 raise ValueError(
-                    """NMGKP dim is larger than dimension of provided data.""")
+                    """NMGKP dim is larger than dimension of provided data."""
+                )
             else:
                 logging.info(f"Parsed NMGKP dimension {dim} is valid.")
 
@@ -683,7 +717,8 @@ class Elem:
                 raise ValueError("""Projection method is only valid for dim >=3.""")
             if dim > self.nisotopepairs:
                 raise ValueError(
-                    """proj dim is larger than provided number of isotope pairs.""")
+                    """proj dim is larger than provided number of isotope pairs."""
+                )
             else:
                 logging.info(f"Parsed proj dimension {dim} is valid.")
 
@@ -700,6 +735,7 @@ class Elem:
 
         """
         return np.concatenate((self.m_a_in, self.m_ap_in, self.nu_in), axis=None)
+
     @cached_fct_property
     def means_fit_params(self):
         """
@@ -709,7 +745,9 @@ class Elem:
 
         These are computed using an initial linear fit.
         """
-        return np.concatenate((self.kp1_init, self.ph1_init, self.alphaNP_init), axis=None)
+        return np.concatenate(
+            (self.kp1_init, self.ph1_init, self.alphaNP_init), axis=None
+        )
 
     @cached_fct_property
     def stdevs_input_params(self):
@@ -721,7 +759,9 @@ class Elem:
         These are provided by the input files.
 
         """
-        return np.concatenate((self.sig_m_a_in, self.sig_m_ap_in, self.sig_nu_in), axis=None)
+        return np.concatenate(
+            (self.sig_m_a_in, self.sig_m_ap_in, self.sig_nu_in), axis=None
+        )
 
     @cached_fct_property
     def stdevs_fit_params(self):
@@ -732,8 +772,11 @@ class Elem:
 
         These are computed using an initial linear fit.
         """
-        return np.diag(np.concatenate((self.sig_kp1_init, self.sig_ph1_init,
-            self.sig_alphaNP_init), axis=None))
+        return np.diag(
+            np.concatenate(
+                (self.sig_kp1_init, self.sig_ph1_init, self.sig_alphaNP_init), axis=None
+            )
+        )
 
     @cached_fct_property
     def range_a(self):
@@ -810,24 +853,28 @@ class Elem:
 
         """
 
-        signutil = np.absolute(np.array(
-            [
+        signutil = np.absolute(
+            np.array(
                 [
-                    self.nutil_in[a, i]
-                    * np.sqrt(
-                        (self.sig_nu_in[a, i] / self.nu_in[a, i])**2
-                        + 1 / (1 / self.m_a_in[a] - 1 / self.m_ap_in[a])**2 * (
-                            (self.sig_m_a_in[a] / self.m_a_in[a]**2)**2
-                            + (self.sig_m_ap_in[a] / self.m_ap_in[a]**2)**2)
+                    [
+                        self.nutil_in[a, i]
+                        * np.sqrt(
+                            (self.sig_nu_in[a, i] / self.nu_in[a, i]) ** 2
+                            + 1
+                            / (1 / self.m_a_in[a] - 1 / self.m_ap_in[a]) ** 2
+                            * (
+                                (self.sig_m_a_in[a] / self.m_a_in[a] ** 2) ** 2
+                                + (self.sig_m_ap_in[a] / self.m_ap_in[a] ** 2) ** 2
+                            )
                         )
-                        for i in self.range_i]
-                for a in self.range_a]
-            ))
+                        for i in self.range_i
+                    ]
+                    for a in self.range_a
+                ]
+            )
+        )
 
         return signutil
-
-
-
 
     # QUANTITIES DERIVED FROM SAMPLED ELEMENT PROPERTIES ######################
 
@@ -846,8 +893,7 @@ class Elem:
         """
         dim = len(self.m_ap)
 
-        return np.divide(np.ones(dim), self.m_a) - np.divide(np.ones(dim),
-                self.m_ap)
+        return np.divide(np.ones(dim), self.m_a) - np.divide(np.ones(dim), self.m_ap)
 
     @cached_fct_property
     def mutilvec(self):
@@ -889,7 +935,7 @@ class Elem:
         Component of mass shift vector that is perpendicular to the King line.
 
         """
-        return np.insert(self.kp1, 0, 0.)
+        return np.insert(self.kp1, 0, 0.0)
 
     @cached_fct_property
     def F1(self):
@@ -899,7 +945,7 @@ class Elem:
            F1 = [1, tan(phi_12), ... , tan(phi_1n)]
 
         """
-        return np.insert(np.tan(self.ph1), 0, 1.)
+        return np.insert(np.tan(self.ph1), 0, 1.0)
 
     @cached_fct_property
     def F1sq(self):
@@ -927,17 +973,10 @@ class Elem:
         Return Fji = Fj / Fi for general i, j.
 
         """
-        isotopeshiftdata = np.c_[
-            self.nutil_in.T[i],
-            self.nutil_in.T[j]
-        ]
-        sigisotopeshiftdata = np.c_[
-            self.sig_nutil_in.T[i],
-            self.sig_nutil_in.T[j]
-        ]
+        isotopeshiftdata = np.c_[self.nutil_in.T[i], self.nutil_in.T[j]]
+        sigisotopeshiftdata = np.c_[self.sig_nutil_in.T[i], self.sig_nutil_in.T[j]]
 
-        betas, _, _, _, _, _, _ = perform_odr(
-            isotopeshiftdata, sigisotopeshiftdata)
+        betas, _, _, _, _, _, _ = perform_odr(isotopeshiftdata, sigisotopeshiftdata)
 
         return betas[0, 0]
 
@@ -955,7 +994,7 @@ class Elem:
         Return electronic coefficient X_ij of the new physics term.
 
         """
-        return (self.Xvec - self.F1 * self.Xvec[0])
+        return self.Xvec - self.F1 * self.Xvec[0]
 
     # Construction of the Loglikelihood Function ##############################
     @cached_fct
@@ -967,13 +1006,14 @@ class Elem:
         """
         if symm:
             return self.alphaNP * np.tensordot(
-                self.gammatilvec - np.average(self.gammatilvec), self.X1, axes=0)
+                self.gammatilvec - np.average(self.gammatilvec), self.X1, axes=0
+            )
 
         else:
             np_term_1 = np.tensordot(self.gammatilvec, self.X1, axes=0)
-            avg_a_np_term_1 = (
-                    np.sum(np_term_1 * self.sig_nutil_in, axis=0) /
-                    np.sum(self.sig_nutil_in, axis=0))
+            avg_a_np_term_1 = np.sum(np_term_1 * self.sig_nutil_in, axis=0) / np.sum(
+                self.sig_nutil_in, axis=0
+            )
             return self.alphaNP * (np_term_1 - avg_a_np_term_1)
 
     @cached_fct
@@ -983,14 +1023,17 @@ class Elem:
         transition index.
 
         """
-        if ((i == 0) and (a in self.range_a)):
+        if (i == 0) and (a in self.range_a):
             return 0
 
-        elif ((i in self.range_j) and (a in self.range_a)):
-            return (self.nutil[a, i] - self.F1[i] * self.nutil[a, 0]
-                    - self.diff_np_term(symm)[a, i])
+        elif (i in self.range_j) and (a in self.range_a):
+            return (
+                self.nutil[a, i]
+                - self.F1[i] * self.nutil[a, 0]
+                - self.diff_np_term(symm)[a, i]
+            )
         else:
-            raise IndexError('Index passed to D_a1i is out of range.')
+            raise IndexError("Index passed to D_a1i is out of range.")
 
     @cached_fct
     def d_ai(self, a: int, i: int, symm: bool):
@@ -998,18 +1041,29 @@ class Elem:
         Returns element d_i^{AA'} of the n-vector d^{AA'}.
 
         """
-        if ((i == 0) & (a in self.range_a)):
-            return (- 1 / self.F1sq * np.sum(np.array([self.F1[j]
-                * (self.D_a1i(a, j, symm)
-                    - self.secph1[j] * self.Kperp1[j])
-                for j in self.range_j])))
+        if (i == 0) & (a in self.range_a):
+            return (
+                -1
+                / self.F1sq
+                * np.sum(
+                    np.array(
+                        [
+                            self.F1[j]
+                            * (self.D_a1i(a, j, symm) - self.secph1[j] * self.Kperp1[j])
+                            for j in self.range_j
+                        ]
+                    )
+                )
+            )
 
-        elif ((i in self.range_j) & (a in self.range_a)):
-            return (self.D_a1i(a, i, symm)
-                    - self.secph1[i] * self.Kperp1[i]
-                    + self.F1[i] * self.d_ai(a, 0, symm))
+        elif (i in self.range_j) & (a in self.range_a):
+            return (
+                self.D_a1i(a, i, symm)
+                - self.secph1[i] * self.Kperp1[i]
+                + self.F1[i] * self.d_ai(a, 0, symm)
+            )
         else:
-            raise IndexError('Index passed to d_ai is out of range.')
+            raise IndexError("Index passed to d_ai is out of range.")
 
     @cached_fct
     def dmat(self, symm: bool):
@@ -1017,9 +1071,12 @@ class Elem:
         Return full distances matrix.
 
         """
-        return (np.array([[
-            self.d_ai(a, i, symm) for i in self.range_i] for a in self.range_a])
-            / self.dnorm)
+        return (
+            np.array(
+                [[self.d_ai(a, i, symm) for i in self.range_i] for a in self.range_a]
+            )
+            / self.dnorm
+        )
 
     @cached_fct
     def absd(self, symm: bool):
@@ -1044,17 +1101,27 @@ class Elem:
         """
         dim = len(ainds)
         if dim < 3:
-            raise ValueError("""Generalised King Plot formula is only valid for
-            numbers of isotope pairs >=3.""")
+            raise ValueError(
+                """Generalised King Plot formula is only valid for
+            numbers of isotope pairs >=3."""
+            )
         if len(iinds) != dim - 1:
-            raise ValueError("""Generalised King Plot formula requires one
-            transition less than the number of isotope pairs.""")
+            raise ValueError(
+                """Generalised King Plot formula requires one
+            transition less than the number of isotope pairs."""
+            )
         if max(ainds) > self.nisotopepairs:
-            raise ValueError("""Element %s does not have the required number of
-            isotope pairs.""" % (self.id))
+            raise ValueError(
+                """Element %s does not have the required number of
+            isotope pairs."""
+                % (self.id)
+            )
         if max(iinds) > self.ntransitions:
-            raise ValueError("""Element %s does not have the required number of
-            transitions.""" % (self.id))
+            raise ValueError(
+                """Element %s does not have the required number of
+            transitions."""
+                % (self.id)
+            )
 
         numat = self.nutil[np.ix_(ainds, iinds)]
         mumat = self.mutilvec[np.ix_(ainds)]
@@ -1066,10 +1133,15 @@ class Elem:
 
         vol_alphaNP1 = 0
         for i, eps_i in LeviCivita(dim - 1):
-            vol_alphaNP1 += (eps_i * det_64(np.c_[
-                Xmat[i[0]] * hmat,
-                np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
-                mumat]))
+            vol_alphaNP1 += eps_i * det_64(
+                np.c_[
+                    Xmat[i[0]] * hmat,
+                    np.array(
+                        [numat[:, i[s]] for s in range(1, dim - 1)]
+                    ).T,  # numat[:, i[1]],
+                    mumat,
+                ]
+            )
 
         alphaNP = factorial(dim - 2) * np.array(vol_data / vol_alphaNP1)
 
@@ -1101,7 +1173,8 @@ class Elem:
         """
         if dim < 3:
             raise ValueError(
-                """Generalised King Plot formula is only valid for dim >=3.""")
+                """Generalised King Plot formula is only valid for dim >=3."""
+            )
         if dim > self.nisotopepairs or dim > self.ntransitions + 1:
             raise ValueError("""dim is larger than dimension of provided data.""")
 
@@ -1109,8 +1182,9 @@ class Elem:
         vol1st = []
         xindlist = []
 
-        for a_inds, i_inds in product(combinations(self.range_a, dim),
-                combinations(self.range_i, dim - 1)):
+        for a_inds, i_inds in product(
+            combinations(self.range_a, dim), combinations(self.range_i, dim - 1)
+        ):
             # taking into account ordering
             numat = self.nutil[np.ix_(a_inds, i_inds)]
             mumat = self.mutilvec[np.ix_(a_inds)]
@@ -1122,10 +1196,15 @@ class Elem:
             for i, eps_i in LeviCivita(dim - 1):
                 xindpart.append(i_inds[i[0]])  # X always gets first index
                 vol1part.append(
-                    eps_i * det_64(np.c_[
-                        hmat,  # to be multiplied by Xmat[i[0]]
-                        np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,
-                        mumat]))
+                    eps_i
+                    * det_64(
+                        np.c_[
+                            hmat,  # to be multiplied by Xmat[i[0]]
+                            np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,
+                            mumat,
+                        ]
+                    )
+                )
             vol1st.append(vol1part)
             xindlist.append(xindpart)
 
@@ -1171,17 +1250,27 @@ class Elem:
         """
         dim = len(ainds)
         if dim < 3:
-            raise ValueError("""Generalised King Plot formula is only valid for
-            numbers of isotope pairs >=3.""")
+            raise ValueError(
+                """Generalised King Plot formula is only valid for
+            numbers of isotope pairs >=3."""
+            )
         if len(iinds) != dim:
-            raise ValueError("""Generalised King Plot formula requires same
-            number of transitions as isotope pairs.""")
+            raise ValueError(
+                """Generalised King Plot formula requires same
+            number of transitions as isotope pairs."""
+            )
         if max(ainds) > self.nisotopepairs:
-            raise ValueError("""Element %s does not have the required number of
-            isotope pairs.""" % (self.id))
+            raise ValueError(
+                """Element %s does not have the required number of
+            isotope pairs."""
+                % (self.id)
+            )
         if max(iinds) > self.ntransitions:
-            raise ValueError("""Element %s does not have the required number of
-            transitions.""" % (self.id))
+            raise ValueError(
+                """Element %s does not have the required number of
+            transitions."""
+                % (self.id)
+            )
 
         numat = self.nutil[np.ix_(ainds, iinds)]
         Xmat = self.Xvec[np.ix_(iinds)]  # X-coefficients for a given mphi
@@ -1191,9 +1280,12 @@ class Elem:
 
         vol_alphaNP1 = 0
         for i, eps_i in LeviCivita(dim):
-            vol_alphaNP1 += (eps_i * det_64(np.c_[
-                Xmat[i[0]] * hmat,
-                np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
+            vol_alphaNP1 += eps_i * det_64(
+                np.c_[
+                    Xmat[i[0]] * hmat,
+                    np.array([numat[:, i[s]] for s in range(1, dim)]).T,
+                ]
+            )
         alphaNP = factorial(dim - 1) * np.array(vol_data / vol_alphaNP1)
 
         return alphaNP
@@ -1224,19 +1316,23 @@ class Elem:
 
         """
         if dim < 3:
-            raise ValueError("""No-Mass Generalised King Plot formula is only
-            valid for dim >=3.""")
+            raise ValueError(
+                """No-Mass Generalised King Plot formula is only
+            valid for dim >=3."""
+            )
         if dim > self.nisotopepairs or dim > self.ntransitions:
-            raise ValueError("""dim is larger than dimension of provided
-            data.""")
+            raise ValueError(
+                """dim is larger than dimension of provided
+            data."""
+            )
 
         voldatlist = []
         vol1st = []
         xindlist = []
 
         for a_inds, i_inds in product(
-                combinations(self.range_a, dim),
-                combinations(self.range_i, dim)):
+            combinations(self.range_a, dim), combinations(self.range_i, dim)
+        ):
             # taking into account ordering
             numat = self.nutil[np.ix_(a_inds, i_inds)]
             hmat = self.gammatilvec[np.ix_(a_inds)]
@@ -1248,13 +1344,18 @@ class Elem:
                 # continue here: what is GKP doing, is it correct, then NMGKP
                 xindpart.append(i_inds[i[0]])  # X always gets first index
                 vol1part.append(
-                    eps_i * det_64(np.c_[
-                        hmat,  # to be multiplied by Xmat[i[0]]
-                        np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
+                    eps_i
+                    * det_64(
+                        np.c_[
+                            hmat,  # to be multiplied by Xmat[i[0]]
+                            np.array([numat[:, i[s]] for s in range(1, dim)]).T,
+                        ]
+                    )
+                )
             vol1st.append(vol1part)
             xindlist.append(xindpart)
 
-        return np.array(voldatlist), np.array(vol1st), xindlist  #, indexlist
+        return np.array(voldatlist), np.array(vol1st), xindlist  # , indexlist
 
     @cached_fct
     def alphaNP_NMGKP_combinations(self, dim):
@@ -1289,14 +1390,13 @@ class Elem:
 
         Dmat = np.c_[v1, v2]
 
-        return ((Dmat @ inv(Dmat.T @ Dmat) @ Dmat.T) @ v0)
+        return (Dmat @ inv(Dmat.T @ Dmat) @ Dmat.T) @ v0
 
     def Vproj(self, v0, v1, v2):
 
         pv = self.pvec(v0, v1, v2)
 
-        return np.linalg.norm(v0 - pv) * np.sqrt(
-            (v1 @ v1) * (v2 @ v2) - (v1 @ v2)**2)
+        return np.linalg.norm(v0 - pv) * np.sqrt((v1 @ v1) * (v2 @ v2) - (v1 @ v2) ** 2)
 
     def alphaNP_proj_Xindep_part(self, ainds=[0, 1, 2], iinds=[0, 1]):
         """
@@ -1306,20 +1406,23 @@ class Elem:
 
         """
         if len(iinds) != 2:
-            raise ValueError(""" Projection method is only valid for data sets
-            with two transitions.""")
+            raise ValueError(
+                """ Projection method is only valid for data sets
+            with two transitions."""
+            )
 
         dim = len(ainds)
         if dim < 3:
-            raise ValueError("""Projection method requires at least 3 isotope
-            pairs.""")
+            raise ValueError(
+                """Projection method requires at least 3 isotope
+            pairs."""
+            )
 
-        mnu1 = np.array([(self.nutil)[a, iinds[0]] for a in ainds]) # (self.nutil.T)[0]
-        mnu2 = np.array([(self.nutil)[a, iinds[1]] for a in ainds]) # (self.nutil.T)[1]
+        mnu1 = np.array([(self.nutil)[a, iinds[0]] for a in ainds])  # (self.nutil.T)[0]
+        mnu2 = np.array([(self.nutil)[a, iinds[1]] for a in ainds])  # (self.nutil.T)[1]
 
         mmu = np.array([self.mutilvec[a] for a in ainds])
         mgamma = np.array([self.gammatilvec[a] for a in ainds])
-
 
         Vexp = self.Vproj(mmu, mnu1, mnu2)
         XindepVth = self.Vproj(mmu, mnu1, mgamma)
@@ -1332,9 +1435,9 @@ class Elem:
         isotope pairs with indices ainds, the transitions with indices iinds.
 
         """
-        return (
-            self.alphaNP_proj_Xindep_part(ainds=ainds, iinds=iinds)
-            / self.Xji(j=iinds[1], i=iinds[0]))
+        return self.alphaNP_proj_Xindep_part(ainds=ainds, iinds=iinds) / self.Xji(
+            j=iinds[1], i=iinds[0]
+        )
 
     @cached_fct
     def alphaNP_proj_part(self, dim):
@@ -1362,16 +1465,19 @@ class Elem:
             raise ValueError("""Projection method is only valid for dim >=3.""")
         if dim > self.nisotopepairs:
             raise ValueError(
-                """proj dim is larger than provided number of isotope pairs.""")
+                """proj dim is larger than provided number of isotope pairs."""
+            )
 
         alphapartlist = []
         xindlist = []
 
-        for a_inds, i_inds in product(combinations(self.range_a, dim),
-                combinations(self.range_i, 2)):
+        for a_inds, i_inds in product(
+            combinations(self.range_a, dim), combinations(self.range_i, 2)
+        ):
             # taking into account ordering
-            alphapartlist.append(self.alphaNP_proj_Xindep_part(ainds=a_inds,
-                iinds=i_inds))
+            alphapartlist.append(
+                self.alphaNP_proj_Xindep_part(ainds=a_inds, iinds=i_inds)
+            )
             xindlist.append(i_inds)
 
         return np.array(alphapartlist), xindlist
