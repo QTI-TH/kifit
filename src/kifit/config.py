@@ -368,8 +368,6 @@ class Paths:
                 + f"{self.__params.search_mode}-search_"
                 + (f"{self.__params.logrid_frac}logridfrac_"
                     if self.__params.search_mode == "detlogrid" else "")
-                # + (f"{self.__params.num_optigrid_searches}searches_"
-                #     if self.__params.search_mode == "optigrid" else "")
                 + f"{self.__params.num_exp}exps_"
                 + f"{self.__params.num_elemsamples_exp}es-exp_"
                 + f"{self.__params.num_alphasamples_exp}as-exp_"
@@ -390,8 +388,6 @@ class Paths:
                 + f"{self.__params.search_mode}-search_"
                 + (f"{self.__params.logrid_frac}logridfrac_"
                     if self.__params.search_mode == "detlogrid" else "")
-                # + (f"{self.__params.num_optigrid_searches}searches_"
-                #     if self.__params.search_mode == "optigrid" else "")
                 + f"{self.__params.num_exp}exps_"
                 + f"{self.__params.num_elemsamples_exp}es-exp_"
                 + f"{self.__params.num_alphasamples_exp}as-exp_"
