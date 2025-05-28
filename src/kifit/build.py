@@ -365,16 +365,6 @@ class Elem:
 
     def _init_elemdata(self):
         # load data from elem folder
-        # for (i, file_type) in enumerate(self.INPUT_FILES):
-        #     if len(self.INPUT_FILES) != len(self.elem_init_atr):
-        #         raise NameError("""Number of INPUT_FILES does not match number
-        #         of elem_init_atr.""")
-        #
-        #     file_name = file_type + '_' + self.id + '.dat'
-        #     file_path = os.path.join(_data_path, self.id, file_name)
-        #
-        #     self.__load(self.elem_init_atr[i], file_type, file_path)
-        #
         file_path = {filetype: os.path.join(_data_path, self.id,
                                             filetype + '_' + self.id + '.dat')
                      for filetype in self.INPUT_FILES}
@@ -461,7 +451,6 @@ class Elem:
         self.m_ap = self.m_ap_in
 
         # initialise dvec rescaling factor
-        # self.dnorm = np.mean(self.nu_in / self.sig_nu_in)
         self.dnorm = 1
 
     def _init_fit_params(self):
@@ -471,9 +460,6 @@ class Elem:
         alphaNP to 0.
 
         """
-
-        # self.Kperp1 = np.zeros(self.ntransitions)
-        # self.ph1 = np.zeros(self.ntransitions - 1)
 
         (
             _, _,
@@ -492,9 +478,6 @@ class Elem:
 
         self.sig_alphaNP_init = 1
 
-        # self.sig_alphaNP_init = np.absolute(np.max(self.absd) / np.min(
-        #     np.tensordot(self.gammatilvec, self.X1[1:], axes=0)))
-        # print("sig_alphaNP_init", self.sig_alphaNP_init)
 
     @update_fct
     def set_alphaNP_init(self, alpha, sigalpha):
@@ -559,14 +542,6 @@ class Elem:
         "thetas".
 
         """
-        # if ((len(thetas[0]) != self.ntransitions - 1)
-        #         or (len(thetas[1]) != self.ntransitions - 1)):
-        #     raise AttributeError("""Passed fit parameters do not have
-        #     appropriate dimensions""")
-        #
-        # if np.array([(-np.pi / 2 > phij) or (phij > np.pi / 2) for phij in thetas[1]]).any():
-        #     raise ValueError("""Passed phij values are not within 1st / 4th
-        #     quadrant.""")
 
         self.kp1 = thetas[:self.ntransitions - 1]
         self.ph1 = thetas[
@@ -725,10 +700,6 @@ class Elem:
 
         """
         return np.concatenate((self.m_a_in, self.m_ap_in, self.nu_in), axis=None)
-        # import sys
-        # sys.exit()
-        # return np.array([self.m_a_in, self.m_ap_in, self.nu_in.flatten()]).reshape(-1)
-
     @cached_fct_property
     def means_fit_params(self):
         """
@@ -738,7 +709,6 @@ class Elem:
 
         These are computed using an initial linear fit.
         """
-        # return np.array([self.kp1_init, self.ph1_init, self.alphaNP_init]).reshape(-1)
         return np.concatenate((self.kp1_init, self.ph1_init, self.alphaNP_init), axis=None)
 
     @cached_fct_property
@@ -751,7 +721,6 @@ class Elem:
         These are provided by the input files.
 
         """
-        # return np.array([self.sig_m_a_in, self.sig_m_ap_in, self.sig_nu_in.flatten()]).reshape(-1)
         return np.concatenate((self.sig_m_a_in, self.sig_m_ap_in, self.sig_nu_in), axis=None)
 
     @cached_fct_property
@@ -763,7 +732,6 @@ class Elem:
 
         These are computed using an initial linear fit.
         """
-        # return np.array([self.sig_kp1_init, self.sig_ph1_init, self.sig_alphaNP_init]).reshape(-1)
         return np.diag(np.concatenate((self.sig_kp1_init, self.sig_ph1_init,
             self.sig_alphaNP_init), axis=None))
 
@@ -1103,11 +1071,6 @@ class Elem:
                 np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
                 mumat]))
 
-        # print("single alphaNP_GKP")
-        # print("vol_data    ", vol_data)
-        # print("vol_alphaNP1", vol_alphaNP1)
-        # print("gammatil", hmat)
-
         alphaNP = factorial(dim - 2) * np.array(vol_data / vol_alphaNP1)
 
         return alphaNP
@@ -1191,10 +1154,6 @@ class Elem:
         for p, xpinds in enumerate(xindlist):
             vol1p = np.array([self.Xvec[xp] for xp in xpinds]) @ (vol1part[p])
             alphalist.append(voldat[p] / vol1p)
-
-            # print("combination " + str(p))
-            # print("vol_data    ", voldat[p])
-            # print("vol_alphaNP1", vol1p)
 
         alphalist = factorial(dim - 2) * np.array(alphalist)
 
@@ -1361,8 +1320,6 @@ class Elem:
         mmu = np.array([self.mutilvec[a] for a in ainds])
         mgamma = np.array([self.gammatilvec[a] for a in ainds])
 
-        # Vexp = self.Vproj(self.mutilvec, mnu1, mnu2)
-        # XindepVth = self.Vproj(self.mutilvec, mnu1, self.gammatilvec)
 
         Vexp = self.Vproj(mmu, mnu1, mnu2)
         XindepVth = self.Vproj(mmu, mnu1, mgamma)
@@ -1443,124 +1400,3 @@ class Elem:
             alphalist.append(alphapartlist[p] / self.Xji(j=xind[1], i=xind[0]))
 
         return np.array(alphalist)
-
-    # @cached_fct
-    # def alphaNP_NMGKP(self, dim):
-    #     """
-    #     Returns value for alphaNP computed using the no-mass Generalised King
-    #     Plot formula.
-    #
-    #     """
-    #     if dim < 3:
-    #         raise ValueError("""Generalised King Plot formula is only valid for
-    #         dim >=3.""")
-    #     if dim > self.nisotopepairs or dim > self.ntransitions:
-    #         raise ValueError("""dim is larger than dimension of provided
-    #         data.""")
-    #
-    #     # indexlist = []
-    #     alphalist = []
-    #
-    #     for a_inds, i_inds in product(combinations(self.range_a, dim),
-    #             combinations(self.range_i, dim)):
-    #
-    #         # indexlist.append([a_inds, i_inds])
-    #
-    #         numat = self.nutil[np.ix_(a_inds, i_inds)]
-    #         Xmat = self.Xvec[np.ix_(i_inds)]
-    #         hmat = self.gammatilvec[np.ix_(a_inds)]
-    #
-    #         vol_data = np.linalg.det(numat)
-    #
-    #         vol_alphaNP1 = 0
-    #         for i, eps_i in LeviCivita(dim):
-    #             vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
-    #                 Xmat[i[0]] * hmat,
-    #                 np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
-    #         alphalist.append(vol_data / vol_alphaNP1)
-    #
-    #     alphalist = np.math.factorial(dim - 1) * np.array(alphalist)
-    #
-    #     return alphalist   # , indexlist
-    #
-    # @cached_fct
-    # def alphaNP_GKP(self, dim):
-    #     """
-    #     Returns numpy array of values for alphaNP computed using the Generalised
-    #     King Plot formula starting from a data matrix of dimensions
-    #
-    #        (nisotopepairs, ntransitions) = (dim, dim-1),   dim >= 3.
-    #
-    #     """
-    #     if dim < 3:
-    #         raise ValueError("""Generalised King Plot formula is only valid for
-    #         dim >=3.""")
-    #     if dim > self.nisotopepairs or dim > self.ntransitions + 1:
-    #         raise ValueError("""dim is larger than dimension of provided
-    #         data.""")
-    #
-    #     # indexlist = []
-    #     alphalist = []
-    #
-    #     for a_inds, i_inds in product(combinations(self.range_a, dim),
-    #             combinations(self.range_i, dim - 1)):
-    #
-    #         # indexlist.append([a_inds, i_inds])
-    #
-    #         numat = self.nutil[np.ix_(a_inds, i_inds)]
-    #         mumat = self.mutilvec[np.ix_(a_inds)]
-    #         Xmat = self.Xvec[np.ix_(i_inds)]
-    #         hmat = self.gammatilvec[np.ix_(a_inds)]
-    #
-    #         vol_data = np.linalg.det(np.c_[numat, mumat])
-    #
-    #         vol_alphaNP1 = 0
-    #         for i, eps_i in LeviCivita(dim - 1):
-    #             vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
-    #                 Xmat[i[0]] * hmat,
-    #                 np.array([numat[:, i[s]] for s in range(1, dim - 1)]).T,  # numat[:, i[1]],
-    #                 mumat]))
-    #         alphalist.append(vol_data / vol_alphaNP1)
-    #
-    #     alphalist = np.math.factorial(dim - 2) * np.array(alphalist)
-    #
-    #     return alphalist   # , indexlist
-    #
-    # @cached_fct
-    # def alphaNP_NMGKP(self, dim):
-    #     """
-    #     Returns value for alphaNP computed using the no-mass Generalised King
-    #     Plot formula.
-    #
-    #     """
-    #     if dim < 3:
-    #         raise ValueError("""Generalised King Plot formula is only valid for
-    #         dim >=3.""")
-    #     if dim > self.nisotopepairs or dim > self.ntransitions:
-    #         raise ValueError("""dim is larger than dimension of provided
-    #         data.""")
-    #
-    #     # indexlist = []
-    #     alphalist = []
-    #
-    #     for a_inds, i_inds in product(combinations(self.range_a, dim),
-    #             combinations(self.range_i, dim)):
-    #
-    #         # indexlist.append([a_inds, i_inds])
-    #
-    #         numat = self.nutil[np.ix_(a_inds, i_inds)]
-    #         Xmat = self.Xvec[np.ix_(i_inds)]
-    #         hmat = self.gammatilvec[np.ix_(a_inds)]
-    #
-    #         vol_data = np.linalg.det(numat)
-    #
-    #         vol_alphaNP1 = 0
-    #         for i, eps_i in LeviCivita(dim):
-    #             vol_alphaNP1 += (eps_i * np.linalg.det(np.c_[
-    #                 Xmat[i[0]] * hmat,
-    #                 np.array([numat[:, i[s]] for s in range(1, dim)]).T]))
-    #         alphalist.append(vol_data / vol_alphaNP1)
-    #
-    #     alphalist = np.math.factorial(dim - 1) * np.array(alphalist)
-    #
-    #     return alphalist   # , indexlist
