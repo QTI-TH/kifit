@@ -23,20 +23,16 @@ default_colour = [
 ]
 
 
-# plt.rc('text', usetex=True)
-# plt.rc('font', family='serif')
 plt.rcParams.update({
     "text.usetex": True,
     "font.family": "serif"
     })
 
 mc_scatter_colour = '#05998c'
-# fit_scatter_colour = 'orangered'
 fit_colour = 'orange'
 gkp_colour = 'blue'
 nmgkp_colour = 'darkgreen'
 proj_colour = 'purple'
-# det_colour = "royalblue"
 
 fsize = 12
 axislabelsize = 15
@@ -262,45 +258,10 @@ def plot_search_output(
         ax.axhline(y=delchisqcrit, color="r", ls='-',
             label=r"$\Delta \chi^2\vert_{\mathrm{crit.}}$ search")
 
-    # alphas_inside = alphalist[np.argwhere(delchisqlist < delchisqcrit).flatten()]
 
     ax.axvline(x=np.min(searchlims), color="orange", ls='-', label="Search interval")
     ax.axvline(x=np.max(searchlims), color="orange", ls='-')
 
-    ####
-    # for d, dim in enumerate(gkpdims):
-    #
-    #     ax, ax2, minpos, maxneg = plot_alphaNP_det_bounds(
-    #         ax, None,
-    #         messenger,
-    #         detstr="gkp",
-    #         dimindex=d,
-    #         dim=dim,
-    #         xind=xind
-    #     )
-    #
-    # for d, dim in enumerate(nmgkpdims):
-    #
-    #     ax, ax2, minpos_global, maxneg_global = plot_alphaNP_det_bounds(
-    #         ax, None,
-    #         messenger,
-    #         detstr="nmgkp",
-    #         dimindex=d,
-    #         dim=dim,
-    #         xind=xind
-    #     )
-    #
-    # for d, dim in enumerate(projdims):
-    #
-    #     ax, ax2, minpos_global, maxneg_global = plot_alphaNP_det_bounds(
-    #         ax, None,
-    #         messenger,
-    #         detstr="proj",
-    #         dimindex=d,
-    #         dim=dim,
-    #         xind=xind
-    #     )
-    ####
 
     ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
                   fontsize=axislabelsize)
@@ -308,10 +269,6 @@ def plot_search_output(
 
     if not ax.get_legend_handles_labels() == ([], []):
         plt.legend(loc='upper center', fontsize=fsize, framealpha=1)
-
-    # plt.title(
-    #     f"x={xind}, {len(alphalist)}" + r" $\alpha_{\mathrm{NP}}$ samples",
-    #     fontsize=axislabelsize)
 
     ax.set_xticks([-1e-6, -1e-9, -1e-12, 0, 1e-12, 1e-9, 1e-6])
 
@@ -379,20 +336,6 @@ def plot_alphaNP_det_bounds(
         ax2.scatter(allneg, np.zeros(len(allpos)),
             s=1, color=plot_colour)
 
-        #
-        #
-        # for p in range(npermutations):  # 1]):
-        #     ax.scatter(
-        #         (allpos.T)[p], scatterpos * np.ones(len((allpos.T)[p])),
-        #         s=0.5,
-        #         color=plot_colour
-        #     )
-        #
-        #     ax.scatter(
-        #         (allneg.T)[p], scatterpos * np.ones(len((allneg.T)[p])),
-        #         s=0.5,
-        #         color=plot_colour,
-        #     )
     if messenger.params.showbestdetbounds:
 
         if suppresslabel:
@@ -437,14 +380,10 @@ def plot_alphaNP_ll(
     nmgkpdims = messenger.params.nmgkp_dims
     projdims = messenger.params.proj_dims
 
-    # elem_collection.check_det_dims(gkpdims, nmgkpdims, projdims)
-
-    # if expstr == "experiment":
     mc_output = messenger.paths.read_fit_output(xind)
 
     delchisqs = mc_output['delchisqs_exp']
     nsigmas = mc_output['nsigmas']
-    # delchisqcrit = get_delchisq_crit(nsigmas)
     delchisqcrit_label = r"$\Delta \chi^2_{\mathrm{crit}}$"
 
 
@@ -454,15 +393,6 @@ def plot_alphaNP_ll(
     delchisqcrit = get_delchisq_crit(nsigmas, dof=totaldof)
 
 
-    # elif expstr == "search":
-    #     mc_output = messenger.paths.read_search_output(xind)
-    #
-    #     delchisqs = mc_output['delchisqs_exp']
-    #     delchisqcrit = np.median(delchisqs)
-    #     delchisqcrit_label = r"median $\Delta \chi^2$ samples"
-    #
-    #     nsigmas = mc_output['nsigmas']
-    #
     alphas = mc_output['alphas_exp']
     nexps = alphas.shape[0]
     nsamples = alphas.shape[1]
@@ -480,14 +410,10 @@ def plot_alphaNP_ll(
     ax2 = plt.subplot2grid((8, 1), (7, 0))
 
     if lb is not None and ub is not None:
-        # if expstr == "experiment":
         bound_label = (
                 f"Fit {nsigmas}"
                 + r"$\sigma$ CI: $\alpha_{\mathrm{NP}}\in$"
                 + f"[{lb:.1e},{ub:.1e}]")
-
-        # elif expstr == "search":
-        #     bound_label = "Search interval"
 
         ax1.axvspan(lb, ub, alpha=.2, color=mc_scatter_colour, label=bound_label)
 
@@ -523,7 +449,6 @@ def plot_alphaNP_ll(
         label=("Best fit point: $\\alpha_{\\mathrm{NP}}$="
             + f"{best_alpha:.1e}({sig_best_alpha:.1e})"))
 
-    # if elem_collection.len == 1:
     for d, dim in enumerate(gkpdims):
 
         ax1, ax2, minpos, maxneg = plot_alphaNP_det_bounds(
@@ -579,13 +504,9 @@ def plot_alphaNP_ll(
     ax2.set_ylim([-.5, .5])
     ax2.set_yticks([])
 
-    # ax1.set_title(elem_collection.id
-    #               + f": x={xind}, {nsamples}"
-    #               + r" $\alpha_{\mathrm{NP}}$ samples")
 
     plotpath = messenger.paths.generate_plot_path(
         "alphaNP_ll_"
-        # + ("_search_phase_" if expstr == "search" else "_")
         + (f"{messenger.params.search_mode}-search")
         + (f"{messenger.params.logrid_frac}logridfrac"
             if messenger.params.search_mode == "detlogrid" else ""), xind=xind)
@@ -991,7 +912,6 @@ def plot_alphaNP_ll_zoom(
     nmgkpdims = messenger.params.nmgkp_dims
     projdims = messenger.params.proj_dims
 
-    # elem_collection.check_det_dims(gkpdims, nmgkpdims, projdims)
 
     mc_output = messenger.paths.read_fit_output(xind)
 
