@@ -19,18 +19,33 @@ An example of usage of `kifit` can be found in the [`main.py`](https://github.co
 
 It runs a full `kifit` pipeline:
 1. ⚛️ data loading;
-2. 🕵️ search of the best $\alpha_{\rm NP}$ window;
+2. 🕵️ determine an optimal $\alpha_{\rm NP}$ search window;
 3. 🧑‍🔬 experiments to determine the bounds.
 
-A possible way to execute `main.py` can be found in the following code block:
+A `kifit` execution can be customized through various parameters.
+A standard setup (with light Monte Carlo sampling) to run the `main.py` file can be found in the following code block:
 
 ```sh
-python3 main.py --elements_list "Camin,Ybmin" \
-                --outputfile_name "CaminYbmin" --optimization_method "Powell" \
-                --maxiter 1000 --num_searches 20 --num_elemsamples_search 300 \
-                --num_experiments 20  --block_size  10\
-                --num_alphasamples_exp 200 --num_elemsamples_exp 300 \
-                --num_samples_det 100 --mphivar "true"
+python3 main.py --element_list "Ca_WT_Aarhus_PTB_2024"\
+                --num_alphasamples_search 100\
+                --num_elemsamples_per_alphasample_search 100 \
+                --search_mode "detlogrid"\
+                --logrid_frac 2\
+                --num_exp 20\
+                --block_size 5\
+                --min_percentile 1\
+                --num_sigmas 2\
+                --num_alphasamples_exp 100 \
+                --num_elemsamples_exp 100 \
+                --x0_fit 0 \
+                --gkp_dims 3\
+                --proj_dims 3\
+                --nmgkp_dims 3\
+                --num_det_samples 1000 \
+                --x0_det 0\
+                --showalldetbounds \
+                --showbestdetbounds \
+                --verbose
 ```
 
 
