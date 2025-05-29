@@ -388,6 +388,7 @@ def test_alphaNP_histogram(elemstr="Camin", nsamples=1000):
     ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
                   fontsize=axislabelsize)
     ax.set_ylabel(f"Counts per {nsamples}")
+    ax.set_xlim(0, 1e-6)
     ax.set_title(elemstr)
     plotpath = os.path.join(
             plotfolder,

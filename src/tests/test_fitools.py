@@ -52,7 +52,6 @@ from Mathematica_crosschecks import(
         covd_Camintest_kifitparams_alpha1em11_N1e4,
         covd_Camintest_kifitparams_alpha1em11_N1e5,
         )
-
 np.random.seed(1)
 fsize = 12
 axislabelsize = 15
@@ -1524,8 +1523,10 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
 
     import matplotlib.pyplot as plt
     from matplotlib.offsetbox import AnchoredText
+    plt.rc('text', usetex=True)
+    plt.rc('font', family='serif')
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(5, 5 * 6/8))
 
     ax.scatter(alphasamples, camin_delchisq_caminfit, color='r',
                label="Ca 21, Ca 21 samples", s=15)
@@ -1537,12 +1538,12 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
                label="Ca 12, Ca 12 samples", s=5)
 
     # fit 2-sigma region
-    ax.axhline(y=0, color="k", lw=1, ls="-")
-    ax.axhline(y=delchisqcrit, color="r", lw=1, ls="--")
-    ax.axvline(x=camin_confint[0], color="b", lw=1, ls="--")
-    ax.axvline(x=camin_confint[1], color="b", lw=1, ls="--")
-    ax.axvline(x=camin_swap_confint[0], color="green", lw=1, ls="--")
-    ax.axvline(x=camin_swap_confint[1], color="green", lw=1, ls="--")
+    ax.axhline(y=0, color="k", lw=1, ls="--")
+    ax.axhline(y=delchisqcrit, color="r", lw=1, ls="-")
+    ax.axvline(x=camin_confint[0], color="b", lw=1, ls="-")
+    ax.axvline(x=camin_confint[1], color="b", lw=1, ls="-")
+    ax.axvline(x=camin_swap_confint[0], color="green", lw=1, ls="-")
+    ax.axvline(x=camin_swap_confint[1], color="green", lw=1, ls="-")
 
     ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
                   fontsize=axislabelsize)
@@ -1584,16 +1585,16 @@ def swap_varying_elemparams(only_inputparams=False, symm=False):
     plotpath = os.path.join(
         outputfolder,
         f"mc_output_Camin_01_10_{symmstr}x{camin.x}_{varstr}.pdf")
-    plt.savefig(plotpath)
+    plt.savefig(plotpath, bbox_inches="tight")
 
     # if not only_inputparams:
-    ax.set_ylim(0, 20)
+    ax.set_ylim(-1, 20)
     ax.set_xlim(-1e-10, 1e-10)
 
     plotpath = os.path.join(
         outputfolder,
         f"mc_output_Camin_10_01_{symmstr}x{camin.x}_{varstr}_zoom.pdf")
-    plt.savefig(plotpath)
+    plt.savefig(plotpath, bbox_inches="tight")
 
 
 def test_swap():

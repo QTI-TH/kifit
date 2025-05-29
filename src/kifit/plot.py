@@ -1,4 +1,5 @@
 import logging
+import json
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -22,19 +23,38 @@ default_colour = [
     "#17becf",
 ]
 
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "serif"
+    })
 
-plt.rcParams.update({"text.usetex": True, "font.family": "serif"})
+default_markers = [
+    "o", "s", "v", ">", 
+]
 
-mc_scatter_colour = "#05998c"
-fit_colour = "orange"
-gkp_colour = "blue"
-nmgkp_colour = "darkgreen"
-proj_colour = "purple"
+mc_scatter_colour = '#05998c'
+fit_scatter_colour = 'orangered'
+fit_colour = 'orange'
+
+# Experimental
+alg_colors = {
+    "gkp": 'blue',
+    "nmgkp": 'darkgreen',
+    "proj": 'purple'
+}
+
+def get_alg_color(method):
+    return alg_colors.get(method, None)
+
+gkp_colour = 'blue'
+nmgkp_colour = 'darkgreen'
+proj_colour = 'purple'
+# det_colour = "royalblue"
 
 fsize = 12
 axislabelsize = 15
 
-markerlist = ["o", "v", "^", "<", ">", "s", "D"]  # maybe cycle?
+markerlist = ['o', 'v', '^', '<', '>', 's', 'D']  # maybe cycle?
 ###############################################################################
 
 
@@ -1081,3 +1101,312 @@ def plot_search_window(
     )
 
     return ax
+
+
+def multi_plot_mphi_alphaNP(
+        messengers_list, 
+        labels_list=None,
+        colors_list=None,
+        markers_list=None,
+        show_alg_for=[], 
+        algebraic_methods=[],
+        print_all_alg_results=False,
+        img_name="multifit_plot",
+        dataset_name=True,
+        title=None,
+        plot_best_alpha=False,
+    ):
+    """Many messengers can be used here to construct a multi-fit plot."""
+
+    
+    color_codes = construct_color_codes(messengers_list)
+
+    plt.figure(figsize=(5, 5 * 6 / 8))
+
+
+    for i, messenger in enumerate(messengers_list):
+        if len(messenger.config.params.element_list) > 1:
+            name = "Combination Ca-Yb"
+        else:
+            name = messenger.config.params.element_list[0]
+        
+        if labels_list is None:
+            if dataset_name:
+                label_i = rf"Fit - $\texttt{{{name}}}$"
+            else:
+                label_i = "Fit"
+        else:
+            label_i = labels_list[i]
+
+        if markers_list is None:
+            markers_list = default_markers
+
+        if colors_list is None:
+            color_fit = fit_colour
+        else:
+            color_fit = colors_list[i]
+            print(color_fit)
+
+        if i == 0:
+            # plot and return common features mphix and linlim
+            mphix, linlim = plot_one_mphi_alphaNP_run(
+                messenger=messenger, 
+                color=color_fit, 
+                label=label_i, 
+                marker=markers_list[i],
+                return_common_features=True,
+                plot_best_alpha=plot_best_alpha,
+            )
+        else:
+            plot_one_mphi_alphaNP_run(
+                messenger, 
+                color=color_fit,
+                label=label_i, 
+                marker=markers_list[i],
+                plot_best_alpha=plot_best_alpha,
+            )
+
+    if len(show_alg_for) != 0:
+        for i, messenger in enumerate(messengers_list):
+            name = messengers_list[i].config.params.element_list[0]
+            if name in show_alg_for:
+                for alg_method in algebraic_methods:
+                    if alg_method == "gkp":
+                        alg_name = "kp"
+                    elif alg_method == "nmgkp":
+                        alg_name = "nmkp"
+                    else:
+                        alg_name = alg_method
+                    
+                    if dataset_name:
+                        final_label = rf"{alg_name.upper()} - $\texttt{{{name}}}$"
+                    else:
+                        final_label = f"{alg_name.upper()}"
+                        
+                    plot_one_mphi_alphaNP_run(
+                            messenger, 
+                            color=color_codes[name], 
+                            label=final_label, 
+                            marker=markers_list[i],
+                            return_common_features=False,
+                            alg_mode=alg_method,
+                            print_all_alg_results=print_all_alg_results,
+                        )
+
+    strongest_lb, strongest_ub = extract_strongest_bounds(
+        messengers_list, 
+        show_alg_for,
+        algebraic_methods,
+    )
+
+    tmp_x_axis = [mphix[0]-mphix[0]*0.5]
+    tmp_x_axis.extend(mphix)
+    tmp_x_axis.append(mphix[-1]+mphix[-1]*0.5)
+
+    strongest_lb = [strongest_lb[0]] + strongest_lb + [strongest_lb[-1]]
+    strongest_ub = [strongest_ub[0]] + strongest_ub + [strongest_ub[-1]]
+
+
+    plt.fill_between(tmp_x_axis, strongest_ub, 1e5, color="black", alpha=0.2, label="Exclusion region")
+    plt.fill_between(tmp_x_axis, -1e5, strongest_lb, color="black", alpha=0.2)
+    
+    plt.hlines(0, min(mphix), max(mphix), color="black", lw=1)
+    plt.hlines(linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
+    plt.hlines(-linlim, min(mphix), max(mphix), color="black", lw=1, ls="--")
+    plt.yscale("symlog", linthresh=linlim)
+    plt.xscale("log", base=10)
+    if title is not None:
+        plt.title(title, fontsize=14)
+    plt.yticks([-1e-1, -1e-6, -1e-9, 0,  1e-9, 1e-6, 1e-1])
+    plt.legend(fontsize=8, loc=2, framealpha=1)
+    plt.ylim(-1e5, 1e5)
+    plt.xlim(min(mphix)-0.5*mphix[0], max(mphix)+0.5*mphix[-1])
+
+    plt.ylabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=14)
+    plt.xlabel(r"$m_{\phi}$ [eV]", fontsize=14)
+
+
+    plt.savefig(f"{img_name}.pdf", dpi=200, bbox_inches="tight")
+
+
+def extract_strongest_bounds(messengers_list, show_determinant_for, algebraic_methods):
+    """
+    Combine the results of different kifits and reconstruct the most stringent 
+    bounds (they could be a combination of various results because it can happen 
+    a method is more stringent for some mass values and vice-versa).
+    """
+
+    # Here we will collect all upper and lower bouns
+    ubs, lbs = [], []
+
+    for messenger in messengers_list:
+        ub, _, lb, _, _, _ = collect_fit_X_data(messenger)
+        ubs.append(ub)
+        lbs.append(lb)
+    
+    if len(show_determinant_for) != 0:
+        for i, messenger in enumerate(messengers_list):
+            name = messengers_list[i].config.params.element_list[0]
+            if name in show_determinant_for:
+                for alg_method in algebraic_methods:
+                    _, _, ub, _, lb, _ = collect_det_X_data(
+                        messenger.config, 3, alg_method,
+                    ) 
+                    ubs.append(ub)
+                    lbs.append(lb)
+    
+    strongest_ub = [min(column) for column in zip(*ubs)]
+    strongest_lb = [max(column) for column in zip(*lbs)]
+
+    return strongest_lb, strongest_ub
+
+# TODO: experiment is confusing, to be renamed
+def plot_one_mphi_alphaNP_run(
+        messenger, 
+        color, 
+        label, 
+        marker,
+        return_common_features=False, 
+        print_all_alg_results=False,
+        alg_mode=None,
+        plot_best_alpha=False,
+        save_as=None,
+    ):
+    """Helper function to plot many fits together."""
+    # collecting data
+    if alg_mode is not None:
+        # TODO: print allpost and allneg if a flag variable is askiong for this
+        best_alphas, sig_best_alphas, ub, allpos, lb, allneg = collect_det_X_data(
+            messenger.config, 3, alg_mode,
+        )
+        
+        allpos = np.asarray(allpos)
+        allneg = np.asarray(allneg)
+
+        #color = get_alg_color(alg_mode)
+    else:
+        ub, sig_ub, lb, sig_lb, best_alphas, sig_best_alphas = collect_fit_X_data(messenger)
+        color = color
+
+    mphix = [messenger.collection.elems[0].mphis[x] for x in messenger.config.x_vals_fit]
+
+    # setting limits
+    linlim = 10 ** np.floor(np.log10(np.nanmax([np.abs(min(ub)), np.abs(max(lb))])) - 1)
+
+    plt.plot(mphix, ub, lw=1.5, alpha=0.85, marker=marker, color=color, label=label, markeredgecolor='#383737', markersize=5)
+    if print_all_alg_results:
+        for k in range(allpos.shape[1]):
+            plt.scatter(mphix, allpos.T[k], color=color, s=10)
+            plt.scatter(mphix, allneg.T[k], color=color, s=10)
+    plt.plot(mphix, lb, lw=1.5, alpha=0.85, color=color, markeredgecolor='#383737', markersize=5, marker=marker)
+    if plot_best_alpha:
+        plt.errorbar(mphix, best_alphas, sig_best_alphas, color=color, markeredgecolor='#383737', markersize=10, marker="*", ls="")
+
+    if save_as is not None:
+        plt.xscale("log")
+        plt.yscale("log")
+        plt.savefig(f"{save_as}.pdf", bbox_inches="tight")
+
+    if return_common_features:
+        return mphix, linlim
+    
+
+def plot_bars(messenger, variable_keyword, values_list, title):
+    """
+    Bar plot which collects results obtained by fixing configuration and 
+    varying only variables targeted by `variable_keyword` according to `values_list`.
+    """
+    plt.figure(figsize=(10, 10 * 6 / 8))
+    
+    central_values, upper_bounds, lower_bounds = [], [], []
+
+    for value in values_list:
+        # update default configuration
+        update_config_file(
+            file_path="./configurations/base_config.json", 
+            keyword=variable_keyword,
+            new_value=value,
+        )
+        # update the messenger
+        messenger.load_config("./configurations/base_config.json")
+        # collect results for x = 0
+        results = messenger.config.paths.read_fit_output(0)
+        central_values.append(results["best_alpha"])
+        upper_bounds.append(results["UB"])
+        lower_bounds.append(results["LB"])
+    
+    draw_set(
+        alphas=central_values,
+        lbs=lower_bounds,
+        ubs=upper_bounds,
+        title=title,
+        lab=r"$n=$",
+        lab_array=values_list,
+        keyword=variable_keyword,
+    )
+
+
+def draw_point(x, y, lb, ub, col, lab):
+    """Helper function for `plot_bars`."""
+    plt.scatter(x, y, s=30, color=col, label=lab)
+    plt.hlines(y, lb, ub, color=col)
+
+
+def draw_set(alphas, lbs, ubs, title, lab, lab_array, keyword):
+    """Helper function for `plot_bars`."""
+    # some decoration
+    cmap = plt.get_cmap("Set2")
+    colors = [cmap(i / (len(alphas) - 1)) for i in range(len(alphas))]
+    # some ylabel stuff
+    xticks = [None]
+    for i, l in enumerate(lab_array):
+        xticks.append(str(l))
+    xticks.append(None)
+    
+    plt.figure(figsize=(5, 5 * 6 / 8))
+    for i in range(len(alphas)):
+        draw_point(alphas[i], (i+1)*3, lbs[i], ubs[i], colors[i], lab+str(lab_array[i]))
+    plt.title(title)
+    plt.xlabel(r"$\alpha_{\rm NP}/\alpha_{\rm EM}$", fontsize=15)
+    plt.ylabel(r"$n$", fontsize=15)
+    plt.yticks(np.arange(0,len(lab_array)*3+4,3), xticks)
+    plt.vlines(0, 0, len(lab_array)*3+2, color="black", ls="-", lw=1)
+    plt.xscale("symlog")
+    # plt.legend(fontsize=10, loc=3)
+    plt.savefig(f"{keyword}_bars.pdf", dpi=200, bbox_inches="tight")
+
+
+def update_config_file(file_path, keyword, new_value):
+    """
+    Helper function for `plot_bars`. It updates the configuration file dictionary
+    so that new data can be sampled.
+    """
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+    
+    updated_data = {
+        key: (new_value if keyword in key else value) for key, value in data.items()
+    }
+    
+    with open(file_path, 'w') as f:
+        json.dump(updated_data, f, indent=4)
+
+
+def construct_color_codes(messengers_list):
+    """
+    Construct a color code associating a color to an element name. 
+    The folder has to contain a series of json files in the form returned by 
+    the kifit code after executing a kifit run.
+    """
+
+    colors = ["#c49318", "#7a52a3", "#40874d"]
+
+    result_dict = {}
+    for idx, messenger in enumerate(messengers_list):
+        element_list =  messenger.config.params.element_list
+        if len(element_list) == 1:
+            key = element_list[0]
+        else:
+            key = "Combination Ca-Yb"
+
+        result_dict[key] = colors[idx % len(colors)]
