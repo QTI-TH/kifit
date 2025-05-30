@@ -1059,7 +1059,7 @@ def plot_elemvar_vs_elemfitvar(symm=False):
                       + f"[{confint_elemvar[0]:.1e},{confint_elemvar[1]:.1e}]"),
                s=5, color='b')
     ax.scatter(alphasamples, delchisqs_elemfitvar,
-               label=(r"varying input params. & $K^\perp, \phi$: "
+               label=(r"varying input params.\& $K^\perp, \phi$: "
                       + r"$\alpha_{\mathrm{NP}}\in$"
                       +
                       f"[{confint_elemfitvar[0]:.1e},{confint_elemfitvar[1]:.1e}]"),
