@@ -8,6 +8,6 @@ params = RunParams()
 runner = Runner(params)
 
 # run
-# runner.run()
+runner.run()
 
 runner.generate_all_alphaNP_ll_plots()

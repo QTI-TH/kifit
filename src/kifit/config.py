@@ -1,8 +1,10 @@
 import os
 import json
+from pathlib import Path
 import numpy as np
 import logging
 from argparse import ArgumentParser, ArgumentTypeError
+
 
 class CustomNamespace:
     def __init__(self, **kwargs):
@@ -16,11 +18,13 @@ def check_input_logrid_frac(value):
     if intval < 0:
         raise ArgumentTypeError(
             f"""{value} is not a valid value for logrid_frac.
-            Provide positive integer.""")
+            Provide positive integer."""
+        )
     elif intval > 10:
         raise ArgumentTypeError(
             f"""{value} seems like a ridiculously large number for logrid_frac.
-            Give it a smaller (but still positive) integer value.""")
+            Give it a smaller (but still positive) integer value."""
+        )
     return intval
 
 
@@ -131,7 +135,8 @@ class RunParams:
     @staticmethod
     def parse_arguments():
         parser = ArgumentParser(
-            description="Computing King plot bounds on new atomic Yukawa potential.")
+            description="Computing King plot bounds on new atomic Yukawa potential."
+        )
 
         parser.add_argument(
             "--element_list",
@@ -258,34 +263,34 @@ class RunParams:
             "--num_det_samples",
             default=100,
             type=int,
-            help="Number of alpha/element samples generated for the det bounds"
+            help="Number of alpha/element samples generated for the det bounds",
         )
         parser.add_argument(
             "--showalldetbounds",
             action="store_true",
-            help="If true, the det bounds are shown for all combinations of the data."
+            help="If true, the det bounds are shown for all combinations of the data.",
         )
         parser.add_argument(
             "--showalldetvals",
             action="store_true",
-            help="If true, the det values +/- uncertainties (1 sigma) are plotted."
+            help="If true, the det values +/- uncertainties (1 sigma) are plotted.",
         )
         parser.add_argument(
             "--showbestdetbounds",
             action="store_true",
-            help="If true, the best det bounds are shown."
+            help="If true, the best det bounds are shown.",
         )
         parser.add_argument(
             "--num_sigmas",
             default=2,
             type=int,
-            help="Number of sigmas for which the bounds are calculated."
+            help="Number of sigmas for which the bounds are calculated.",
         )
         parser.add_argument(
             "--verbose",
             action="store_true",
             help="""If specified, extra statements are printed and extra plots
-            plotted."""
+            plotted.""",
         )
 
         return parser.parse_args()
@@ -293,15 +298,17 @@ class RunParams:
     def load_arguments_from_file(self, json_file):
         """Load arguments from a JSON file and set them as attributes."""
 
-        with open(json_file, 'r') as f:
+        with open(json_file, "r") as f:
             data = json.load(f)
 
         return CustomNamespace(**data)
 
 
 class Paths:
-    def __init__(self, params: RunParams, collectionid: str,
-            fit_keys: list, det_keys: list):
+    def __init__(
+        self, params: RunParams, collectionid: str, fit_keys: list, det_keys: list
+    ):
+
         self.__params = params
         self.__elem_collection_id = collectionid
         self.generate_result_folder()
@@ -314,7 +321,8 @@ class Paths:
         # path where to save results
 
         result_path = os.path.abspath(
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "results"))
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+        )
 
         if not os.path.exists(result_path):
             logging.info("Creating file at ", result_path)
@@ -351,31 +359,36 @@ class Paths:
         return plot_path
 
     def generate_plot_path(self, plotname, elemid=None, xind=None):
-        return os.path.join(self.plot_path,
+        return os.path.join(
+            self.plot_path,
             f"{plotname}_"
             + (f"{self.__elem_collection_id}" if elemid is None else f"{elemid}")
             + (f"_x{str(xind)}" if xind is not None else "")
-            + ".pdf")
+            + ".pdf",
+        )
 
     def search_output_path(self, xind):
         # path where to save fit results for x=xind
         search_output_path = os.path.join(
-            self.output_data_path, (
+            self.output_data_path,
+            (
                 "search_output_"
                 + f"{self.__elem_collection_id}_"
                 + f"{self.__params.num_elemsamples_per_alphasample_search}es-search_"
                 + f"{self.__params.num_alphasamples_search}as-search_"
                 + f"{self.__params.search_mode}-search_"
-                + (f"{self.__params.logrid_frac}logridfrac_"
-                    if self.__params.search_mode == "detlogrid" else "")
-                # + (f"{self.__params.num_optigrid_searches}searches_"
-                #     if self.__params.search_mode == "optigrid" else "")
+                + (
+                    f"{self.__params.logrid_frac}logridfrac_"
+                    if self.__params.search_mode == "detlogrid"
+                    else ""
+                )
                 + f"{self.__params.num_exp}exps_"
                 + f"{self.__params.num_elemsamples_exp}es-exp_"
                 + f"{self.__params.num_alphasamples_exp}as-exp_"
                 + f"{self.__params.min_percentile}minperc_"
                 + f"blocksize{self.__params.block_size}_"
-                + f"x{xind}.json")
+                + f"x{xind}.json"
+            ),
         )
 
         return search_output_path
@@ -383,22 +396,24 @@ class Paths:
     def fit_output_path(self, xind):
         # path where to save fit results for x=xind
         fit_output_path = os.path.join(
-            self.output_data_path, (
+            self.output_data_path,
+            (
                 f"{self.__elem_collection_id}_"
                 + f"{self.__params.num_elemsamples_per_alphasample_search}es-search_"
                 + f"{self.__params.num_alphasamples_search}as-search_"
                 + f"{self.__params.search_mode}-search_"
-                + (f"{self.__params.logrid_frac}logridfrac_"
-                    if self.__params.search_mode == "detlogrid" else "")
-                # + (f"{self.__params.num_optigrid_searches}searches_"
-                #     if self.__params.search_mode == "optigrid" else "")
+                + (
+                    f"{self.__params.logrid_frac}logridfrac_"
+                    if self.__params.search_mode == "detlogrid"
+                    else ""
+                )
                 + f"{self.__params.num_exp}exps_"
                 + f"{self.__params.num_elemsamples_exp}es-exp_"
                 + f"{self.__params.num_alphasamples_exp}as-exp_"
                 + f"{self.__params.min_percentile}minperc_"
                 + f"blocksize{self.__params.block_size}_"
                 + f"x{xind}.json"
-            )
+            ),
         )
 
         return fit_output_path
@@ -412,11 +427,15 @@ class Paths:
 
         """
         det_output_path = os.path.join(
-            self.output_data_path, (
+            self.output_data_path,
+            (
                 f"{self.__elem_collection_id}_"
-                + f"{dim}-dim_" + str(detstr) + "_"
+                + f"{dim}-dim_"
+                + str(detstr)
+                + "_"
                 + f"{self.__params.num_det_samples}samples_"
-                + f"x{xind}.json")
+                + f"x{xind}.json"
+            ),
         )
 
         return det_output_path
@@ -435,7 +454,7 @@ class Paths:
             else:
                 res_dict[keys[i]] = res
 
-        with open(path, 'w') as json_file:
+        with open(path, "w") as json_file:
             json.dump(res_dict, json_file)
 
         return 0
@@ -475,10 +494,7 @@ class Paths:
 
 class Config:
 
-    def __init__(self,
-            runparams: RunParams,
-            paths: Paths,
-            collectionxvals):
+    def __init__(self, runparams: RunParams, paths: Paths, collectionxvals):
 
         self.params = runparams
         assert isinstance(runparams, RunParams)
@@ -508,5 +524,3 @@ class Config:
                 raise IndexError("Parsed invalid x0_det index.")
             logging.info("Initialised x range for determinants: %s", self.params.x0_det)
             self.x_vals_det = self.params.x0_det
-
-

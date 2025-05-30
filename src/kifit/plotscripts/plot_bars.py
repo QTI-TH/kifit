@@ -3,7 +3,7 @@ import os
 import copy
 
 import numpy as np
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 import seaborn as sns
 
 
@@ -20,15 +20,17 @@ def draw_set(alphas, lbs, ubs, title, lab, lab_array, keyword):
     for i, l in enumerate(lab_array):
         xticks.append(str(l))
     xticks.append(None)
-    
-    plt.figure(figsize=(6, 6*6/8))
+
+    plt.figure(figsize=(6, 6 * 6 / 8))
     for i in range(len(alphas)):
-        draw_point(alphas[i], (i+1)*3, lbs[i], ubs[i], colors[i], lab+str(lab_array[i]))
+        draw_point(
+            alphas[i], (i + 1) * 3, lbs[i], ubs[i], colors[i], lab + str(lab_array[i])
+        )
     plt.title(title)
     plt.xlabel(r"$\alpha$")
     plt.ylabel(r"$n$")
-    plt.yticks(np.arange(0,len(lab_array)*3+4,3), xticks)
-    plt.vlines(0, 0, len(lab_array)*3+2, color="black", ls="-", lw=1)
+    plt.yticks(np.arange(0, len(lab_array) * 3 + 4, 3), xticks)
+    plt.vlines(0, 0, len(lab_array) * 3 + 2, color="black", ls="-", lw=1)
     plt.savefig(f"{keyword}.png", dpi=1000, bbox_inches="tight")
 
 
@@ -42,15 +44,28 @@ def load_data_using_keyword(path, keyword, ns):
             params_dict.update({f"{keyword[i]}": value})
         json_filename = costruct_filename(**params_dict)
         with open(f"{path}/{json_filename}") as file:
-            res_dict = json.load(file) 
+            res_dict = json.load(file)
         alphas.append(res_dict["best_alpha"])
         lbs.append(res_dict["LB"])
         ubs.append(res_dict["UB"])
-    
+
     return alphas, lbs, ubs
 
 
-def costruct_filename(data_name, optimizer, searches, es_search, exps, es_exp, as_exp, minperc, maxiter, blocksize, globalopt, x0):
+def costruct_filename(
+    data_name,
+    optimizer,
+    searches,
+    es_search,
+    exps,
+    es_exp,
+    as_exp,
+    minperc,
+    maxiter,
+    blocksize,
+    globalopt,
+    x0,
+):
     json_filename = (
         f"{data_name}_"
         + f"{optimizer}_"
@@ -75,7 +90,7 @@ keyword = ["minperc"]
 # ns = [50, 100, 200, 500, 1000]
 # ns = ["TNC", "differential_evolution"]
 # ns = np.arange(20,43,1)
-ns = [1,2,5,10,20]
+ns = [1, 2, 5, 10, 20]
 
 PARAMS_DICT = {
     "data_name": "Ca_WT_Aarhus_PTB_2024",

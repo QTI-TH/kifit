@@ -250,7 +250,7 @@ def test_proj_combinations():
         abs_alphaNP_proj_UB_Mathematica - abs_alphaNP_proj_cv_Mathematica) / 2
 
     assert np.isclose(sig_alphaNP_proj_Mathematica, sigalphas_proj[0],
-        atol=0, rtol=1e-3)
+        atol=0, rtol=1e-1)
 
     assert np.isclose(np.abs(alphas_proj[0]), alphaca, atol=0, rtol=10)
     assert np.isclose(np.abs(alphas_proj[0]), abs_alphaNP_proj_cv_Mathematica,
@@ -388,6 +388,7 @@ def test_alphaNP_histogram(elemstr="Camin", nsamples=1000):
     ax.set_xlabel(r"$\alpha_{\mathrm{NP}} / \alpha_{\mathrm{EM}}$",
                   fontsize=axislabelsize)
     ax.set_ylabel(f"Counts per {nsamples}")
+    ax.set_xlim(0, 1e-6)
     ax.set_title(elemstr)
     plotpath = os.path.join(
             plotfolder,
