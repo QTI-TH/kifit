@@ -4,7 +4,9 @@
 
 Searching for New Physics with (Non-)Linear King Plots
 
+# References
 
+This code is presented in ["Towards a Global Search for New Physics with Isotope Shifts"](https://arxiv.org/abs/2506.07303).
 
 # Installation instructions
 
